@@ -31,27 +31,17 @@ import Language.Java.Paragon.TypeCheck.Monad.TcDeclM
 import Language.Java.Paragon.TypeCheck.Monad.CodeEnv
 import Language.Java.Paragon.TypeCheck.Monad.CodeState
 
---import Language.Java.Paragon.TypeCheck.Constraints (ConstraintWMsg, Constraint)
-
---import Language.Java.Paragon.TypeCheck.Actors
---import Language.Java.Paragon.TypeCheck.Locks
---import Language.Java.Paragon.TypeCheck.Policy
 import Language.Java.Paragon.PolicyLang
 
 import Language.Java.Paragon.TypeCheck.TypeMap
 import Language.Java.Paragon.TypeCheck.Types
 import Language.Java.Paragon.TypeCheck.NullAnalysis
 import Language.Java.Paragon.TypeCheck.Interpreter
---import Language.Java.Paragon.TypeCheck.Containment
 
 import Control.Monad hiding (join)
-import Control.Applicative
---import Control.Arrow (second)
 
 import qualified Data.Map as Map
-import Data.List (union)
 import qualified Data.ByteString.Char8 as B
-
 
 import qualified Control.Monad.Fail as Fail
 
@@ -267,7 +257,7 @@ getState = do
   case ms of
     Just s -> return s
     Nothing -> panic (tcCodeMModule ++ ".getState")
-               $ "Calling getState in dead code analysis"
+               "Calling getState in dead code analysis"
 
 getStateM :: TcCodeM (Maybe CodeState)
 getStateM = TcCodeM (\_ s -> return (s,s,[]))
@@ -278,7 +268,7 @@ setState s = TcCodeM (\_ _ -> do
   return ((), Just s, []))
 
 updateState :: (CodeState -> CodeState) -> TcCodeM ()
-updateState f = getState >>= return . f >>= setState
+updateState f = f <$> getState >>= setState
 
 mergeWithState :: CodeState -> TcCodeM ()
 mergeWithState s = do
@@ -322,7 +312,7 @@ touchPrefix mn = do
                     let upd newVm =
                             let newII = ii { iMembers = newVm }
                             in vmf $ vm { instanceSt = Map.insert (unIdent i) newII ist }
-                    in return $ (iMembers ii, upd)
+                    in return (iMembers ii, upd)
                 Nothing -> panic (tcCodeMModule ++ ".touchPrefix")
                            $ "Prefix not in state: " ++ show n
           _ -> panic (tcCodeMModule ++ ".touchPrefix")
@@ -404,7 +394,7 @@ lookupPrefixName n@(Name _ nt mPre i) = do
                    --               " :: " ++ prettyPrint ty
                    -- debugPrint $ show (packages baseTm2) ++ "\n"
                    sty <- getStateType (Just n) mPreSty ty
-                   when (nnf && (nullableFromStateType sty)) (
+                   when (nnf && nullableFromStateType sty) (
                                                               do
                                                                 _ <- updateStateType (Just (n, True)) ty (Just (setNullInStateType sty (NotNull, Free)))
                                                                 return ())
@@ -622,7 +612,7 @@ getInstanceActors ct@(TcClassT tyN _) (Just (Name sp EName mPre i)) mstyO = do
                            debugPrint $ "styO: " ++ show styO
                            tsig <- lookupTypeOfStateType styO
                            return $ tMembers tsig
-                Nothing -> debugPrint ("No mstyO!") >> getTypeMap
+                Nothing -> debugPrint "No mstyO!" >> getTypeMap
         (stab, aid, aids) <-
             case Map.lookup (unIdent i) $ fields tm of
               Just (VSig ty _ _ _ fin _) -> do
@@ -818,8 +808,8 @@ addBranchPC ent =
 
 getCurrentPC :: Entity -> TcCodeM ActorPolicy
 getCurrentPC ent = do
-  bpcs <- fst . unzip <$> getBranchPC ent
-  epcs <- fst . unzip <$> getExnPC
+  bpcs <- map fst <$> getBranchPC ent
+  epcs <- map fst <$> getExnPC
   bt <- bottomM
   foldM lub bt (bpcs ++ epcs)
 
@@ -867,7 +857,7 @@ constraintPC :: [(ActorPolicy, String)] -> ActorPolicy -> (ActorPolicy -> String
 constraintPC bpcs pW msgf = mapM_ (uncurry constraintPC_) bpcs
     where constraintPC_ ::  ActorPolicy -> String -> TcCodeM ()
           -- Don't take lock state into account
-          constraintPC_ pPC src = constraint emptyLockSet pPC pW $ (msgf pPC src)
+          constraintPC_ pPC src = constraint emptyLockSet pPC pW (msgf pPC src)
 
 
 

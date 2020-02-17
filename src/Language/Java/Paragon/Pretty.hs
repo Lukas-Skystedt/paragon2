@@ -9,13 +9,12 @@ module Language.Java.Paragon.Pretty
 import Text.PrettyPrint
 import Data.Char (toLower)
 import Control.Arrow (first)
+import Prelude hiding ((<>))
 
 import Language.Java.Paragon.Syntax
--- import Language.Java.Paragon.Interaction (panic)
 
 import qualified Data.ByteString.Char8 as B
 
-import Prelude hiding ((<>))
 
 prettyPrint :: Pretty a => a -> String
 prettyPrint = show . pretty
@@ -404,7 +403,7 @@ instance Pretty (Exp a) where
 
   pretty (ArrayCreateInit _ t ps ainit) =
     text "new"
-        <+> hcat (pretty t : map ppArrayDim (map (Nothing,) ps))
+        <+> hcat (pretty t : map (ppArrayDim . (Nothing,)) ps)
         <+> pretty ainit
 
   pretty (FieldAccess _ fa) = pretty fa

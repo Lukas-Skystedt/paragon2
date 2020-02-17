@@ -1,14 +1,10 @@
-{-# LANGUAGE CPP, DeriveDataTypeable, PatternGuards, RelaxedPolyRec #-}
+{-# LANGUAGE CPP, DeriveDataTypeable, RelaxedPolyRec #-}
 module Language.Java.Paragon.TypeCheck.Monad.CodeEnv where
 
 import Language.Java.Paragon.Syntax
---import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos
 
---import Language.Java.Paragon.TypeCheck.Actors
---import Language.Java.Paragon.TypeCheck.Policy
---import Language.Java.Paragon.TypeCheck.Locks
 import Language.Java.Paragon.PolicyLang
 import Language.Java.Paragon.TypeCheck.Types
 
@@ -16,6 +12,7 @@ import Language.Java.Paragon.TypeCheck.TypeMap
 
 import qualified Data.Map as Map
 import qualified Data.ByteString.Char8 as B
+import Data.Maybe(fromMaybe)
 
 import Data.Data
 
@@ -80,9 +77,9 @@ emptyVarMap = Map.empty
 --------------------------------------
 
 branchPC :: Maybe Entity -> CodeEnv -> [(ActorPolicy, String)]
-branchPC men (CodeEnv { branchPCE = (bm, def) }) =
+branchPC men CodeEnv{ branchPCE = (bm, def) } =
     flip (maybe def) men $ \en ->
-        maybe def id (Map.lookup en bm)
+        fromMaybe def (Map.lookup en bm)
 
 joinBranchPC :: ActorPolicy -> String -> CodeEnv -> CodeEnv
 joinBranchPC p str env = let (bm, def) = branchPCE env
