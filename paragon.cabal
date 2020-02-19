@@ -32,9 +32,21 @@ Flag base4
 
 Library
   Build-Tools:          alex >= 2.3
-  Build-Depends:        array >= 0.1, pretty >= 1.0, cpphs >= 1.3, parsec >= 3, containers, transformers,
-                        uniplate >= 1.6.12, template-haskell >= 2.11 && < 3, directory, filepath, bytestring,
-                        flowlocks-framework
+  Build-Depends:        Cabal,
+                        array >= 0.1,
+                        bytestring,
+                        containers,
+                        cpphs >= 1.3,
+                        directory,
+                        filepath,
+                        flowlocks-framework,
+                        parsec >= 3,
+                        pretty >= 1.0,
+                        process,
+                        template-haskell >= 2.11 && < 3,
+                        transformers,
+                        uniplate >= 1.6.12,
+                        unix
 -- Package used for debug printout. Remove for production build:
                         , haskell-src-exts
   if flag(base4)
@@ -80,7 +92,7 @@ Library
 
 
 
-  Hs-source-dirs:       src
+  Hs-source-dirs:       src, test
 
 
 Executable parac
@@ -123,9 +135,21 @@ Executable parac
 
 
   Build-Tools:          alex >= 2.3
-  Build-Depends:        array >= 0.1, pretty >= 1.0, cpphs >= 1.3, parsec >= 3, containers, transformers,
-                        uniplate >= 1.6.12, directory, filepath, template-haskell >= 2.11 && < 3, bytestring,
-                        flowlocks-framework
+  Build-Depends:        Cabal,
+                        array >= 0.1,
+                        bytestring,
+                        containers,
+                        cpphs >= 1.3,
+                        directory,
+                        filepath,
+                        flowlocks-framework,
+                        parsec >= 3,
+                        pretty >= 1.0,
+                        process,
+                        template-haskell >= 2.11 && < 3,
+                        transformers,
+                        uniplate >= 1.6.12,
+                        unix
 -- Package used for debug printout. Remove for production build:
                         , haskell-src-exts
   if flag(base4)
@@ -135,3 +159,10 @@ Executable parac
     Build-depends:      base >= 3 && < 4
 
   GHC-options:          -Wall -O2 -rtsopts
+
+test-suite bad
+  type: detailed-0.9 
+  hs-source-dirs: test
+  test-module: SuiteBad
+  other-modules: RunCommand, TestUtils
+  build-depends: Cabal, Cabal, base, directory, filepath, process, process, unix, unix
