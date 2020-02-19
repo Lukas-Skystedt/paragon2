@@ -1,0 +1,8 @@
+public class ThisInstanceMethodFromInstanceField
+{
+  private int x = this.inst();
+  private int inst()
+  {
+    return 1;
+  }
+}

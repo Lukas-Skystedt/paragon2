@@ -1,0 +1,10 @@
+public class ReturnIfThen
+{
+  public int f()
+  {
+    boolean b = true;
+    if (b)
+    ;
+    return 2;
+  }
+}

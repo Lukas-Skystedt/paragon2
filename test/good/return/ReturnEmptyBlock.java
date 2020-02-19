@@ -1,0 +1,9 @@
+public class ReturnEmptyBlock
+{
+  public int f()
+  {
+    {
+    }
+    return 1;
+  }
+}

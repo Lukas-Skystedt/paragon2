@@ -1,0 +1,8 @@
+public class StaticMethodFromStaticField
+{
+  private static int x = stat();
+  private static int stat()
+  {
+    return 1;
+  }
+}

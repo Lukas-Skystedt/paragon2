@@ -1,0 +1,8 @@
+public class StaticFieldFromInstanceMethod
+{
+  private static int x;
+  private void inst()
+  {
+    int y = x;
+  }
+}

@@ -1,0 +1,8 @@
+public class ThisInstanceFieldFromInstanceMethod
+{
+  private int x = 1;
+  private void inst()
+  {
+    int y = this.x;
+  }
+}

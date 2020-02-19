@@ -1,0 +1,10 @@
+public class ReturnWhileTrueBreak
+{
+  public int f()
+  {
+    while (true) {
+                   break;
+                 }
+    return 1;
+  }
+}

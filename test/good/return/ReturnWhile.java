@@ -1,0 +1,10 @@
+public class ReturnWhile
+{
+  public int f()
+  {
+    boolean b = true;
+    while (b) {
+              }
+    return 2;
+  }
+}

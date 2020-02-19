@@ -13,20 +13,20 @@ Build-Type:             Simple
 Cabal-Version:          >= 1.8
 
 Extra-Source-Files:     src/Language/Java/Paragon/Lexer.x
-                        lib/se/chalmers/paragon/Actor.java
-                        lib/se/chalmers/paragon/ActorList.java
-                        lib/se/chalmers/paragon/ActorVariable.java
-                        lib/se/chalmers/paragon/Atom.java
-                        lib/se/chalmers/paragon/Clause.java
-                        lib/se/chalmers/paragon/ConcreteActor.java
-                        lib/se/chalmers/paragon/Lock.java
-                        lib/se/chalmers/paragon/LockArityError.java
-                        lib/se/chalmers/paragon/LockException.java
-                        lib/se/chalmers/paragon/LockState.java
-                        lib/se/chalmers/paragon/Policy.java
-                        lib/se/chalmers/paragon/PClause.java
-                        lib/se/chalmers/paragon/UniqueNameError.java
-                        lib/se/chalmers/paragon/Util.java
+                        -- lib/se/chalmers/paragon/Actor.java
+                        -- lib/se/chalmers/paragon/ActorList.java
+                        -- lib/se/chalmers/paragon/ActorVariable.java
+                        -- lib/se/chalmers/paragon/Atom.java
+                        -- lib/se/chalmers/paragon/Clause.java
+                        -- lib/se/chalmers/paragon/ConcreteActor.java
+                        -- lib/se/chalmers/paragon/Lock.java
+                        -- lib/se/chalmers/paragon/LockArityError.java
+                        -- lib/se/chalmers/paragon/LockException.java
+                        -- lib/se/chalmers/paragon/LockState.java
+                        -- lib/se/chalmers/paragon/Policy.java
+                        -- lib/se/chalmers/paragon/PClause.java
+                        -- lib/se/chalmers/paragon/UniqueNameError.java
+                        -- lib/se/chalmers/paragon/Util.java
 
 Flag base4
 
@@ -161,8 +161,22 @@ Executable parac
   GHC-options:          -Wall -O2 -rtsopts
 
 test-suite bad
-  type: detailed-0.9 
+  type: detailed-0.9
   hs-source-dirs: test
   test-module: SuiteBad
   other-modules: RunCommand, TestUtils
-  build-depends: Cabal, Cabal, base, directory, filepath, process, process, unix, unix
+  build-depends: Cabal, Cabal, base, directory, filepath, process, process, unix, ansi-terminal
+
+test-suite good
+  type: detailed-0.9
+  hs-source-dirs: test
+  test-module: SuiteGood
+  other-modules: RunCommand, TestUtils
+  build-depends: Cabal, Cabal, base, directory, filepath, process, process, unix,  ansi-terminal
+
+test-suite issues
+  type: detailed-0.9
+  hs-source-dirs: test
+  test-module: SuiteIssues
+  other-modules: RunCommand, TestUtils
+  build-depends: Cabal, Cabal, base, directory, filepath, process, process, unix,  ansi-terminal

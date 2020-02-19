@@ -1,0 +1,8 @@
+public class InstanceArrayAccessFromInstanceMethod
+{
+  private int[] a = new int[1];
+  private void inst()
+  {
+    int x = a[0];
+  }
+}

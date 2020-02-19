@@ -1,0 +1,12 @@
+public class ReturnEmptyTryFinally
+{
+  public int f()
+  {
+    try
+    {
+    }
+    finally {
+              return 1;
+            }
+  }
+}
