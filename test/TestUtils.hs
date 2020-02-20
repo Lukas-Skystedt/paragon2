@@ -1,5 +1,6 @@
+-- | This module contains utility functions used by the test suites.
 module TestUtils where
-import Distribution.TestSuite as TS
+import Distribution.TestSuite
 import RunCommand
 import Data.List
 import System.Directory
@@ -9,8 +10,10 @@ import Control.Monad
 import System.Console.GetOpt
 import System.Console.ANSI
 
-getAll :: FilePath -> IO [FilePath]
-getAll g = do
+-- | Given a directory, returns a list of the relative paths of all .para files
+-- in that directory recursively.
+getParaFiles :: FilePath -> IO [FilePath]
+getParaFiles g = do
   c <- getCurrentDirectory
   dirs <- getDirectoryContents (c </> g)
   files <- forM dirs $ \dir -> do
@@ -19,28 +22,40 @@ getAll g = do
     mapM (\x -> return $ dir ++ "/" ++ x) f2
   return (concat files)
 
+-- | The command used to execute the compiler
+parac :: String
 parac = "parac"
 
+-- | Path to the library files passed to parac
+defaultLib :: FilePath
 defaultLib = "lib"
 
+-- | Run parac with the given library and .para file
+runParac :: FilePath -> FilePath -> IO (String, String, ExitCode)
 runParac lib program =
   runCommandStrWait (parac ++ " --oldskool" ++ " -p " ++ lib ++ ": " ++ program) ""
 
-runJavac :: String -> String -> IO (String,String,ExitCode)
+-- | Run javac with the given classpath and .java file
+runJavac :: FilePath -> FilePath -> IO (String, String, ExitCode)
 runJavac lib program =
   runCommandStrWait ("javac -classpath '.:"++lib++"' "++program) ""
 
 type StdOut = String
 type StdErr = String
 
+-- | Represents the result of running parac and then javac on the output.
 data ProgramRunResult = Success
                       | ParacErr StdOut StdErr ExitCode
                       | JavacErr StdOut StdErr ExitCode
 
+-- | Convert ExitCode to an integer as a String
 showExitCode :: ExitCode -> String
 showExitCode ExitSuccess = "0"
 showExitCode (ExitFailure code) = show code
 
+-- | Run a test using the provided library and .para paths. If the
+-- runJavaC flag is set to True, also run javac on the output from parac.
+-- Success is only returned if the outputs from parac (and javac) are empty.
 runTestCase :: FilePath -> FilePath -> Bool -> IO ProgramRunResult
 runTestCase lib program runJavaC = do
     (out,err,code) <- runParac lib program
@@ -55,11 +70,10 @@ runTestCase lib program runJavaC = do
             _ -> return $ JavacErr jout jerr jcode
       _ -> return $ ParacErr out err code
 
-removePrefix :: FilePath -> String
-removePrefix = reverse . drop 5 . takeWhile (/= '/') . reverse
-
+-- | Start coloring terminal output text.
 startColor :: Color -> IO ()
 startColor color = setSGR [SetColor Foreground Dull color]
 
+-- | Reset coloring for terminal output.
 resetColor :: IO ()
 resetColor = setSGR [Reset]

@@ -1,3 +1,5 @@
+-- | Cabal test suite for regressions tests. The test cases are located in the
+-- 'issues' directory.
 module SuiteIssues where
 import TestUtils as TU
 import System.FilePath
@@ -5,23 +7,24 @@ import System.Directory
 import Distribution.TestSuite as TS
 import Data.List
 
+-- | Top level function of the 'issues' test suite. Return a list of tests to be
+-- run.
 tests :: IO [Test]
 tests = do
-  print "hello"
   issues <- getAllIssues
   print issues
-  -- let paths = ("test/bad/"++) <$> issues
-  -- let tests = makeTest defaultLib <$> paths
   return []
-  -- return tests
 
+-- | Convert a .para file path to a Test case (assuming the path belongs to the
+-- 'issues' test suite) using the provided library.
 makeTest :: FilePath -> FilePath -> Test
 makeTest lib program = Test testInst
   where testInst = TestInstance
           { run = runTest
-          , name = removePrefix program
+          -- Use the name of the .para file as test name
+          , name = takeBaseName program
           , tags = []
-          , TS.options = []
+          , options = []
           , setOption = \_ _ -> Right testInst
           }
         runTest = do
@@ -39,10 +42,13 @@ makeTest lib program = Test testInst
                 return $ Finished $ Fail "Expected output does not match actual output."
             JavacErr {} -> return $ Finished $ Error "Javac should not be called for bad test cases"
 
+-- | Read the contents of file with expected test output from the file
+-- corresponding to the given .para file.
 getExpected :: FilePath -> IO String
 getExpected program =
   readFile (replaceExtension program "exp")
 
+-- | Get a list of all Issue folders.
 getAllIssues :: IO [FilePath]
 getAllIssues = do
   pwd <- getCurrentDirectory

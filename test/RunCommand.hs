@@ -1,9 +1,10 @@
+-- | This module contains functions for running shell commands. It comes from a
+-- previous test suite and the functions are not necessarily documented.
 module RunCommand (runCommandStrWait) where
 import System.Process
 import System.Exit
 import System.IO
 import Control.Concurrent
-
 
 
 type Pipe = Chan (Either Char ())
