@@ -1,5 +1,13 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE CPP, DeriveDataTypeable, DeriveFunctor, TemplateHaskell,
              FlexibleContexts, MultiParamTypeClasses, FlexibleInstances #-}
+
+{-# LANGUAGE TypeFamilies, DataKinds, ConstraintKinds #-}
+{-# LANGUAGE GADTs, EmptyCase, StandaloneDeriving #-}
+{-# LANGUAGE TypeOperators, PatternSynonyms #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
 module Language.Java.Paragon.Syntax (
     module Language.Java.Paragon.Syntax,
     module Language.Java.Paragon.Annotated
@@ -10,15 +18,16 @@ import Data.Data
 import Language.Java.Paragon.Annotated
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos
-
+import GHC.Types (Constraint)
 import qualified Data.ByteString.Char8 as B
 
 syntaxModule :: String
 syntaxModule = libraryBase ++ ".Syntax"
 
+
 -----------------------------------------------------------------------
 -- Packages
-
+type family XSP x
 
 -- | A compilation unit is the top level syntactic goal symbol of a Java program
 -- This usually corresponds to a single .java source file that may start with
@@ -371,221 +380,248 @@ type family XExceptionSpec x
 type Argument x = (Exp x)
 
 -- | A Java expression.
-data Exp a
+data Exp x
     -- | A literal denotes a fixed, unchanging value.
-    = Lit a (Literal a)
+    = Lit (XExp x) (XSP x) (Literal x)
     -- | A class literal, which is an expression consisting of the name of a class, interface, array,
     --   or primitive type, or the pseudo-type void (modelled by 'Nothing'), followed by a `.' and the token class.
-    | ClassLit a (Maybe (Type a))
+    | ClassLit (XExp x) (XSP x) (Maybe (Type x))
     -- | The keyword @this@ denotes a value that is a reference to the object for which the instance method
     --   was invoked, or to the object being constructed.
-    | This a
+    | This (XExp x) (XSP x)
     -- | Any lexically enclosing instance can be referred to by explicitly qualifying the keyword this.
-    | ThisClass a (Name a)
+    | ThisClass (XExp x) (XSP x) (Name x)
     -- | A parenthesized expression is a primary expression whose type is the type of the contained expression
     --   and whose value at run time is the value of the contained expression. If the contained expression
     --   denotes a variable then the parenthesized expression also denotes that variable.
-    | Paren a (Exp a)
+    | Paren (XExp x) (XSP x) (Exp x)
     -- | A class instance creation expression is used to create new objects that are instances of classes.
     -- | The first argument is a list of non-wildcard type arguments to a generic constructor.
     --   What follows is the type to be instantiated, the list of arguments passed to the constructor, and
     --   optionally a class body that makes the constructor result in an object of an /anonymous/ class.
-    | InstanceCreation a [TypeArgument a] (ClassType a) [Argument a] (Maybe (ClassBody a))
+    | InstanceCreation (XExp x) (XSP x) [TypeArgument x] (ClassType x) [Argument x] (Maybe (ClassBody x))
     -- | A qualified class instance creation expression enables the creation of instances of inner member classes
     --   and their anonymous subclasses.
-    | QualInstanceCreation a (Exp a) [TypeArgument a] (Ident a) [Argument a] (Maybe (ClassBody a))
+    | QualInstanceCreation (XExp x) (XSP x) (Exp x) [TypeArgument x] (Ident x) [Argument x] (Maybe (ClassBody x))
     -- | An array instance creation expression is used to create new arrays. The last argument denotes the number
     --   of dimensions that have no explicit length given. These dimensions must be given last.
-    | ArrayCreate a (Type a) [(Exp a, Maybe (Policy a))] [Maybe (Policy a)]
+    | ArrayCreate (XExp x) (XSP x) (Type x) [(Exp x, Maybe (Policy x))] [Maybe (Policy x)]
     -- | An array instance creation expression may come with an explicit initializer. Such expressions may not
     --   be given explicit lengths for any of its dimensions.
-    | ArrayCreateInit a (Type a) [Maybe (Policy a)] (ArrayInit a)
+    | ArrayCreateInit (XExp x) (XSP x) (Type x) [Maybe (Policy x)] (ArrayInit x)
     -- | A field access expression.
-    | FieldAccess a (FieldAccess a)
+    | FieldAccess (XExp x) (XSP x) (FieldAccess x)
     -- | A method invocation expression.
-    | MethodInv a (MethodInvocation a)
+    | MethodInv (XExp x) (XSP x) (MethodInvocation x)
     -- | An array access expression refers to a variable that is a component of an array.
-    | ArrayAccess a (ArrayIndex a)
+    | ArrayAccess (XExp x) (XSP x) (ArrayIndex x)
     -- | An expression name, e.g. a variable.
-    | ExpName a (Name a)
+    | ExpName (XExp x) (XSP x) (Name x)
     -- | Post-incrementation expression, i.e. an expression followed by @++@.
-    | PostIncrement a (Exp a)
+    | PostIncrement (XExp x) (XSP x) (Exp x)
     -- | Post-decrementation expression, i.e. an expression followed by @--@.
-    | PostDecrement a (Exp a)
+    | PostDecrement (XExp x) (XSP x) (Exp x)
     -- | Pre-incrementation expression, i.e. an expression preceded by @++@.
-    | PreIncrement  a (Exp a)
+    | PreIncrement  (XExp x) (XSP x) (Exp x)
     -- | Pre-decrementation expression, i.e. an expression preceded by @--@.
-    | PreDecrement  a (Exp a)
+    | PreDecrement  (XExp x) (XSP x) (Exp x)
     -- | Unary plus, the promotion of the value of the expression to a primitive numeric type.
-    | PrePlus  a (Exp a)
+    | PrePlus  (XExp x) (XSP x) (Exp x)
     -- | Unary minus, the promotion of the negation of the value of the expression to a primitive numeric type.
-    | PreMinus a (Exp a)
+    | PreMinus (XExp x) (XSP x) (Exp x)
     -- | Unary bitwise complementation: note that, in all cases, @~x@ equals @(-x)-1@.
-    | PreBitCompl a (Exp a)
+    | PreBitCompl (XExp x) (XSP x) (Exp x)
     -- | Logical complementation of boolean values.
-    | PreNot  a (Exp a)
+    | PreNot  (XExp x) (XSP x) (Exp x)
     -- | A cast expression converts, at run time, a value of one numeric type to a similar value of another
     --   numeric type; or confirms, at compile time, that the type of an expression is boolean; or checks,
     --   at run time, that a reference value refers to an object whose class is compatible with a specified
     --   reference type.
-    | Cast a (Type a) (Exp a)
+    | Cast (XExp x) (XSP x) (Type x) (Exp x)
     -- | The application of a binary operator to two operand expressions.
-    | BinOp a (Exp a) (Op a) (Exp a)
+    | BinOp (XExp x) (XSP x) (Exp x) (Op x) (Exp x)
     -- | Testing whether the result of an expression is an instance of some reference type.
-    | InstanceOf a (Exp a) (RefType a)
+    | InstanceOf (XExp x) (XSP x) (Exp x) (RefType x)
     -- | The conditional operator @? :@ uses the boolean value of one expression to decide which of two other
     --   expressions should be evaluated.
-    | Cond a (Exp a) (Exp a) (Exp a)
+    | Cond (XExp x) (XSP x) (Exp x) (Exp x) (Exp x)
     -- | Assignment of the result of an expression to a variable.
-    | Assign a (Lhs a) (AssignOp a) (Exp a)
+    | Assign (XExp x) (XSP x) (Lhs x) (AssignOp x) (Exp x)
 
 -- Paragon
-    | PolicyExp a (PolicyExp a)
---    | PolicyOf (Ident a)
-    | LockExp a (Lock a)
+    | PolicyExp (XExp x) (XSP x) (PolicyExp x)
+--    | PolicyOf (Ident x)
+    | LockExp (XExp x) (XSP x) (Lock x)
 
 -- Quasi-quotation
-    | AntiQExp a String
+    | AntiQExp (XExp x) (XSP x) String
 
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-
+type family XExp x
 -- | A literal denotes a fixed, unchanging value.
-data Literal  a
-    = Int     a Integer
-    | Word    a Integer
-    | Float   a Double
-    | Double  a Double
-    | Boolean a Bool
-    | Char    a Char
-    | String  a String
-    | Null    a
+data Literal  x
+    = Int     (XLiteral x) (XSP x) Integer
+    | Word    (XLiteral x) (XSP x) Integer
+    | Float   (XLiteral x) (XSP x) Double
+    | Double  (XLiteral x) (XSP x) Double
+    | Boolean (XLiteral x) (XSP x) Bool
+    | Char    (XLiteral x) (XSP x) Char
+    | String  (XLiteral x) (XSP x) String
+    | Null    (XLiteral x) (XSP x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-
+type family XLiteral x
 -- | A binary infix operator.
-data Op a
-    = Mult a | Div a | Rem a | Add a | Sub a
-    | LShift a | RShift a | RRShift a
-    | LThan a | GThan a | LThanE a | GThanE a | Equal a | NotEq a
-    | And a | Or a | Xor a | CAnd a | COr a
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
+data Op x
+    = Mult   (XOp x) (XSP x) | Div     (XOp x) (XSP x) | Rem    (XOp x) (XSP x)
+    | Add    (XOp x) (XSP x) | Sub     (XOp x) (XSP x) | LShift (XOp x) (XSP x)
+    | RShift (XOp x) (XSP x) | RRShift (XOp x) (XSP x) | LThan  (XOp x) (XSP x)
+    | GThan  (XOp x) (XSP x) | LThanE  (XOp x) (XSP x) | GThanE (XOp x) (XSP x)
+    | Equal  (XOp x) (XSP x) | NotEq   (XOp x) (XSP x) | And    (XOp x) (XSP x)
+    | Or     (XOp x) (XSP x) | Xor     (XOp x) (XSP x) | CAnd   (XOp x) (XSP x)
+    | COr    (XOp x) (XSP x) 
+  deriving   (Eq,Ord,Show,Typeable,Data,Functor)
+type family XOp x
 
 -- | An assignment operator.
-data AssignOp a
-    = EqualA a
-    | MultA a | DivA a | RemA a | AddA a | SubA a
-    | LShiftA a | RShiftA a | RRShiftA a
-    | AndA a | XorA a | OrA a
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
+-- type families: XAssignOp
+data AssignOp x
+    = EqualA  (XAssignOp x) (XSP x)
+    | MultA   (XAssignOp x) (XSP x) | DivA     (XAssignOp x) (XSP x)
+    | RemA    (XAssignOp x) (XSP x) | AddA     (XAssignOp x) (XSP x)
+    | SubA    (XAssignOp x) (XSP x) | LShiftA  (XAssignOp x) (XSP x)
+    | RShiftA (XAssignOp x) (XSP x) | RRShiftA (XAssignOp x) (XSP x)
+    | AndA    (XAssignOp x) (XSP x) | XorA     (XAssignOp x) (XSP x)
+    | OrA     (XAssignOp x) (XSP x)
+  deriving    (Eq,Ord,Show,Typeable,Data,Functor)
+type family XAssignOp x
 
 -- | The left-hand side of an assignment expression. This operand may be a named variable, such as a local
 --   variable or a field of the current object or class, or it may be a computed variable, as can result from
 --   a field access or an array access.
-data Lhs a
-    = NameLhs a (Name a)          -- ^ Assign to a variable
-    | FieldLhs a (FieldAccess a)  -- ^ Assign through a field access
-    | ArrayLhs a (ArrayIndex  a)  -- ^ Assign to an array
+data Lhs x
+    = NameLhs (XLhs x) (XSP x)  (Name x)          -- ^ Assign to a variable
+    | FieldLhs (XLhs x) (XSP x)  (FieldAccess x)  -- ^ Assign through a field access
+    | ArrayLhs (XLhs x) (XSP x)  (ArrayIndex  x)  -- ^ Assign to an array
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-
+type family XLhs x
 -- | Array access
-data ArrayIndex a = ArrayIndex a (Exp a) (Exp a)    -- ^ Index into an array
+-- type families: XArrayIndex
+data ArrayIndex x = ArrayIndex (XArrayIndex x) (XSP x) (Exp x) (Exp x)    -- ^ Index into an array
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XArrayIndex x
 
 -- | A field access expression may access a field of an object or array, a reference to which is the value
 --   of either an expression or the special keyword super.
-data FieldAccess a
-    = PrimaryFieldAccess a (Exp a) (Ident a)     -- ^ Accessing a field of an object or array computed from an expression.
-    | SuperFieldAccess   a (Ident a)             -- ^ Accessing a field of the superclass.
-    | ClassFieldAccess   a (Name a) (Ident a)    -- ^ Accessing a (static) field of a named class.
+data FieldAccess x
+    = PrimaryFieldAccess (XFieldAccess x) (XSP x) (Exp x) (Ident x)     -- ^ Accessing a field of an object or array computed from an expression.
+    | SuperFieldAccess   (XFieldAccess x) (XSP x) (Ident x)             -- ^ Accessing a field of the superclass.
+    | ClassFieldAccess   (XFieldAccess x) (XSP x) (Name x) (Ident x)    -- ^ Accessing a (static) field of a named class.
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-
+type family XFieldAccess x
 
 -- | A method invocation expression is used to invoke a class or instance method.
-data MethodInvocation a
-    -- | Invoking a specific named method.
-    = MethodCallOrLockQuery a (Name a) [Argument a]
-    -- | Invoking a method of a class computed from a primary expression, giving arguments for any generic type parameters.
-    | PrimaryMethodCall a (Exp a) [NonWildTypeArgument a] (Ident a) [Argument a]
-    -- | Invoking a method of the super class, giving arguments for any generic type parameters.
-    | SuperMethodCall a [NonWildTypeArgument a] (Ident a) [Argument a]
-    -- | Invoking a method of the superclass of a named class, giving arguments for any generic type parameters.
-    | ClassMethodCall a (Name a) [NonWildTypeArgument a] (Ident a) [Argument a]
-    -- | Invoking a method of a named type, giving arguments for any generic type parameters.
-    | TypeMethodCall a (Name a) [NonWildTypeArgument a] (Ident a) [Argument a]
+-- type families: XMethodInvocation
+data MethodInvocation x
+    -- | Invoking (XMethodInvocation x) (XSP x) specific named method.
+    = MethodCallOrLockQuery (XMethodInvocation x) (XSP x) (Name x) [Argument x]
+    -- | Invoking (XMethodInvocation x) (XSP x) method of (XMethodInvocation x) (XSP x) class computed from (XMethodInvocation x) (XSP x) primary expression, giving arguments for any generic type parameters.
+    | PrimaryMethodCall (XMethodInvocation x) (XSP x) (Exp x) [NonWildTypeArgument x] (Ident x) [Argument x]
+    -- | Invoking (XMethodInvocation x) (XSP x) method of the super class, giving arguments for any generic type parameters.
+    | SuperMethodCall (XMethodInvocation x) (XSP x) [NonWildTypeArgument x] (Ident x) [Argument x]
+    -- | Invoking (XMethodInvocation x) (XSP x) method of the superclass of (XMethodInvocation x) (XSP x) named class, giving arguments for any generic type parameters.
+    | ClassMethodCall (XMethodInvocation x) (XSP x) (Name x) [NonWildTypeArgument x] (Ident x) [Argument x]
+    -- | Invoking (XMethodInvocation x) (XSP x) method of (XMethodInvocation x) (XSP x) named type, giving arguments for any generic type parameters.
+    | TypeMethodCall (XMethodInvocation x) (XSP x) (Name x) [NonWildTypeArgument x] (Ident x) [Argument x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-
+type family XMethodInvocation x
 -- | An array initializer may be specified in a declaration, or as part of an array creation expression, creating an
 --   array and providing some initial values
-data ArrayInit a
-    = ArrayInit a [VarInit a]
+-- type families: XArrayInit
+data ArrayInit x
+    = ArrayInit (XArrayInit x) [VarInit x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-
+type family XArrayInit x
 
 -----------------------------------------------------------------------
 -- Types
 
-data ReturnType a
-    = VoidType a
-    | LockType a
-    | Type a (Type a)
+data ReturnType x
+    = VoidType (XReturnType x) (XSP x)
+    | LockType (XReturnType x) (XSP x)
+    | Type (XReturnType x) (XSP x) (Type x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XReturnType x
 
 -- | There are two kinds of types in the Java programming language: primitive types and reference types.
-data Type a
-    = PrimType a (PrimType a)
-    | RefType a (RefType a)
-    | AntiQType a String
+-- type families: XType
+data Type x
+    = PrimType (XType x) (XSP x) (PrimType x)
+    | RefType (XType x) (XSP x) (RefType x)
+    | AntiQType (XType x) (XSP x) String
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XType x
 
 -- | There are three kinds of reference types: class types, interface types, and array types.
 --   Reference types may be parameterized with type arguments.
 --   Type variables are introduced by generic type parameters.
-data RefType a
-    = ClassRefType a (ClassType a)
-    | TypeVariable a (Ident a)
-    | ArrayType a (Type a) [Maybe (Policy a)]
+-- type families: XRefType 
+data RefType x
+    = ClassRefType (XRefType x) (XSP x) (ClassType x)
+    | TypeVariable (XRefType x) (XSP x) (Ident x)
+    | ArrayType    (XRefType x) (XSP x) (Type x) [Maybe (Policy x)]
     -- ^ The second argument to ArrayType is the base type, and should not be an array type
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XRefType x
 
 -- | A class or interface type consists of a type declaration specifier,
 --   optionally followed by type arguments (in which case it is a parameterized type).
-data ClassType a
-    = ClassType a (Name a) [TypeArgument a]
+-- type families: XClassType
+data ClassType x
+    = ClassType(XClassType x) (XSP x) (Name x) [TypeArgument x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XClassType x
 
 -- | Type arguments may be either reference types or wildcards.
-data TypeArgument a
-    = Wildcard  a (Maybe (WildcardBound a))
-    | ActualArg a (NonWildTypeArgument a)
+-- type families: XTypeArgument
+data TypeArgument x
+    = Wildcard  (XTypeArgument x) (XSP x) (Maybe (WildcardBound x))
+    | ActualArg (XTypeArgument x) (XSP x) (NonWildTypeArgument x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XTypeArgument x
 
-data NonWildTypeArgument a
-    = ActualName a (Name a)      -- Can mean a type or an exp
-    | ActualType a (RefType a)
-    | ActualExp a (Exp a)        -- Constrained to argExp
-    | ActualLockState a [Lock a]
+data NonWildTypeArgument x
+    = ActualName (XNonWildTypeArgument x) (XSP x) (Name x)      -- Can mean (XNonWildTypeArgument x) (XSP x) type or an exp
+    | ActualType (XNonWildTypeArgument x) (XSP x) (RefType x)
+    | ActualExp (XNonWildTypeArgument x) (XSP x) (Exp x)        -- Constrained to argExp
+    | ActualLockState (XNonWildTypeArgument x) (XSP x) [Lock x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XNonWildTypeArgument x
 
 
 -- | Wildcards may be given explicit bounds, either upper (@extends@) or lower (@super@) bounds.
-data WildcardBound a
-    = ExtendsBound a (RefType a)
-    | SuperBound a (RefType a)
+-- type families: XWildcardBound
+data WildcardBound x
+    = ExtendsBound (XWildcardBound x) (XSP x) (RefType x)
+    | SuperBound (XWildcardBound x) (XSP x) (RefType x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XWildcardBound x
 
 -- | A primitive type is predefined by the Java programming language and named by its reserved keyword.
-data PrimType  a
-    = BooleanT a
-    | ByteT    a
-    | ShortT   a
-    | IntT     a
-    | LongT    a
-    | CharT    a
-    | FloatT   a
-    | DoubleT  a
+-- type families: XPrimType
+data PrimType  x
+    = BooleanT(XPrimType x) (XSP x)
+    | ByteT   (XPrimType x) (XSP x)
+    | ShortT  (XPrimType x) (XSP x)
+    | IntT    (XPrimType x) (XSP x)
+    | LongT   (XPrimType x) (XSP x)
+    | CharT   (XPrimType x) (XSP x)
+    | FloatT  (XPrimType x) (XSP x)
+    | DoubleT (XPrimType x) (XSP x)
 -- Paragon
-    | ActorT   a
-    | PolicyT  a
+    | ActorT  (XPrimType x) (XSP x)
+    | PolicyT (XPrimType x) (XSP x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XPrimType x
 
 aOfPrimType :: PrimType a -> a
 aOfPrimType (BooleanT x) = x
@@ -602,13 +638,14 @@ aOfPrimType (PolicyT x)  = x
 -- | A class is generic if it declares one or more type variables. These type variables are known
 --   as the type parameters of the class.
 --   Paragon adds three new forms - actor, policy and lockstate parameters.
-data TypeParam a = TypeParam a (Ident a) [RefType a]
+-- type families: XTypeParam
+data TypeParam x = TypeParam (XTypeParam x) (XSP x) (Ident x) [RefType x]
 -- Paragon
-                 | ActorParam     a (RefType a) (Ident a)
-                 | PolicyParam    a (Ident a)
-                 | LockStateParam a (Ident a)
+                 | ActorParam    (XTypeParam x) (XSP x) (RefType x) (Ident x)
+                 | PolicyParam   (XTypeParam x) (XSP x) (Ident x)
+                 | LockStateParam(XTypeParam x) (XSP x) (Ident x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-
+type family XTypeParam x
 
 -----------------------------------------------------------------------
 -- Paragon
@@ -617,55 +654,72 @@ type Policy a = Exp a
 
 -- | A policy is a conjunction (set) of clauses, represented as a list.
 --data PolicyLit = PolicyLit [Clause Actor]
-data PolicyExp a = PolicyLit a [Clause a]
-                 | PolicyOf  a (Ident a)
-                 | PolicyThis a
-                 | PolicyTypeVar a (Ident a)
+-- type families : XPolicyExp
+data PolicyExp x = PolicyLit(XPolicyExp x) (XSP x)[Clause x]
+                 | PolicyOf (XPolicyExp x) (XSP x)(Ident x)
+                 | PolicyThis(XPolicyExp x) (XSP x)
+                 | PolicyTypeVar(XPolicyExp x) (XSP x) (Ident x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XPolicyExp x
 
 
 -- | A lock property is a potentially recursive policy with an atom head.
-data LockProperties a = LockProperties a [LClause a]
+-- type families: XLockProperties
+data LockProperties x = LockProperties (XLockProperties x) (XSP x) [LClause x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-
+type family XLockProperties x
 
 -- HERE
 -- | A clause of the form Sigma => a, where a is an actor and Sigma a set of
 --   locks/atomic predicates that must be open/true.
-data Clause a = Clause a [ClauseVarDecl a] (ClauseHead a) [Atom a]
+-- type families: XClause
+data Clause x = Clause (XClause x) (XSP x) [ClauseVarDecl x] (ClauseHead x) [Atom x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XClause x
 
-data ClauseVarDecl a = ClauseVarDecl a (RefType a) (Ident a)
+-- | type families : XClauseVarDecl
+data ClauseVarDecl x = ClauseVarDecl (XClauseVarDecl x) (XSP x) (RefType x) (Ident x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XClauseVarDecl x
 
-data ClauseHead a = ClauseDeclHead a (ClauseVarDecl a)
-                  | ClauseVarHead a (Actor a)
+-- | type families : XClauseHead
+data ClauseHead x = ClauseDeclHead (XClauseHead x) (XSP x) (ClauseVarDecl x)
+                  | ClauseVarHead (XClauseHead x) (XSP x) (Actor x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XClauseHead x
 
-
-data LClause a = LClause a [ClauseVarDecl a] (Atom a) [Atom a]
-               | ConstraintClause a [ClauseVarDecl a] [Atom a]
+-- | type families: XLClause
+data LClause x = LClause (XLClause x) (XSP x) [ClauseVarDecl x] (Atom x) [Atom x]
+               | ConstraintClause (XLClause x) (XSP x) [ClauseVarDecl x] [Atom x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XLClause x
 
 -- | An actor variable, either forall-quantified within the current clause, or
 --   free and thus concrete w.r.t. the policy under scrutiny.
-data Actor a = Actor a (ActorName a)    -- ^ Free actor variables
-             | Var   a (Ident a)        -- ^ Quantified actor variables
+-- type families: XActor
+data Actor x = Actor (XActor x) (XSP x) (ActorName x)    -- ^ Free actor variables
+             | Var   (XActor x) (XSP x) (Ident x)        -- ^ Quantified actor variables
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-
-data ActorName a
-    = ActorName a (Name a)
+type family XActor x
+-- | Type families: XActorName
+data ActorName x
+    = ActorName (XActorName x) (XSP x) (Name x)
     -- ^ A free actor variable
-    | ActorTypeVar a (RefType a) (Ident a)
+    | ActorTypeVar (XActorName x) (XSP x) (RefType x) (Ident x)
     -- ^ A free actor type parameter
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XActorName x
 
 -- | A lock is an atomic n-ary predicate.
-data Atom a = Atom a (Name a) [Actor a]
+-- Type families: XAtom
+data Atom x = Atom (XAtom x) (XSP x) (Name x) [Actor x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XAtom x
 
-data Lock a = Lock a (Name a) [ActorName a] | LockVar a (Ident a)
+-- | Type families: XLock
+data Lock x = Lock (XLock x) (XSP x) (Name x) [ActorName x] | LockVar (XLock x) (XSP x) (Ident x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XLock x
 
 -----------------------------------------------------------------------
 -- Useful accessors
@@ -681,8 +735,10 @@ importDeclName (StaticImportOnDemand _ n)   = n
 -- Names and identifiers
 
 -- | A single identifier.
-data Ident a = Ident a B.ByteString | AntiQIdent a String
+-- Type families: XIdent
+data Ident x = Ident (XIdent x) (XSP x) B.ByteString | AntiQIdent (XIdent x) (XSP x) String
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XIdent x
 
 -- | Extract actual identifier string from Ident wrapper type
 unIdent :: Ident a -> B.ByteString
@@ -691,11 +747,16 @@ unIdent (AntiQIdent _ str) = panic (syntaxModule ++ ".unIdent")
             $ "AntiQIdent " ++ str
 
 -- | A name, i.e. a period-separated list of identifiers.
-data Name a = Name a NameType (Maybe (Name a)) (Ident a)
-            | AntiQName a String
--- Show removed to get more readable debug output
-  deriving (Eq,Ord,Typeable,Data,Functor)
+-- type families : XName
+data Name x = Name (XName x) NameType (Maybe (Name x)) (Ident x)
+            | AntiQName (XName x) (XSP x) String
+   -- Show removed to get more readable debug output
+type family XName x
 
+deriving instance Typeable (XName x) => Typeable (Name x)
+deriving instance Eq       (XName x) => Eq       (Name x)
+deriving instance Ord      (XName x) => Ord      (Name x)
+deriving instance Data     (XName x) => Data     (Name x)
 -- Prints name as a simple string to be easier to read.
 -- To get printout of the whole recursive name structure, comment this out and put
 -- Show in the deriving clause.
