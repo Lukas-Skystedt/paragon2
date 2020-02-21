@@ -6,7 +6,7 @@
 -- | The test suite is not updated for current versions of error messages and
 -- thus this suite passes the '--oldskool' flag to get the old messages.
 module SuiteBad where
-import TestUtils as TU
+import TestUtils
 import System.FilePath
 import Distribution.TestSuite as TS
 import System.Console.ANSI
@@ -15,8 +15,8 @@ import System.Console.ANSI
 -- run.
 tests :: IO [Test]
 tests = do
-  bad <- getParaFiles "test/bad"
-  let paths = ("test/bad/"++) <$> bad
+  bad <- getParaFiles $ "test" </> "bad"
+  let paths = (("test" </> "bad") </>) <$> bad
   let tests = makeTest defaultLib <$> paths
   return tests
 

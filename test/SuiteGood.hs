@@ -13,8 +13,8 @@ import System.Console.ANSI
 -- run.
 tests :: IO [Test]
 tests = do
-  good <- getParaFiles "test/good"
-  let paths = ("test/good/"++) <$> good
+  good <- getParaFiles $ "test" </> "good"
+  let paths = (("test" </> "good") </>) <$> good
   let tests = makeTest defaultLib <$> paths
   return tests
 
