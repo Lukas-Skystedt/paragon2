@@ -25,7 +25,7 @@ makeTest lib program = Test testInst
   where testInst = TestInstance
           { run = runTest
           -- Use the name of the .para file as test name
-          , name = takeBaseName program 
+          , name = takeBaseName program
           , tags = []
           , options = []
           , setOption = \_ _ -> Right testInst
