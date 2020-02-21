@@ -70,7 +70,7 @@ data ImportDecl x
     | StaticImportOnDemand (XImportDecl x) (XSP x) (Name x)
       -- ^Static import of all members, e.g. import static java.lang.Math.*
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-type family XImportDecl
+type family XImportDecl x
 
 -----------------------------------------------------------------------
 -- Declarations
@@ -90,7 +90,7 @@ data ClassDecl x
       -- if any, list of implemented interfaces, class body
     | EnumDecl  (XClassDecl x) (XSP x) [Modifier x] (Ident x)                                     [ClassType x] (EnumBody x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-type family XClassDecl
+type family XClassDecl x
 
 -- | A class body may contain declarations of members of the class, that is,
 --   fields, classes, interfaces and methods.
@@ -204,7 +204,7 @@ type family XMethodBody x
 
 -- | The first statement of a constructor body may be an explicit invocation of
 --   another constructor of the same class or of the direct superclass.
-data ConstructorBody x = ConstructorBody (XConstructorBody x) (XSP s) (Maybe (ExplConstrInv x)) [BlockStmt x]
+data ConstructorBody x = ConstructorBody (XConstructorBody x) (XSP x) (Maybe (ExplConstrInv x)) [BlockStmt x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XConstructorBody x
 
@@ -233,14 +233,14 @@ data Modifier x
     | Transient (XMod x) (XSP x)
     | Volatile  (XMod x) (XSP x)
     | Native    (XMod x) (XSP x)
-(XSP x)
+
     | Typemethod (XMod x) (XSP x)
     | Reflexive  (XMod x) (XSP x)
     | Transitive (XMod x) (XSP x)
     | Symmetric  (XMod x) (XSP x)
     | Readonly   (XMod x) (XSP x)
     | Notnull    (XMod x) (XSP x)
-(XSP x)
+
     | Reads   (XMod x) (XSP x) (Policy x)
     | Writes  (XMod x) (XSP x) (Policy x)
     | Opens   (XMod x) (XSP x) [Lock x]
@@ -365,8 +365,7 @@ data ForInit x
 type family XForInit x
 
 -- | An exception type has to be a class type or a type variable.
-type ExceptionType x = RefType (XExceptionType x) (XSP x) -- restricted to ClassType or TypeVariable
-type family XExceptionType x
+type ExceptionType x = RefType x -- restricted to ClassType or TypeVariable
 
 data ExceptionSpec x = ExceptionSpec (XExceptionSpec x) (XSP x) [Modifier x] (ExceptionType x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
