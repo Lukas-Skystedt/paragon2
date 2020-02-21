@@ -28,20 +28,22 @@ syntaxModule = libraryBase ++ ".Syntax"
 -- Note that the paragon compiler currently only accepts a single type per
 -- compilation unit and does not yet suport enums, although files containing
 -- enums can be parsed
-data CompilationUnit a = CompilationUnit a (Maybe (PackageDecl a)) [ImportDecl a] [TypeDecl a]
+data CompilationUnit x = CompilationUnit (XCompilationUnit x) (XSP x) (Maybe (PackageDecl x)) [ImportDecl x] [TypeDecl x]
 #ifdef __GLASGOW_HASKELL__
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
 #else
   deriving (Eq,Ord,Show)
 #endif
+type family XCompilationUnit x
 
 -- | A package declaration appears within a compilation unit to indicate the package to which the compilation unit belongs.
-data PackageDecl a = PackageDecl a (Name a)
+data PackageDecl x = PackageDecl (XPackageDecl x) (XSP x) (Name x)
 #ifdef __GLASGOW_HASKELL__
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
 #else
   deriving (Eq,Ord,Show)
 #endif
+type family XPackageDecl x
 
 -- | An import declaration allows a static member or a named type to be referred
 -- to by a single unqualified identifier.
@@ -49,177 +51,194 @@ data PackageDecl a = PackageDecl a (Name a)
 -- members.
 -- The last argument signals whether the declaration brings all names in the
 -- named type or package, or only brings a single name into scope.
-data ImportDecl a
-    = SingleTypeImport     a (Name a)
+data ImportDecl x
+    = SingleTypeImport     (XImportDecl x) (XSP x) (Name x)
       -- ^Import a single type (class/interface/enum)
-    | TypeImportOnDemand   a (Name a)
+    | TypeImportOnDemand   (XImportDecl x) (XSP x) (Name x)
       -- ^Bring all types of package into scope, e.g. import java.lang.util.*
-    | SingleStaticImport   a (Name a) (Ident a)
+    | SingleStaticImport   (XImportDecl x) (XSP x) (Name x) (Ident x)
       -- ^Single static import, e.g. import static java.lang.Math.PI
-    | StaticImportOnDemand a (Name a)
+    | StaticImportOnDemand (XImportDecl x) (XSP x) (Name x)
       -- ^Static import of all members, e.g. import static java.lang.Math.*
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XImportDecl
 
 -----------------------------------------------------------------------
 -- Declarations
 
 -- | A type declaration declares a class type or an interface type.
-data TypeDecl a
-    = ClassTypeDecl a (ClassDecl a)
-    | InterfaceTypeDecl a (InterfaceDecl a)
+data TypeDecl x
+    = ClassTypeDecl (XTypeDecl x) (XSP x) (ClassDecl x)
+    | InterfaceTypeDecl (XTypeDecl x) (XSP x) (InterfaceDecl x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XTypeDecl x
 
 -- | A class declaration specifies a new named reference type.
 -- Note that the compiler does not actually deal with enums yet!
-data ClassDecl a
-    = ClassDecl a [Modifier a] (Ident a) [TypeParam a] (Maybe (ClassType a)) [ClassType a] (ClassBody a)
+data ClassDecl x
+    = ClassDecl (XClassDecl x) (XSP x) [Modifier x] (Ident x) [TypeParam x] (Maybe (ClassType x)) [ClassType x] (ClassBody x)
       -- ^Fields: Class modifiers, class identifier, type params, super class,
       -- if any, list of implemented interfaces, class body
-    | EnumDecl  a [Modifier a] (Ident a)                                     [ClassType a] (EnumBody a)
+    | EnumDecl  (XClassDecl x) (XSP x) [Modifier x] (Ident x)                                     [ClassType x] (EnumBody x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XClassDecl
 
 -- | A class body may contain declarations of members of the class, that is,
 --   fields, classes, interfaces and methods.
 --   A class body may also contain instance initializers, static
 --   initializers, and declarations of constructors for the class.
-data ClassBody a = ClassBody a [Decl a]
+data ClassBody x = ClassBody (XClassBody x) (XSP x) [Decl x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XClassBody x
 
 -- | The body of an enum type may contain enum constants.
-data EnumBody a = EnumBody a [EnumConstant a] [Decl a]
+data EnumBody x = EnumBody (XEnumBody x) (XSP x) [EnumConstant x] [Decl x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XEnumBody x
 
 -- | An enum constant defines an instance of the enum type.
-data EnumConstant a = EnumConstant a (Ident a) [Argument a] (Maybe (ClassBody a))
+data EnumConstant x = EnumConstant (XEnumConstant x) (XSP x) (Ident x) [Argument x] (Maybe (ClassBody x))
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XEnumConstant x
 
 -- | An interface declaration introduces a new reference type whose members
 --   are classes, interfaces, constants and abstract methods. This type has
 --   no implementation, but otherwise unrelated classes can implement it by
 --   providing implementations for its abstract methods.
-data InterfaceDecl a
-    = InterfaceDecl a [Modifier a] (Ident a) [TypeParam a] [ClassType a] (InterfaceBody a)
+data InterfaceDecl x
+    = InterfaceDecl (XInterfaceDecl x) (XSP x) [Modifier x] (Ident x) [TypeParam x] [ClassType x] (InterfaceBody x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XInterfaceDecl x
 
 -- | The body of an interface may declare members of the interface.
-data InterfaceBody a
-    = InterfaceBody a [MemberDecl a]
+data InterfaceBody x
+    = InterfaceBody (XInterfaceBody x) (XSP x) [MemberDecl x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XInterfaceBody x
 
 -- | A declaration is either a member declaration, or a declaration of an
 --   initializer, which may be static.
-data Decl a
-    = MemberDecl a (MemberDecl a)
-    | InitDecl a Bool (Block a)
+data Decl x
+    = MemberDecl (XDecl x) (XSP x) (MemberDecl x)
+    | InitDecl (XDecl x) (XSP x) Bool (Block x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XDecl x
 
 
 -- | A class or interface member can be an inner class or interface, a field or
 --   constant, or a method or constructor. An interface may only have as members
 --   constants (not fields), abstract methods, and no constructors.
-data MemberDecl a
+data MemberDecl x
     -- | The variables of a class type are introduced by field declarations.
-    = FieldDecl a [Modifier a] (Type a) [VarDecl a]
+    = FieldDecl (XMemberDecl x) (XSP x) [Modifier x] (Type x) [VarDecl x]
     -- | A method declares executable code that can be invoked, passing a fixed number of values as arguments.
-    | MethodDecl a      [Modifier a] [TypeParam a] (ReturnType a) (Ident a) [FormalParam a] [ExceptionSpec a] (MethodBody a)
+    | MethodDecl (XMemberDecl x) (XSP x) [Modifier x] [TypeParam x] (ReturnType x) (Ident x) [FormalParam x] [ExceptionSpec x] (MethodBody x)
     -- | A constructor is used in the creation of an object that is an instance of a class.
-    | ConstructorDecl a [Modifier a] [TypeParam a]                  (Ident a) [FormalParam a] [ExceptionSpec a] (ConstructorBody a)
+    | ConstructorDecl (XMemberDecl x) (XSP x) [Modifier x] [TypeParam x]                  (Ident x) [FormalParam x] [ExceptionSpec x] (ConstructorBody x)
     -- | A member class is a class whose declaration is directly enclosed in another class or interface declaration.
-    | MemberClassDecl a (ClassDecl a)
+    | MemberClassDecl (XMemberDecl x) (XSP x) (ClassDecl x)
     -- | A member interface is an interface whose declaration is directly enclosed in another class or interface declaration.
-    | MemberInterfaceDecl a (InterfaceDecl a)
+    | MemberInterfaceDecl (XMemberDecl x) (XSP x) (InterfaceDecl x)
 
 -- Paragon
     -- | A lock declaration is a special kind of field declaration.
-    | LockDecl a   [Modifier a]  (Ident a) [RefType a] (Maybe (LockProperties a))
+    | LockDecl (XMemberDecl x) (XSP x) [Modifier x]  (Ident x) [RefType x] (Maybe (LockProperties x))
 {-    -- | A policy declaration - should be a field decl really.
     | PolicyDecl a [Modifier a] Ident Policy -}
 {-    -- | An actor declaration is a special kind of field declaration.
     | ActorDecl [Modifier] Ident (Maybe VarInit) -}
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XMemberDecl x
 
 -- int x; => VarDecl (VarId "x") Nothing
 -- int x = 1; => VarDecl (VarId "x") (Just ...)
 -- | A declaration of a variable, which may be explicitly initialized.
-data VarDecl a
-    = VarDecl a (VarDeclId a) (Maybe (VarInit a))
+data VarDecl x
+    = VarDecl (XVarDecl x) (XSP x) (VarDeclId x) (Maybe (VarInit x))
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XVarDecl x
 
 -- | The name of a variable in a declaration, which may be an array.
-data VarDeclId a
-    = VarId a (Ident a)
-    | VarDeclArray a (VarDeclId a)
+data VarDeclId x
+    = VarId (XVarDeclId x) (XSP x) (Ident x)
+    | VarDeclArray (XVarDeclId x) (XSP x) (VarDeclId x)
     -- ^ Multi-dimensional arrays are represented by nested applications of 'VarDeclArray' (Deprecated)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XVarDeclId x
 
 getVarDeclId :: VarDeclId a -> Ident a
 getVarDeclId (VarId _ ident) = ident
 getVarDeclId (VarDeclArray _ varDeclId) = getVarDeclId varDeclId
 
 -- | Explicit initializer for a variable declaration.
-data VarInit a
-    = InitExp a (Exp a)
-    | InitArray a (ArrayInit a)
+data VarInit x
+    = InitExp (XInitExp x) (XSP x) (Exp x)
+    | InitArray (XInitExp x) (XSP x) (ArrayInit x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XInitExp x
 
 -- | A formal parameter in method declaration. The last parameter
 --   for a given declaration may be marked as variable arity,
 --   indicated by the boolean argument.
-data FormalParam a = FormalParam a [Modifier a] (Type a) Bool (VarDeclId a)
+data FormalParam x = FormalParam (XFormalParam x) (XSP x) [Modifier x] (Type x) Bool (VarDeclId x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XFormalParam x
 
 getFormalParamId :: FormalParam a -> Ident a
 getFormalParamId (FormalParam _ _ _ _ varDeclId) = getVarDeclId varDeclId
 
 -- | A method body is either a block of code that implements the method or simply a
 --   semicolon, indicating the lack of an implementation (modelled by 'Nothing').
-data MethodBody a = MethodBody a (Maybe (Block a))
+data MethodBody x = MethodBody (XMethodBody x) (XSP x) (Maybe (Block x))
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XMethodBody x
 
 -- | The first statement of a constructor body may be an explicit invocation of
 --   another constructor of the same class or of the direct superclass.
-data ConstructorBody a = ConstructorBody a (Maybe (ExplConstrInv a)) [BlockStmt a]
+data ConstructorBody x = ConstructorBody (XConstructorBody x) (XSP s) (Maybe (ExplConstrInv x)) [BlockStmt x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XConstructorBody x
 
 -- | An explicit constructor invocation invokes another constructor of the
 --   same class, or a constructor of the direct superclass, which may
 --   be qualified to explicitly specify the newly created object's immediately
 --   enclosing instance.
-data ExplConstrInv a
-    = ThisInvoke         a         [NonWildTypeArgument a] [Argument a]
-    | SuperInvoke        a         [NonWildTypeArgument a] [Argument a]
-    | PrimarySuperInvoke a (Exp a) [NonWildTypeArgument a] [Argument a]
+data ExplConstrInv x
+    = ThisInvoke         (XExplConstrInv x) (XSP x)         [NonWildTypeArgument x] [Argument x]
+    | SuperInvoke        (XExplConstrInv x) (XSP x)         [NonWildTypeArgument x] [Argument x]
+    | PrimarySuperInvoke (XExplConstrInv x) (XSP x) (Exp x) [NonWildTypeArgument x] [Argument x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-
+type family XExplConstrInv x
 
 -- | A modifier specifying properties of a given declaration. In general only
 --   a few of these modifiers are allowed for each declaration type, for instance
 --   a member type declaration may only specify one of public, private or protected.
-data Modifier a
-    = Public    a
-    | Private   a
-    | Protected a
-    | Abstract  a
-    | Final     a
-    | Static    a
-    | StrictFP  a
-    | Transient a
-    | Volatile  a
-    | Native    a
-
-    | Typemethod a
-    | Reflexive  a
-    | Transitive a
-    | Symmetric  a
-    | Readonly   a
-    | Notnull    a
-
-    | Reads   a (Policy a)
-    | Writes  a (Policy a)
-    | Opens   a [Lock a]
-    | Closes  a [Lock a]
-    | Expects a [Lock a]
+data Modifier x
+    = Public    (XMod x) (XSP x)
+    | Private   (XMod x) (XSP x)
+    | Protected (XMod x) (XSP x)
+    | Abstract  (XMod x) (XSP x)
+    | Final     (XMod x) (XSP x)
+    | Static    (XMod x) (XSP x)
+    | StrictFP  (XMod x) (XSP x)
+    | Transient (XMod x) (XSP x)
+    | Volatile  (XMod x) (XSP x)
+    | Native    (XMod x) (XSP x)
+(XSP x)
+    | Typemethod (XMod x) (XSP x)
+    | Reflexive  (XMod x) (XSP x)
+    | Transitive (XMod x) (XSP x)
+    | Symmetric  (XMod x) (XSP x)
+    | Readonly   (XMod x) (XSP x)
+    | Notnull    (XMod x) (XSP x)
+(XSP x)
+    | Reads   (XMod x) (XSP x) (Policy x)
+    | Writes  (XMod x) (XSP x) (Policy x)
+    | Opens   (XMod x) (XSP x) [Lock x]
+    | Closes  (XMod x) (XSP x) [Lock x]
+    | Expects (XMod x) (XSP x) [Lock x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XMod x
 
 isMethodStatic :: [Modifier a] -> Bool
 isMethodStatic ms = Static () `elem` removeAnnotationMany ms
@@ -229,119 +248,127 @@ isMethodStatic ms = Static () `elem` removeAnnotationMany ms
 
 -- | A block is a sequence of statements, local class declarations
 --   and local variable declaration statements within braces.
-data Block a = Block a [BlockStmt a]
+data Block x = Block (XBlock x) (XSP x) [BlockStmt x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
-
+type family XBlock x
 
 
 -- | A block statement is either a normal statement, a local
 --   class declaration or a local variable declaration.
-data BlockStmt a
-    = BlockStmt a (Stmt a)
-    | LocalClass a (ClassDecl a)
-    | LocalVars a [Modifier a] (Type a) [VarDecl a]
+data BlockStmt x
+    = BlockStmt (XBlockStm x) (XSP x) (Stmt x)
+    | LocalClass (XBlockStm x) (XSP x) (ClassDecl x)
+    | LocalVars (XBlockStm x) (XSP x) [Modifier x] (Type x) [VarDecl x]
 
 -- Paragon
-    | LocalLock a [Modifier a] (Ident a) [RefType a] (Maybe (LockProperties a))
+    | LocalLock (XBlockStm x) (XSP x) [Modifier x] (Ident x) [RefType x] (Maybe (LockProperties x))
 {-    | LocalPolicy [Modifier] Ident Policy
       | LocalActor [Modifier] Ident (Maybe VarInit) -}
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XBlockStm x
 
 
 -- | A Java statement.
-data Stmt a
+data Stmt x
     -- | A statement can be a nested block.
-    = StmtBlock a (Block a)
+    = StmtBlock (XStm x) (XSP x) (Block x)
     -- | The @if-then@ statement allows conditional execution of a statement.
-    | IfThen a (Exp a) (Stmt a)
+    | IfThen (XStm x) (XSP x) (Exp x) (Stmt x)
     -- | The @if-then-else@ statement allows conditional choice of two statements, executing one or the other but not both.
-    | IfThenElse a (Exp a) (Stmt a) (Stmt a)
+    | IfThenElse (XStm x) (XSP x) (Exp x) (Stmt x) (Stmt x)
     -- | The @while@ statement executes an expression and a statement repeatedly until the value of the expression is false.
-    | While a (Exp a) (Stmt a)
+    | While (XStm x) (XSP x) (Exp x) (Stmt x)
     -- | The basic @for@ statement executes some initialization code, then executes an expression, a statement, and some
     --   update code repeatedly until the value of the expression is false.
-    | BasicFor a (Maybe (ForInit a)) (Maybe (Exp a)) (Maybe [Exp a]) (Stmt a)
+    | BasicFor (XStm x) (XSP x) (Maybe (ForInit x)) (Maybe (Exp x)) (Maybe [Exp x]) (Stmt x)
     -- | The enhanced @for@ statement iterates over an array or a value of a class that implements the @iterator@ interface.
-    | EnhancedFor a [Modifier a] (Type a) (Ident a) (Exp a) (Stmt a)
+    | EnhancedFor (XStm x) (XSP x) [Modifier x] (Type x) (Ident x) (Exp x) (Stmt x)
     -- | An empty statement does nothing.
-    | Empty a
+    | Empty (XStm x) (XSP x)
     -- | Certain kinds of expressions may be used as statements by following them with semicolons:
     --   assignments, pre- or post-inc- or decrementation, method invocation or class instance
     --   creation expressions.
-    | ExpStmt a (Exp a)
+    | ExpStmt (XStm x) (XSP x) (Exp x)
     -- | An assertion is a statement containing a boolean expression, where an error is reported if the expression
     --   evaluates to false.
-    | Assert a (Exp a) (Maybe (Exp a))
+    | Assert (XStm x) (XSP x) (Exp x) (Maybe (Exp x))
     -- | The switch statement transfers control to one of several statements depending on the value of an expression.
-    | Switch a (Exp a) [SwitchBlock a]
+    | Switch (XStm x) (XSP x) (Exp x) [SwitchBlock x]
     -- | The @do@ statement executes a statement and an expression repeatedly until the value of the expression is false.
-    | Do a (Stmt a) (Exp a)
+    | Do (XStm x) (XSP x) (Stmt x) (Exp x)
     -- | A @break@ statement transfers control out of an enclosing statement.
-    | Break a (Maybe (Ident a))
+    | Break (XStm x) (XSP x) (Maybe (Ident x))
     -- | A @continue@ statement may occur only in a while, do, or for statement. Control passes to the loop-continuation
     --   point of that statement.
-    | Continue a (Maybe (Ident a))
+    | Continue (XStm x) (XSP x) (Maybe (Ident x))
     -- A @return@ statement returns control to the invoker of a method or constructor.
-    | Return a (Maybe (Exp a))
+    | Return (XStm x) (XSP x) (Maybe (Exp x))
     -- | A @synchronized@ statement acquires a mutual-exclusion lock on behalf of the executing thread, executes a block,
     --   then releases the lock. While the executing thread owns the lock, no other thread may acquire the lock.
-    | Synchronized a (Exp a) (Block a)
+    | Synchronized (XStm x) (XSP x) (Exp x) (Block x)
     -- | A @throw@ statement causes an exception to be thrown.
-    | Throw a (Exp a)
+    | Throw (XStm x) (XSP x) (Exp x)
     -- | A try statement executes a block. If a value is thrown and the try statement has one or more catch clauses that
     --   can catch it, then control will be transferred to the first such catch clause. If the try statement has a finally
     --   clause, then another block of code is executed, no matter whether the try block completes normally or abruptly,
     --   and no matter whether a catch clause is first given control.
-    | Try a (Block a) [Catch a] (Maybe {- finally -} (Block a))
+    | Try (XStm x) (XSP x) (Block x) [Catch x] (Maybe {- finally -} (Block x))
     -- | Statements may have label prefixes.
-    | Labeled a (Ident a) (Stmt a)
+    | Labeled (XStm x) (XSP x) (Ident x) (Stmt x)
 
 -- Paragon
     -- | Locks can be opened or closed.
-    | Open  a (Lock a)
-    | Close a (Lock a)
-    | OpenBlock  a (Lock a) (Block a)
-    | CloseBlock a (Lock a) (Block a)
+    | Open  (XStm x) (XSP x) (Lock x)
+    | Close (XStm x) (XSP x) (Lock x)
+    | OpenBlock  (XStm x) (XSP x) (Lock x) (Block x)
+    | CloseBlock (XStm x) (XSP x) (Lock x) (Block x)
 {-    -- A @when@ statement is a variant of @if@ that only tests whether locks are open.
     | WhenThen     Lock Stmt
     | WhenThenElse Lock Stmt Stmt    -}
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XStm x
 
 -- | If a value is thrown and the try statement has one or more catch clauses that can catch it, then control will be
 --   transferred to the first such catch clause.
-data Catch a = Catch a (FormalParam a) (Block a)
+data Catch x = Catch (XCatch x) (XSP x) (FormalParam x) (Block x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XCatch x
 
 -- | A block of code labelled with a @case@ or @default@ within a @switch@ statement.
-data SwitchBlock a
-    = SwitchBlock a (SwitchLabel a) [BlockStmt a]
+data SwitchBlock x
+    = SwitchBlock (XSwitchBlock x) (XSP x) (SwitchLabel x) [BlockStmt x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XSwitchBlock x
 
 -- | A label within a @switch@ statement.
-data SwitchLabel a
+data SwitchLabel x
     -- | The expression contained in the @case@ must be a 'Lit' or an @enum@ constant.
-    = SwitchCase a (Exp a)
-    | Default a
+    = SwitchCase (XSwitchLabel x) (XSP x) (Exp x)
+    | Default (XSwitchLabel x) (XSP x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XSwitchLabel x
 
 -- | Initialization code for a basic @for@ statement.
-data ForInit a
-    = ForLocalVars a [Modifier a] (Type a) [VarDecl a]
-    | ForInitExps a [Exp a]
+data ForInit x
+    = ForLocalVars (XForInit x) (XSP x) [Modifier x] (Type x) [VarDecl x]
+    | ForInitExps (XForInit x) (XSP x) [Exp x]
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XForInit x
 
 -- | An exception type has to be a class type or a type variable.
-type ExceptionType a = RefType a -- restricted to ClassType or TypeVariable
+type ExceptionType x = RefType (XExceptionType x) (XSP x) -- restricted to ClassType or TypeVariable
+type family XExceptionType x
 
-data ExceptionSpec a = ExceptionSpec a [Modifier a] (ExceptionType a)
+data ExceptionSpec x = ExceptionSpec (XExceptionSpec x) (XSP x) [Modifier x] (ExceptionType x)
   deriving (Eq,Ord,Show,Typeable,Data,Functor)
+type family XExceptionSpec x
 
 
 -----------------------------------------------------------------------
 -- Expressions
 
 -- | Arguments to methods and constructors are expressions.
-type Argument a = (Exp a)
+type Argument x = (Exp x)
 
 -- | A Java expression.
 data Exp a
