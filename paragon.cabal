@@ -30,7 +30,7 @@ Extra-Source-Files:     src/Language/Java/Paragon/Lexer.x
 
 
 Library
-  Default-Language:    Haskell98
+  Default-Language:    Haskell2010
   Build-Tools:   alex >= 2.3
   Build-Depends:        array >= 0.1
                       , bytestring
@@ -89,7 +89,7 @@ Library
 
 
 Executable parac
-  Default-Language:    Haskell98
+  Default-Language:    Haskell2010
   Hs-source-dirs:       src
   Main-is:              Language/Java/Paragon.hs
 
@@ -149,7 +149,7 @@ Executable parac
   GHC-options:          -Wall -O2 -rtsopts
 
 test-suite bad
-  Default-Language:    Haskell98
+  Default-Language:    Haskell2010
   type:                 detailed-0.9
   hs-source-dirs:       test
   test-module:          SuiteBad
@@ -163,7 +163,7 @@ test-suite bad
                       , ansi-terminal
 
 test-suite good
-  Default-Language:    Haskell98
+  Default-Language:    Haskell2010
   type:                detailed-0.9
   hs-source-dirs:      test
   test-module:         SuiteGood
@@ -177,7 +177,7 @@ test-suite good
                      , ansi-terminal
 
 test-suite issues
-  Default-Language:    Haskell98
+  Default-Language:    Haskell2010
   type:                detailed-0.9
   hs-source-dirs:      test
   test-module:         SuiteIssues
