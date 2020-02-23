@@ -8,8 +8,8 @@
 {-# LANGUAGE GADTs, EmptyCase, StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators, PatternSynonyms #-}
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
-module Language.Java.Paragon.Syntax (
-    module Language.Java.Paragon.Syntax,
+module Language.Java.Paragon.SyntaxTTG (
+    module Language.Java.Paragon.SyntaxTTG,
     module Language.Java.Paragon.Annotated
                                     ) where
 
