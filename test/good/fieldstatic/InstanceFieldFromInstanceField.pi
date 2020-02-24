@@ -1,5 +1,0 @@
-public class InstanceFieldFromInstanceField
-{
-  private int x = 1;
-  private int y = x;
-}

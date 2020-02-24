@@ -1,8 +1,0 @@
-public class StaticFieldFromStaticMethod
-{
-  private static int x;
-  private static void stat()
-  {
-    int y = x;
-  }
-}

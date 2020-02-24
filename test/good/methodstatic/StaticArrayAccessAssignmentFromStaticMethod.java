@@ -1,8 +1,0 @@
-public class StaticArrayAccessAssignmentFromStaticMethod
-{
-  private static int[] a = new int[1];
-  private static void stat()
-  {
-    a[0] = 1;
-  }
-}

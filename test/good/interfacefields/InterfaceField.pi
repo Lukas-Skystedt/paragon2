@@ -1,4 +1,0 @@
-public class InterfaceField
-{
-  public static final int x = 0;
-}

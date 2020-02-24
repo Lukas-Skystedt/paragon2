@@ -1,7 +1,0 @@
-public class ReturnSimple
-{
-  public int f()
-  {
-    return 1;
-  }
-}

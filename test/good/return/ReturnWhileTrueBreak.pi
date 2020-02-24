@@ -1,5 +1,0 @@
-public class ReturnWhileTrueBreak
-{
-  public int f()
-  ;
-}

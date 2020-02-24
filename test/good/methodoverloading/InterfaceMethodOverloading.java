@@ -1,7 +1,0 @@
-public interface InterfaceMethodOverloading
-{
-  public void f()
-  ;
-  public void f(int i)
-  ;
-}

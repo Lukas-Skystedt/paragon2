@@ -1,5 +1,0 @@
-class PolicyOf
-{
-  ?policyof(x) int foo(int x)
-  ;
-}

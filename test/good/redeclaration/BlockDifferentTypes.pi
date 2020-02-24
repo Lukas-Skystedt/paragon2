@@ -1,5 +1,0 @@
-public class BlockDifferentTypes
-{
-  public void f()
-  ;
-}

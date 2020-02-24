@@ -1,9 +1,0 @@
-public class StaticMethodInstanceMethodFromStaticMethod
-{
-  private static void stat()
-  ;
-  private int inst()
-  ;
-  public static StaticMethodInstanceMethodFromStaticMethod stat1()
-  ;
-}

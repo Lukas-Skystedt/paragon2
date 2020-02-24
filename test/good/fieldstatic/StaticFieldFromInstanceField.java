@@ -1,5 +1,0 @@
-public class StaticFieldFromInstanceField
-{
-  private static int x = 1;
-  private int y = x;
-}

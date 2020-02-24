@@ -1,6 +1,0 @@
-public class ReturnVoid
-{
-  public void f()
-  {
-  }
-}

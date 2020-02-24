@@ -1,7 +1,0 @@
-public class InstanceFieldStaticFieldAssignmentFromInstanceMethod
-{
-  private InstanceFieldStaticFieldAssignmentFromInstanceMethod x = new InstanceFieldStaticFieldAssignmentFromInstanceMethod();
-  public static int y;
-  private !{java.lang.Object o:} void inst()
-  ;
-}

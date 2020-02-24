@@ -1,8 +1,0 @@
-public class StaticMethodFromInstanceArrayField
-{
-  private int[] a = stat();
-  private static int[] stat()
-  {
-    return new int[1];
-  }
-}

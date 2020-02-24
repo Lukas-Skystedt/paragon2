@@ -1,6 +1,0 @@
-public class ReturnOpenBlock
-{
-  private lock Lock;
-  public int f()
-  ;
-}

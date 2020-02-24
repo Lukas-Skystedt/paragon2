@@ -1,6 +1,0 @@
-public class StaticFieldAssignmentFromStaticMethod
-{
-  private static int x;
-  private static !{java.lang.Object o:} void stat()
-  ;
-}
