@@ -28,7 +28,7 @@ parac = "parac"
 
 -- | Path to the library files passed to parac
 defaultLib :: FilePath
-defaultLib = "lib"
+defaultLib = "test" </> "lib"
 
 appendOutputDir :: FilePath -> FilePath
 appendOutputDir path = outputDir </> path
