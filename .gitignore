@@ -5,6 +5,9 @@
 \#*
 dist-newstyle
 
+# Output from test runs
+test/output/
+
 # Created by https://www.gitignore.io/api/haskell
 # Edit at https://www.gitignore.io/?templates=haskell
 

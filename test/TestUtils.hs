@@ -30,15 +30,21 @@ parac = "parac"
 defaultLib :: FilePath
 defaultLib = "lib"
 
+appendOutputDir :: FilePath -> FilePath
+appendOutputDir path = outputDir </> path
+
+outputDir :: FilePath
+outputDir = "test" </> "output"
+
 -- | Run parac with the given library and .para file
 runParac :: FilePath -> FilePath -> IO (String, String, ExitCode)
 runParac lib program =
-  runCommandStrWait (parac ++ " --oldskool" ++ " -p " ++ lib ++ ": " ++ program) ""
+  runCommandStrWait (parac ++ " --oldskool" ++ " -p " ++ lib ++ " -o " ++ outputDir ++ " " ++ program) ""
 
 -- | Run javac with the given classpath and .java file
 runJavac :: FilePath -> FilePath -> IO (String, String, ExitCode)
 runJavac lib program =
-  runCommandStrWait ("javac -classpath '.:"++lib++"' "++program) ""
+  runCommandStrWait ("javac -classpath '.:"++lib++"' "++ appendOutputDir program) ""
 
 type StdOut = String
 type StdErr = String
