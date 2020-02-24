@@ -104,146 +104,146 @@ fetchPkg n@(Name pos _ _ _) = do
 fetchType :: Name SourcePos -> TcDeclM ([TypeParam SourcePos],[(RefType SourcePos, B.ByteString)],TypeSig)
 fetchType n@(Name pos _ _ typName) = do
   withFreshCurrentTypeMap $ do
-  debugPrint $ "Fetching type " ++ prettyPrint n ++ " ..."
-  isT <- doesTypeExist n
-  if not isT
-   then fail $ "No such type: " ++ prettyPrint n
-   else do
-     cUnit <- getTypeContents n
-     pp <- getPiPath
-     CompilationUnit _ pkg _ [td] <- liftBase $ resolveNames pp cUnit
-     withThisType (snd $ skolemTypeDecl td) $
-      case td of
-       ClassTypeDecl _ (ClassDecl _ ms cuName tps mSuper impls (ClassBody _ ds)) -> do
-               check (typName == cuName) $
-                 mkError (FileClassMismatchFetchType (prettyPrint typName) (prettyPrint cuName))
-                         --(identPos cuName)
-                         pos
-               withFoldMap withTypeParam tps $ do
-                 superTys <- --map (TcRefT . TcClsRefT) <$>
-                              mapM (evalSrcClsType genBot) (maybeToList mSuper)
-                 implsTys  <- --map (TcRefT . TcClsRefT) <$>
-                              mapM (evalSrcClsType genBot) impls
+    debugPrint $ "Fetching type " ++ prettyPrint n ++ " ..."
+    isT <- doesTypeExist n
+    if not isT
+     then fail $ "No such type: " ++ prettyPrint n
+     else do
+       cUnit <- getTypeContents n
+       pp <- getPiPath
+       CompilationUnit _ pkg _ [td] <- liftBase $ resolveNames pp cUnit
+       withThisType (snd $ skolemTypeDecl td) $
+        case td of
+         ClassTypeDecl _ (ClassDecl _ ms cuName tps mSuper impls (ClassBody _ ds)) -> do
+                 check (typName == cuName) $
+                   mkError (FileClassMismatchFetchType (prettyPrint typName) (prettyPrint cuName))
+                           --(identPos cuName)
+                           pos
+                 withFoldMap withTypeParam tps $ do
+                   superTys <- --map (TcRefT . TcClsRefT) <$>
+                                mapM (evalSrcClsType genBot) (maybeToList mSuper)
+                   implsTys  <- --map (TcRefT . TcClsRefT) <$>
+                                mapM (evalSrcClsType genBot) impls
 
-                 -- Remove this line, and set tMembers to emptyTM,
-                 -- if using "clever lookup" instead of "clever setup"
-                 debugPrint $ "fetchType[superType]: " ++ prettyPrint superTys
-                 superTm <- case superTys of
-                              [] -> return emptyTM
-                              [superTy] -> tMembers . snd <$>
-                                           lookupTypeOfType (clsTypeToType superTy)
-                              _ -> panic (tcDeclMModule ++ ".fetchType")
-                                 $ "More than one super class for class:"  ++ show superTys
-                 debugPrint $ "fetchType[superTm]:\n" ++ prettyPrint superTm
+                   -- Remove this line, and set tMembers to emptyTM,
+                   -- if using "clever lookup" instead of "clever setup"
+                   debugPrint $ "fetchType[superType]: " ++ prettyPrint superTys
+                   superTm <- case superTys of
+                                [] -> return emptyTM
+                                [superTy] -> tMembers . snd <$>
+                                             lookupTypeOfType (clsTypeToType superTy)
+                                _ -> panic (tcDeclMModule ++ ".fetchType")
+                                   $ "More than one super class for class:"  ++ show superTys
+                   debugPrint $ "fetchType[superTm]:\n" ++ prettyPrint superTm
 
-                 let tnam = Name pos TName (fmap (\(PackageDecl _ pn) -> pn) pkg) typName
-                     tsig = TSig {
-                              tType = TcClsRefT $ TcClassT tnam [],
-                              tIsClass = True,
-                              tIsFinal = Final pos `elem` ms,
-                              tSupers  = superTys,
-                              tImpls   = implsTys,
-                              tMembers = superTm -- { constrs = Map.empty }
-                            }
-                     mDs = map unMemberDecl ds
-                     iaps = findImplActorParams mDs
-                 debugPrint $ "Adding for name: " ++ prettyPrint n
-                 extendGlobalTypeMap (extendTypeMapT n tps iaps tsig)
-                 when (isJust pkg) $
-                      extendGlobalTypeMap (extendTypeMapT (mkSimpleName TName cuName) tps iaps tsig)
+                   let tnam = Name pos TName (fmap (\(PackageDecl _ pn) -> pn) pkg) typName
+                       tsig = TSig {
+                                tType = TcClsRefT $ TcClassT tnam [],
+                                tIsClass = True,
+                                tIsFinal = Final pos `elem` ms,
+                                tSupers  = superTys,
+                                tImpls   = implsTys,
+                                tMembers = superTm -- { constrs = Map.empty }
+                              }
+                       mDs = map unMemberDecl ds
+                       iaps = findImplActorParams mDs
+                   debugPrint $ "Adding for name: " ++ prettyPrint n
+                   extendGlobalTypeMap (extendTypeMapT n tps iaps tsig)
+                   when (isJust pkg) $
+                        extendGlobalTypeMap (extendTypeMapT (mkSimpleName TName cuName) tps iaps tsig)
 
-                 debugPrint "fetchType[pkg]"
+                   debugPrint "fetchType[pkg]"
 
---               (rtps,rsig) <- withTypeMapAlways (extendTypeMapT n tps tsig) $ do
---               withFoldMap withTypeParam tps $ do
-                 fetchActors n mDs $ do
+  --               (rtps,rsig) <- withTypeMapAlways (extendTypeMapT n tps tsig) $ do
+  --               withFoldMap withTypeParam tps $ do
+                   fetchActors n mDs $ do
 
-                 debugPrint "fetchType[fetchActors]"
-                 let mDss = map (:[]) mDs
-                 withFoldMap (fetchLTPs n) mDss $ do
+                     debugPrint "fetchType[fetchActors]"
+                     let mDss = map (:[]) mDs
+                     withFoldMap (fetchLTPs n) mDss $ do
 
---                 fetchLocks  n mDs $ do
---                 fetchPols   n mDs $ do
---                 fetchTypeMethods n mDs $ do
-                 debugPrint "fetchType[fetchLTPs]"
-                 fetchSignatures (Native pos `elem` ms) n mDs
-                 debugPrint "fetchType[fetchSignatures]"
+      --                 fetchLocks  n mDs $ do
+      --                 fetchPols   n mDs $ do
+      --                 fetchTypeMethods n mDs $ do
+                       debugPrint "fetchType[fetchLTPs]"
+                       fetchSignatures (Native pos `elem` ms) n mDs
+                       debugPrint "fetchType[fetchSignatures]"
 
-                 tm <- getTypeMap
-                 debugPrint $ "fetchType[final TM]:\n" ++ prettyPrint tm
-                 case lookupNamed types n tm of
-                   Just res -> do
-                     debugPrint $ "Done fetching type: " ++ prettyPrint n
---                     debugPrint $ "Result: " ++ show res ++ "\n"
-                     return res
-                   Nothing  -> panic (tcDeclMModule ++ ".fetchType") $
-                               "Just fetched type " ++ show n ++
-                              " but now it doesn't exist!"
---               withTypeMapAlways (extendTypeMapT n rtps rsig) $ do
---                 tm <- getTypeMap
---                 debugPrint $ "TypeMap here: " ++ show tm ++ "\n"
---                 return (rtps,rsig)
+                       tm <- getTypeMap
+                       debugPrint $ "fetchType[final TM]:\n" ++ prettyPrint tm
+                       case lookupNamed types n tm of
+                         Just res -> do
+                           debugPrint $ "Done fetching type: " ++ prettyPrint n
+      --                     debugPrint $ "Result: " ++ show res ++ "\n"
+                           return res
+                         Nothing  -> panic (tcDeclMModule ++ ".fetchType") $
+                                     "Just fetched type " ++ show n ++
+                                    " but now it doesn't exist!"
+      --               withTypeMapAlways (extendTypeMapT n rtps rsig) $ do
+      --                 tm <- getTypeMap
+      --                 debugPrint $ "TypeMap here: " ++ show tm ++ "\n"
+      --                 return (rtps,rsig)
 
-              where unMemberDecl :: Decl SourcePos -> MemberDecl SourcePos
-                    unMemberDecl (MemberDecl _ md) = md
-                    unMemberDecl _ = panic (tcDeclMModule ++ ".fetchType")
-                                     "Malformed PI-file contains initializer block"
-       InterfaceTypeDecl _ (InterfaceDecl _ ms cuName tps supers (InterfaceBody _ mDs)) -> do
-               check (typName == cuName) $
-                     toUndef $ "File name " ++ prettyPrint typName  ++ " does not match class name " ++ prettyPrint cuName
-               superTys <- --map (TcRefT . TcClsRefT) <$>
-                              mapM (evalSrcClsType genBot) supers
+                where unMemberDecl :: Decl SourcePos -> MemberDecl SourcePos
+                      unMemberDecl (MemberDecl _ md) = md
+                      unMemberDecl _ = panic (tcDeclMModule ++ ".fetchType")
+                                       "Malformed PI-file contains initializer block"
+         InterfaceTypeDecl _ (InterfaceDecl _ ms cuName tps supers (InterfaceBody _ mDs)) -> do
+                    check (typName == cuName) $
+                          toUndef $ "File name " ++ prettyPrint typName  ++ " does not match class name " ++ prettyPrint cuName
+                    superTys <- --map (TcRefT . TcClsRefT) <$>
+                                   mapM (evalSrcClsType genBot) supers
 
-               -- Remove this line, and set tMembers to emptyTM,
-               -- if using "clever lookup" instead of "clever setup"
-               superTm <- foldl merge emptyTM <$>
-                            mapM ((tMembers . snd <$>) . lookupTypeOfType . clsTypeToType) superTys
+                    -- Remove this line, and set tMembers to emptyTM,
+                    -- if using "clever lookup" instead of "clever setup"
+                    superTm <- foldl merge emptyTM <$>
+                                 mapM ((tMembers . snd <$>) . lookupTypeOfType . clsTypeToType) superTys
 
-               let tnam = Name defaultPos TName (fmap (\(PackageDecl _ pn) -> pn) pkg) typName
-                   tsig = TSig {
-                            tType = TcClsRefT $ TcClassT tnam [],
-                            tIsClass = False,
-                            tIsFinal = Final defaultPos `elem` ms,
-                            tSupers  = superTys,
-                            tImpls   = [],
-                            tMembers = superTm
-                          }
+                    let tnam = Name defaultPos TName (fmap (\(PackageDecl _ pn) -> pn) pkg) typName
+                        tsig = TSig {
+                                 tType = TcClsRefT $ TcClassT tnam [],
+                                 tIsClass = False,
+                                 tIsFinal = Final defaultPos `elem` ms,
+                                 tSupers  = superTys,
+                                 tImpls   = [],
+                                 tMembers = superTm
+                               }
 
-               extendGlobalTypeMap (extendTypeMapT n tps [] tsig)
-               when (isJust pkg) $
-                    extendGlobalTypeMap (extendTypeMapT (mkSimpleName TName cuName) tps [] tsig)
+                    extendGlobalTypeMap (extendTypeMapT n tps [] tsig)
+                    when (isJust pkg) $
+                         extendGlobalTypeMap (extendTypeMapT (mkSimpleName TName cuName) tps [] tsig)
 
---               withTypeMapAlways (extendTypeMapT n tps tsig) $ do
-               withFoldMap withTypeParam tps $ do
-                 -- These will be written directly into the right
-                 -- places in the TM, using the 'always' trick
-                 fetchActors n mDs $ do
+     --               withTypeMapAlways (extendTypeMapT n tps tsig) $ do
+                    withFoldMap withTypeParam tps $ do
+                      -- These will be written directly into the right
+                      -- places in the TM, using the 'always' trick
+                      fetchActors n mDs $ do
 
-                 let mDss = map (:[]) mDs
-                 withFoldMap (fetchLTPs n) mDss $ do
+                        let mDss = map (:[]) mDs
+                        withFoldMap (fetchLTPs n) mDss $ do
 
---                 fetchLocks  n mDs $ do
---                 fetchPols   n mDs $ do
---                 fetchTypeMethods n mDs $ do
+       --                 fetchLocks  n mDs $ do
+       --                 fetchPols   n mDs $ do
+       --                 fetchTypeMethods n mDs $ do
 
-                 fetchSignatures (Native defaultPos `elem` ms) n mDs
+                          fetchSignatures (Native defaultPos `elem` ms) n mDs
 
-                 tm <- getTypeMap
-                 case lookupNamed types n tm of
-                   Just res -> return res
-                   Nothing  -> panic (tcDeclMModule ++ ".fetchType") $
-                               "Just fetched type " ++ show n ++
-                               " but now it doesn't exist!"
+                          tm <- getTypeMap
+                          case lookupNamed types n tm of
+                            Just res -> return res
+                            Nothing  -> panic (tcDeclMModule ++ ".fetchType") $
+                                        "Just fetched type " ++ show n ++
+                                        " but now it doesn't exist!"
 
-       _ -> fail "Enums not yet supported"
+         _ -> fail "Enums not yet supported"
 
 fetchType n = panic (tcDeclMModule ++ ".fetchType") $ show n
 
 fetchLTPs :: Name SourcePos -> [MemberDecl SourcePos] -> TcDeclM a -> TcDeclM a
 fetchLTPs n mDs tdma = do
             fetchLocks  n mDs $ do
-            fetchPols   n mDs $ do
-            fetchTypeMethods n mDs tdma
+              fetchPols   n mDs $ do
+                fetchTypeMethods n mDs tdma
 
 
 
