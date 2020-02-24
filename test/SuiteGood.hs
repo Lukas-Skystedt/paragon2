@@ -13,6 +13,7 @@ import System.Console.ANSI
 -- run.
 tests :: IO [Test]
 tests = do
+  removeOutput
   good <- getParaFiles $ "test" </> "good"
   let paths = (("test" </> "good") </>) <$> good
   let tests = makeTest defaultLib <$> paths

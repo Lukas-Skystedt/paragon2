@@ -59,6 +59,10 @@ showExitCode :: ExitCode -> String
 showExitCode ExitSuccess = "0"
 showExitCode (ExitFailure code) = show code
 
+-- | Remove contents from output directory
+removeOutput :: IO ()
+removeOutput = void $ runCommandStrWait ("rm -r " ++ outputDir) ""
+
 -- | Run a test using the provided library and .para paths. If the
 -- runJavaC flag is set to True, also run javac on the output from parac.
 -- Success is only returned if the outputs from parac (and javac) are empty.
