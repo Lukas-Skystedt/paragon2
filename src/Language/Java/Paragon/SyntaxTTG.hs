@@ -11,10 +11,12 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
 {-# LANGUAGE DeriveFunctor#-}
 {-# LANGUAGE DeriveAnyClass#-}
-module Language.Java.Paragon.SyntaxTTG (
-    module Language.Java.Paragon.SyntaxTTG,
-    module Language.Java.Paragon.Annotated
-                                    ) where
+module Language.Java.Paragon.SyntaxTTG
+  -- (
+  --   module Language.Java.Paragon.SyntaxTTG,
+  --   module Language.Java.Paragon.Annotated
+  --                                   )
+where
 
 import Data.Data
 
@@ -512,7 +514,7 @@ type family XMethodInvocation x
 --   array and providing some initial values
 -- type families: XArrayInit
 data ArrayInit x
-    = ArrayInit (XArrayInit x) [VarInit x]
+    = ArrayInit (XArrayInit x) (XSP x) [VarInit x]
 type family XArrayInit x
 
 -----------------------------------------------------------------------
@@ -710,11 +712,9 @@ unIdent (AntiQIdent _ _ str) = panic (syntaxModule ++ ".unIdent")
 
 -- | A name, i.e. a period-separated list of identifiers.
 -- type families : XName
-data Name x = Name (XName x) (XSP x)  NameType (Maybe (Name x)) (Ident x)
-            | AntiQName (XName x) (XSP x) String
+data Name a = Name a NameType (Maybe (Name a)) (Ident a)
+            | AntiQName a String
    -- Show removed to get more readable debug output
-type family XName x
-
 
 data NameType
     = EName    -- ^Expression name
@@ -775,6 +775,8 @@ flattenName n = reverse $ flName n
           flName AntiQName{} = panic (syntaxModule ++ ".flattenName")
                                      "Cannot flatten name anti-quote"
 
+temp = error "The temp variable used for the old Name type was evaluated."
+
 mkIdent :: a -> String -> Ident a
 mkIdent a = Ident a . B.pack
 
@@ -818,7 +820,7 @@ type ForallXFamilies (f :: * -> Constraint) x =
 	f(XArrayInit x), f(XReturnType x), f(XType x), f(XRefType x), f(XClassType x), f(XTypeArgument x),
 	f(XNonWildTypeArgument x), f(XWildcardBound x), f(XPrimType x), f(XTypeParam x), f(XPolicyExp x),
 	f(XLockProperties x), f(XClause x), f(XClauseVarDecl x), f(XClauseHead x), f(XLClause x), f(XActor x),
-	f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XName x), f(XVarDecl x), f(XVarInit x)
+	f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XVarDecl x), f(XVarInit x)
 
   )
 
