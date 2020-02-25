@@ -1,3 +1,4 @@
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -8,6 +9,8 @@
 {-# LANGUAGE GADTs, EmptyCase, StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators, PatternSynonyms #-}
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE DeriveFunctor#-}
+{-# LANGUAGE DeriveAnyClass#-}
 module Language.Java.Paragon.SyntaxTTG (
     module Language.Java.Paragon.SyntaxTTG,
     module Language.Java.Paragon.Annotated
@@ -38,21 +41,25 @@ type family XSP x
 -- compilation unit and does not yet suport enums, although files containing
 -- enums can be parsed
 data CompilationUnit x = CompilationUnit (XCompilationUnit x) (XSP x) (Maybe (PackageDecl x)) [ImportDecl x] [TypeDecl x]
-#ifdef __GLASGOW_HASKELL__
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
-#else
-  deriving (Eq,Ord,Show)
-#endif
 type family XCompilationUnit x
 
 -- | A package declaration appears within a compilation unit to indicate the package to which the compilation unit belongs.
 data PackageDecl x = PackageDecl (XPackageDecl x) (XSP x) (Name x)
-#ifdef __GLASGOW_HASKELL__
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
-#else
-  deriving (Eq,Ord,Show)
-#endif
 type family XPackageDecl x
+
+-------------------------------------------------------------------------------
+-- #ifdef __GLASGOW_HASKELL__                                                --
+-- type AllXPackageDecl (f :: * -> Constraint) x = (f (XPackageDecl x))      --
+-- deriving instance AllXPackageDecl Typeable  x => Typeable (PackageDecl x) --
+-- deriving instance AllXPackageDecl Eq        x => Eq       (PackageDecl x) --
+-- deriving instance AllXPackageDecl Ord       x => Ord      (PackageDecl x) --
+-- deriving instance AllXPackageDecl Data      x => Data     (PackageDecl x) --
+-- #else                                                                     --
+-- deriving instance AllXPackageDecl Eq        x => Eq       (PackageDecl x) --
+-- deriving instance AllXPackageDecl Ord       x => Ord      (PackageDecl x) --
+--                                                                           --
+-- #endif                                                                    --
+-------------------------------------------------------------------------------
 
 -- | An import declaration allows a static member or a named type to be referred
 -- to by a single unqualified identifier.
@@ -69,7 +76,6 @@ data ImportDecl x
       -- ^Single static import, e.g. import static java.lang.Math.PI
     | StaticImportOnDemand (XImportDecl x) (XSP x) (Name x)
       -- ^Static import of all members, e.g. import static java.lang.Math.*
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XImportDecl x
 
 -----------------------------------------------------------------------
@@ -79,7 +85,6 @@ type family XImportDecl x
 data TypeDecl x
     = ClassTypeDecl (XTypeDecl x) (XSP x) (ClassDecl x)
     | InterfaceTypeDecl (XTypeDecl x) (XSP x) (InterfaceDecl x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XTypeDecl x
 
 -- | A class declaration specifies a new named reference type.
@@ -89,7 +94,6 @@ data ClassDecl x
       -- ^Fields: Class modifiers, class identifier, type params, super class,
       -- if any, list of implemented interfaces, class body
     | EnumDecl  (XClassDecl x) (XSP x) [Modifier x] (Ident x)                                     [ClassType x] (EnumBody x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XClassDecl x
 
 -- | A class body may contain declarations of members of the class, that is,
@@ -97,17 +101,14 @@ type family XClassDecl x
 --   A class body may also contain instance initializers, static
 --   initializers, and declarations of constructors for the class.
 data ClassBody x = ClassBody (XClassBody x) (XSP x) [Decl x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XClassBody x
 
 -- | The body of an enum type may contain enum constants.
 data EnumBody x = EnumBody (XEnumBody x) (XSP x) [EnumConstant x] [Decl x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XEnumBody x
 
 -- | An enum constant defines an instance of the enum type.
 data EnumConstant x = EnumConstant (XEnumConstant x) (XSP x) (Ident x) [Argument x] (Maybe (ClassBody x))
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XEnumConstant x
 
 -- | An interface declaration introduces a new reference type whose members
@@ -116,13 +117,11 @@ type family XEnumConstant x
 --   providing implementations for its abstract methods.
 data InterfaceDecl x
     = InterfaceDecl (XInterfaceDecl x) (XSP x) [Modifier x] (Ident x) [TypeParam x] [ClassType x] (InterfaceBody x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XInterfaceDecl x
 
 -- | The body of an interface may declare members of the interface.
 data InterfaceBody x
     = InterfaceBody (XInterfaceBody x) (XSP x) [MemberDecl x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XInterfaceBody x
 
 -- | A declaration is either a member declaration, or a declaration of an
@@ -130,7 +129,6 @@ type family XInterfaceBody x
 data Decl x
     = MemberDecl (XDecl x) (XSP x) (MemberDecl x)
     | InitDecl (XDecl x) (XSP x) Bool (Block x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XDecl x
 
 
@@ -156,7 +154,6 @@ data MemberDecl x
     | PolicyDecl a [Modifier a] Ident Policy -}
 {-    -- | An actor declaration is a special kind of field declaration.
     | ActorDecl [Modifier] Ident (Maybe VarInit) -}
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XMemberDecl x
 
 -- int x; => VarDecl (VarId "x") Nothing
@@ -164,7 +161,6 @@ type family XMemberDecl x
 -- | A declaration of a variable, which may be explicitly initialized.
 data VarDecl x
     = VarDecl (XVarDecl x) (XSP x) (VarDeclId x) (Maybe (VarInit x))
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XVarDecl x
 
 -- | The name of a variable in a declaration, which may be an array.
@@ -172,40 +168,35 @@ data VarDeclId x
     = VarId (XVarDeclId x) (XSP x) (Ident x)
     | VarDeclArray (XVarDeclId x) (XSP x) (VarDeclId x)
     -- ^ Multi-dimensional arrays are represented by nested applications of 'VarDeclArray' (Deprecated)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XVarDeclId x
 
 getVarDeclId :: VarDeclId a -> Ident a
-getVarDeclId (VarId _ ident) = ident
-getVarDeclId (VarDeclArray _ varDeclId) = getVarDeclId varDeclId
+getVarDeclId (VarId _ _ ident) = ident
+getVarDeclId (VarDeclArray _ _ varDeclId) = getVarDeclId varDeclId
 
 -- | Explicit initializer for a variable declaration.
 data VarInit x
-    = InitExp (XInitExp x) (XSP x) (Exp x)
-    | InitArray (XInitExp x) (XSP x) (ArrayInit x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
-type family XInitExp x
+    = InitExp (XVarInit x) (XSP x) (Exp x)
+    | InitArray (XVarInit x) (XSP x) (ArrayInit x)
+type family XVarInit x
 
 -- | A formal parameter in method declaration. The last parameter
 --   for a given declaration may be marked as variable arity,
 --   indicated by the boolean argument.
 data FormalParam x = FormalParam (XFormalParam x) (XSP x) [Modifier x] (Type x) Bool (VarDeclId x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XFormalParam x
 
 getFormalParamId :: FormalParam a -> Ident a
-getFormalParamId (FormalParam _ _ _ _ varDeclId) = getVarDeclId varDeclId
+getFormalParamId (FormalParam _ _ _ _ _ varDeclId) = getVarDeclId varDeclId
 
 -- | A method body is either a block of code that implements the method or simply a
 --   semicolon, indicating the lack of an implementation (modelled by 'Nothing').
 data MethodBody x = MethodBody (XMethodBody x) (XSP x) (Maybe (Block x))
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XMethodBody x
 
 -- | The first statement of a constructor body may be an explicit invocation of
 --   another constructor of the same class or of the direct superclass.
 data ConstructorBody x = ConstructorBody (XConstructorBody x) (XSP x) (Maybe (ExplConstrInv x)) [BlockStmt x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XConstructorBody x
 
 -- | An explicit constructor invocation invokes another constructor of the
@@ -216,7 +207,6 @@ data ExplConstrInv x
     = ThisInvoke         (XExplConstrInv x) (XSP x)         [NonWildTypeArgument x] [Argument x]
     | SuperInvoke        (XExplConstrInv x) (XSP x)         [NonWildTypeArgument x] [Argument x]
     | PrimarySuperInvoke (XExplConstrInv x) (XSP x) (Exp x) [NonWildTypeArgument x] [Argument x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XExplConstrInv x
 
 -- | A modifier specifying properties of a given declaration. In general only
@@ -246,11 +236,10 @@ data Modifier x
     | Opens   (XMod x) (XSP x) [Lock x]
     | Closes  (XMod x) (XSP x) [Lock x]
     | Expects (XMod x) (XSP x) [Lock x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XMod x
 
-isMethodStatic :: [Modifier a] -> Bool
-isMethodStatic ms = Static () `elem` removeAnnotationMany ms
+-- isMethodStatic :: (XMod -> a) -> [Modifier x] -> Bool
+-- isMethodStatic f ms = Static () ()  `elem` removeAnnotationMany ms
 
 -----------------------------------------------------------------------
 -- Statements
@@ -258,9 +247,7 @@ isMethodStatic ms = Static () `elem` removeAnnotationMany ms
 -- | A block is a sequence of statements, local class declarations
 --   and local variable declaration statements within braces.
 data Block x = Block (XBlock x) (XSP x) [BlockStmt x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XBlock x
-
 
 -- | A block statement is either a normal statement, a local
 --   class declaration or a local variable declaration.
@@ -273,7 +260,6 @@ data BlockStmt x
     | LocalLock (XBlockStm x) (XSP x) [Modifier x] (Ident x) [RefType x] (Maybe (LockProperties x))
 {-    | LocalPolicy [Modifier] Ident Policy
       | LocalActor [Modifier] Ident (Maybe VarInit) -}
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XBlockStm x
 
 
@@ -334,19 +320,16 @@ data Stmt x
 {-    -- A @when@ statement is a variant of @if@ that only tests whether locks are open.
     | WhenThen     Lock Stmt
     | WhenThenElse Lock Stmt Stmt    -}
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XStm x
 
 -- | If a value is thrown and the try statement has one or more catch clauses that can catch it, then control will be
 --   transferred to the first such catch clause.
 data Catch x = Catch (XCatch x) (XSP x) (FormalParam x) (Block x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XCatch x
 
 -- | A block of code labelled with a @case@ or @default@ within a @switch@ statement.
 data SwitchBlock x
     = SwitchBlock (XSwitchBlock x) (XSP x) (SwitchLabel x) [BlockStmt x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XSwitchBlock x
 
 -- | A label within a @switch@ statement.
@@ -354,21 +337,18 @@ data SwitchLabel x
     -- | The expression contained in the @case@ must be a 'Lit' or an @enum@ constant.
     = SwitchCase (XSwitchLabel x) (XSP x) (Exp x)
     | Default (XSwitchLabel x) (XSP x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XSwitchLabel x
 
 -- | Initialization code for a basic @for@ statement.
 data ForInit x
     = ForLocalVars (XForInit x) (XSP x) [Modifier x] (Type x) [VarDecl x]
     | ForInitExps (XForInit x) (XSP x) [Exp x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XForInit x
 
 -- | An exception type has to be a class type or a type variable.
 type ExceptionType x = RefType x -- restricted to ClassType or TypeVariable
 
 data ExceptionSpec x = ExceptionSpec (XExceptionSpec x) (XSP x) [Modifier x] (ExceptionType x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XExceptionSpec x
 
 
@@ -454,9 +434,8 @@ data Exp x
 
 -- Quasi-quotation
     | AntiQExp (XExp x) (XSP x) String
-
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XExp x
+
 -- | A literal denotes a fixed, unchanging value.
 data Literal  x
     = Int     (XLiteral x) (XSP x) Integer
@@ -467,8 +446,8 @@ data Literal  x
     | Char    (XLiteral x) (XSP x) Char
     | String  (XLiteral x) (XSP x) String
     | Null    (XLiteral x) (XSP x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XLiteral x
+
 -- | A binary infix operator.
 data Op x
     = Mult   (XOp x) (XSP x) | Div     (XOp x) (XSP x) | Rem    (XOp x) (XSP x)
@@ -478,7 +457,6 @@ data Op x
     | Equal  (XOp x) (XSP x) | NotEq   (XOp x) (XSP x) | And    (XOp x) (XSP x)
     | Or     (XOp x) (XSP x) | Xor     (XOp x) (XSP x) | CAnd   (XOp x) (XSP x)
     | COr    (XOp x) (XSP x) 
-  deriving   (Eq,Ord,Show,Typeable,Data,Functor)
 type family XOp x
 
 -- | An assignment operator.
@@ -491,7 +469,6 @@ data AssignOp x
     | RShiftA (XAssignOp x) (XSP x) | RRShiftA (XAssignOp x) (XSP x)
     | AndA    (XAssignOp x) (XSP x) | XorA     (XAssignOp x) (XSP x)
     | OrA     (XAssignOp x) (XSP x)
-  deriving    (Eq,Ord,Show,Typeable,Data,Functor)
 type family XAssignOp x
 
 -- | The left-hand side of an assignment expression. This operand may be a named variable, such as a local
@@ -501,12 +478,11 @@ data Lhs x
     = NameLhs (XLhs x) (XSP x)  (Name x)          -- ^ Assign to a variable
     | FieldLhs (XLhs x) (XSP x)  (FieldAccess x)  -- ^ Assign through a field access
     | ArrayLhs (XLhs x) (XSP x)  (ArrayIndex  x)  -- ^ Assign to an array
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XLhs x
+
 -- | Array access
 -- type families: XArrayIndex
 data ArrayIndex x = ArrayIndex (XArrayIndex x) (XSP x) (Exp x) (Exp x)    -- ^ Index into an array
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XArrayIndex x
 
 -- | A field access expression may access a field of an object or array, a reference to which is the value
@@ -515,7 +491,6 @@ data FieldAccess x
     = PrimaryFieldAccess (XFieldAccess x) (XSP x) (Exp x) (Ident x)     -- ^ Accessing a field of an object or array computed from an expression.
     | SuperFieldAccess   (XFieldAccess x) (XSP x) (Ident x)             -- ^ Accessing a field of the superclass.
     | ClassFieldAccess   (XFieldAccess x) (XSP x) (Name x) (Ident x)    -- ^ Accessing a (static) field of a named class.
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XFieldAccess x
 
 -- | A method invocation expression is used to invoke a class or instance method.
@@ -531,14 +506,13 @@ data MethodInvocation x
     | ClassMethodCall (XMethodInvocation x) (XSP x) (Name x) [NonWildTypeArgument x] (Ident x) [Argument x]
     -- | Invoking (XMethodInvocation x) (XSP x) method of (XMethodInvocation x) (XSP x) named type, giving arguments for any generic type parameters.
     | TypeMethodCall (XMethodInvocation x) (XSP x) (Name x) [NonWildTypeArgument x] (Ident x) [Argument x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XMethodInvocation x
+
 -- | An array initializer may be specified in a declaration, or as part of an array creation expression, creating an
 --   array and providing some initial values
 -- type families: XArrayInit
 data ArrayInit x
     = ArrayInit (XArrayInit x) [VarInit x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XArrayInit x
 
 -----------------------------------------------------------------------
@@ -548,7 +522,6 @@ data ReturnType x
     = VoidType (XReturnType x) (XSP x)
     | LockType (XReturnType x) (XSP x)
     | Type (XReturnType x) (XSP x) (Type x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XReturnType x
 
 -- | There are two kinds of types in the Java programming language: primitive types and reference types.
@@ -557,7 +530,6 @@ data Type x
     = PrimType (XType x) (XSP x) (PrimType x)
     | RefType (XType x) (XSP x) (RefType x)
     | AntiQType (XType x) (XSP x) String
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XType x
 
 -- | There are three kinds of reference types: class types, interface types, and array types.
@@ -569,7 +541,6 @@ data RefType x
     | TypeVariable (XRefType x) (XSP x) (Ident x)
     | ArrayType    (XRefType x) (XSP x) (Type x) [Maybe (Policy x)]
     -- ^ The second argument to ArrayType is the base type, and should not be an array type
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XRefType x
 
 -- | A class or interface type consists of a type declaration specifier,
@@ -577,7 +548,6 @@ type family XRefType x
 -- type families: XClassType
 data ClassType x
     = ClassType(XClassType x) (XSP x) (Name x) [TypeArgument x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XClassType x
 
 -- | Type arguments may be either reference types or wildcards.
@@ -585,7 +555,6 @@ type family XClassType x
 data TypeArgument x
     = Wildcard  (XTypeArgument x) (XSP x) (Maybe (WildcardBound x))
     | ActualArg (XTypeArgument x) (XSP x) (NonWildTypeArgument x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XTypeArgument x
 
 data NonWildTypeArgument x
@@ -593,7 +562,6 @@ data NonWildTypeArgument x
     | ActualType (XNonWildTypeArgument x) (XSP x) (RefType x)
     | ActualExp (XNonWildTypeArgument x) (XSP x) (Exp x)        -- Constrained to argExp
     | ActualLockState (XNonWildTypeArgument x) (XSP x) [Lock x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XNonWildTypeArgument x
 
 
@@ -602,7 +570,6 @@ type family XNonWildTypeArgument x
 data WildcardBound x
     = ExtendsBound (XWildcardBound x) (XSP x) (RefType x)
     | SuperBound (XWildcardBound x) (XSP x) (RefType x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XWildcardBound x
 
 -- | A primitive type is predefined by the Java programming language and named by its reserved keyword.
@@ -619,20 +586,24 @@ data PrimType  x
 -- Paragon
     | ActorT  (XPrimType x) (XSP x)
     | PolicyT (XPrimType x) (XSP x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XPrimType x
 
-aOfPrimType :: PrimType a -> a
-aOfPrimType (BooleanT x) = x
-aOfPrimType (ByteT x)    = x
-aOfPrimType (ShortT x)   = x
-aOfPrimType (IntT x)     = x
-aOfPrimType (LongT x)    = x
-aOfPrimType (CharT x)    = x
-aOfPrimType (FloatT x)   = x
-aOfPrimType (DoubleT x)  = x
-aOfPrimType (ActorT x)   = x
-aOfPrimType (PolicyT x)  = x
+
+aPrimType :: (XPrimType x -> a) -> PrimType x -> a
+aPrimType f (BooleanT x _) = f x
+
+
+-- aOfPrimType :: PrimType a -> a
+-- aOfPrimType (BooleanT x _) = x
+-- aOfPrimType (ByteT    x _) = x
+-- aOfPrimType (ShortT   x _) = x
+-- aOfPrimType (IntT     x _) = x
+-- aOfPrimType (LongT    x _) = x
+-- aOfPrimType (CharT    x _) = x
+-- aOfPrimType (FloatT   x _) = x
+-- aOfPrimType (DoubleT  x _) = x
+-- aOfPrimType (ActorT   x _) = x
+-- aOfPrimType (PolicyT  x _) = x
 
 -- | A class is generic if it declares one or more type variables. These type variables are known
 --   as the type parameters of the class.
@@ -643,7 +614,6 @@ data TypeParam x = TypeParam (XTypeParam x) (XSP x) (Ident x) [RefType x]
                  | ActorParam    (XTypeParam x) (XSP x) (RefType x) (Ident x)
                  | PolicyParam   (XTypeParam x) (XSP x) (Ident x)
                  | LockStateParam(XTypeParam x) (XSP x) (Ident x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XTypeParam x
 
 -----------------------------------------------------------------------
@@ -654,18 +624,15 @@ type Policy a = Exp a
 -- | A policy is a conjunction (set) of clauses, represented as a list.
 --data PolicyLit = PolicyLit [Clause Actor]
 -- type families : XPolicyExp
-data PolicyExp x = PolicyLit(XPolicyExp x) (XSP x)[Clause x]
-                 | PolicyOf (XPolicyExp x) (XSP x)(Ident x)
-                 | PolicyThis(XPolicyExp x) (XSP x)
-                 | PolicyTypeVar(XPolicyExp x) (XSP x) (Ident x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
+data PolicyExp x = PolicyLit     (XPolicyExp x) (XSP x)[Clause x]
+                 | PolicyOf      (XPolicyExp x) (XSP x) (Ident x)
+                 | PolicyThis    (XPolicyExp x) (XSP x)
+                 | PolicyTypeVar (XPolicyExp x) (XSP x) (Ident x)
 type family XPolicyExp x
-
 
 -- | A lock property is a potentially recursive policy with an atom head.
 -- type families: XLockProperties
 data LockProperties x = LockProperties (XLockProperties x) (XSP x) [LClause x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XLockProperties x
 
 -- HERE
@@ -673,24 +640,20 @@ type family XLockProperties x
 --   locks/atomic predicates that must be open/true.
 -- type families: XClause
 data Clause x = Clause (XClause x) (XSP x) [ClauseVarDecl x] (ClauseHead x) [Atom x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XClause x
 
 -- | type families : XClauseVarDecl
 data ClauseVarDecl x = ClauseVarDecl (XClauseVarDecl x) (XSP x) (RefType x) (Ident x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XClauseVarDecl x
 
 -- | type families : XClauseHead
 data ClauseHead x = ClauseDeclHead (XClauseHead x) (XSP x) (ClauseVarDecl x)
                   | ClauseVarHead (XClauseHead x) (XSP x) (Actor x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XClauseHead x
 
 -- | type families: XLClause
 data LClause x = LClause (XLClause x) (XSP x) [ClauseVarDecl x] (Atom x) [Atom x]
                | ConstraintClause (XLClause x) (XSP x) [ClauseVarDecl x] [Atom x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XLClause x
 
 -- | An actor variable, either forall-quantified within the current clause, or
@@ -698,73 +661,59 @@ type family XLClause x
 -- type families: XActor
 data Actor x = Actor (XActor x) (XSP x) (ActorName x)    -- ^ Free actor variables
              | Var   (XActor x) (XSP x) (Ident x)        -- ^ Quantified actor variables
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
+
 type family XActor x
+
 -- | Type families: XActorName
 data ActorName x
     = ActorName (XActorName x) (XSP x) (Name x)
     -- ^ A free actor variable
     | ActorTypeVar (XActorName x) (XSP x) (RefType x) (Ident x)
     -- ^ A free actor type parameter
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XActorName x
+
 
 -- | A lock is an atomic n-ary predicate.
 -- Type families: XAtom
 data Atom x = Atom (XAtom x) (XSP x) (Name x) [Actor x]
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XAtom x
+
 
 -- | Type families: XLock
 data Lock x = Lock (XLock x) (XSP x) (Name x) [ActorName x] | LockVar (XLock x) (XSP x) (Ident x)
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XLock x
 
 -----------------------------------------------------------------------
 -- Useful accessors
 
+
 importDeclName :: ImportDecl a -> Name a
-importDeclName (SingleTypeImport     _ n)   = n
-importDeclName (TypeImportOnDemand   _ n)   = n
-importDeclName (SingleStaticImport   _ n _) = n
-importDeclName (StaticImportOnDemand _ n)   = n
+importDeclName (SingleTypeImport   _  _ n)   = n
+importDeclName (TypeImportOnDemand _  _ n)   = n
+importDeclName (SingleStaticImport _  _ n _) = n
+importDeclName (StaticImportOnDemand _ _ n)   = n
 
 
 -----------------------------------------------------------------------
 -- Names and identifiers
 
--- | A single identifier.
+-- | A single identifier
 -- Type families: XIdent
 data Ident x = Ident (XIdent x) (XSP x) B.ByteString | AntiQIdent (XIdent x) (XSP x) String
-  deriving (Eq,Ord,Show,Typeable,Data,Functor)
 type family XIdent x
 
 -- | Extract actual identifier string from Ident wrapper type
 unIdent :: Ident a -> B.ByteString
-unIdent (Ident _ bs) = bs
-unIdent (AntiQIdent _ str) = panic (syntaxModule ++ ".unIdent")
+unIdent (Ident _ _ bs) = bs
+unIdent (AntiQIdent _ _ str) = panic (syntaxModule ++ ".unIdent")
             $ "AntiQIdent " ++ str
 
 -- | A name, i.e. a period-separated list of identifiers.
 -- type families : XName
-data Name x = Name (XName x) NameType (Maybe (Name x)) (Ident x)
+data Name x = Name (XName x) (XSP x)  NameType (Maybe (Name x)) (Ident x)
             | AntiQName (XName x) (XSP x) String
    -- Show removed to get more readable debug output
 type family XName x
-
-deriving instance Typeable (XName x) => Typeable (Name x)
-deriving instance Eq       (XName x) => Eq       (Name x)
-deriving instance Ord      (XName x) => Ord      (Name x)
-deriving instance Data     (XName x) => Data     (Name x)
--- Prints name as a simple string to be easier to read.
--- To get printout of the whole recursive name structure, comment this out and put
--- Show in the deriving clause.
-instance Show (Name a) where
-  show (Name _ _ nextBase (Ident _ iBase)) =
-    show (showInner nextBase ++ B.unpack iBase)
-    where
-      showInner Nothing = ""
-      showInner (Just (Name _ _ next (Ident _ i))) =  showInner next ++ B.unpack i ++ "."
 
 
 data NameType
@@ -835,18 +784,409 @@ mkIdent_ = mkIdent defaultPos
 -----------------------------------------------------------------------
 -- Annotations
 
-$(deriveAnnMany
-  [''CompilationUnit, ''PackageDecl, ''ImportDecl,
-   ''TypeDecl, ''ClassDecl, ''ClassBody, ''EnumBody, ''EnumConstant,
-   ''InterfaceDecl, ''InterfaceBody, ''Decl, ''MemberDecl,
-   ''VarDecl, ''VarDeclId, ''VarInit, ''ArrayInit,
-   ''FormalParam, ''MethodBody, ''ConstructorBody, ''ExplConstrInv,
-   ''Modifier, ''Block, ''BlockStmt, ''Stmt,
-   ''Catch, ''SwitchBlock, ''SwitchLabel, ''ForInit, ''ExceptionSpec,
-   ''Exp, ''Literal, ''Op, ''AssignOp, ''Lhs,
-   ''ArrayIndex, ''FieldAccess, ''MethodInvocation,
-   ''Type, ''PrimType, ''RefType, ''ClassType, ''ReturnType,
-   ''TypeArgument, ''NonWildTypeArgument, ''WildcardBound, ''TypeParam,
-   ''PolicyExp, ''LockProperties, ''Clause, ''LClause,
-   ''ClauseVarDecl, ''ClauseHead,
-   ''Actor, ''ActorName, ''Atom, ''Lock, ''Ident, ''Name])
+-- $(deriveAnnMany
+--   [''CompilationUnit, ''PackageDecl, ''ImportDecl,
+--    ''TypeDecl, ''ClassDecl, ''ClassBody, ''EnumBody, ''EnumConstant,
+--    ''InterfaceDecl, ''InterfaceBody, ''Decl, ''MemberDecl,
+--    ''VarDecl, ''VarDeclId, ''VarInit, ''ArrayInit,
+--    ''FormalParam, ''MethodBody, ''ConstructorBody, ''ExplConstrInv,
+--    ''Modifier, ''Block, ''BlockStmt, ''Stmt,
+--    ''Catch, ''SwitchBlock, ''SwitchLabel, ''ForInit, ''ExceptionSpec,
+--    ''Exp, ''Literal, ''Op, ''AssignOp, ''Lhs,
+--    ''ArrayIndex, ''FieldAccess, ''MethodInvocation,
+--    ''Type, ''PrimType, ''RefType, ''ClassType, ''ReturnType,
+--    ''TypeArgument, ''NonWildTypeArgument, ''WildcardBound, ''TypeParam,
+--    ''PolicyExp, ''LockProperties, ''Clause, ''LClause,
+--    ''ClauseVarDecl, ''ClauseHead,
+--    ''Actor, ''ActorName, ''Atom, ''Lock, ''Ident, ''Name])
+
+----------------------------------
+-- INSTANCES
+
+type ForallXFamilies (f :: * -> Constraint) x =
+  (
+	f(XSP x), f(XCompilationUnit x), f(XPackageDecl x), f(XImportDecl x),
+	f(XImportDecl x), f(XTypeDecl x), f(XClassDecl x), f(XClassBody x),
+        f(XEnumBody x), f(XEnumConstant x), f(XInterfaceDecl x),
+        f(XInterfaceBody x), f(XDecl x), f(XMemberDecl x), f(XVarDecl x),
+        f(XVarDeclId x), f(XFormalParam x), f(XMethodBody x),
+        f(XConstructorBody x), f(XExplConstrInv x), f(XMod x), f(XBlock x),
+        f(XBlockStm x),	f(XStm x), f(XCatch x), f(XSwitchBlock x),
+        f(XSwitchBlock x), f(XSwitchLabel x), f(XForInit x),
+        f(XExceptionSpec x), f(XExp x), f(XLiteral x), f(XOp x),
+	f(XAssignOp x), f(XLhs x), f(XArrayIndex x), f(XFieldAccess x), f(XMethodInvocation x),
+	f(XArrayInit x), f(XReturnType x), f(XType x), f(XRefType x), f(XClassType x), f(XTypeArgument x),
+	f(XNonWildTypeArgument x), f(XWildcardBound x), f(XPrimType x), f(XTypeParam x), f(XPolicyExp x),
+	f(XLockProperties x), f(XClause x), f(XClauseVarDecl x), f(XClauseHead x), f(XLClause x), f(XActor x),
+	f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XName x), f(XVarDecl x), f(XVarInit x)
+
+  )
+
+type ForallIncData (f :: * -> Constraint) x = (ForallXFamilies f x, Data x, Typeable x)
+
+deriving instance ForallXFamilies Show x => Show (CompilationUnit x)
+deriving instance ForallXFamilies Show x => Show (PackageDecl x)
+deriving instance ForallXFamilies Show x => Show (ImportDecl x)
+deriving instance ForallXFamilies Show x => Show (TypeDecl x)
+deriving instance ForallXFamilies Show x => Show (ClassDecl x)
+deriving instance ForallXFamilies Show x => Show (ClassBody x)
+deriving instance ForallXFamilies Show x => Show (EnumBody x)
+deriving instance ForallXFamilies Show x => Show (EnumConstant x)
+deriving instance ForallXFamilies Show x => Show (InterfaceDecl x)
+deriving instance ForallXFamilies Show x => Show (InterfaceBody x)
+deriving instance ForallXFamilies Show x => Show (Decl x)
+deriving instance ForallXFamilies Show x => Show (MemberDecl x)
+deriving instance ForallXFamilies Show x => Show (VarDecl x)
+deriving instance ForallXFamilies Show x => Show (VarDeclId x)
+deriving instance ForallXFamilies Show x => Show (VarInit x)
+deriving instance ForallXFamilies Show x => Show (FormalParam x)
+deriving instance ForallXFamilies Show x => Show (MethodBody x)
+deriving instance ForallXFamilies Show x => Show (ConstructorBody x)
+deriving instance ForallXFamilies Show x => Show (ExplConstrInv x)
+deriving instance ForallXFamilies Show x => Show (Modifier x)
+deriving instance ForallXFamilies Show x => Show (Block x)
+deriving instance ForallXFamilies Show x => Show (BlockStmt x)
+deriving instance ForallXFamilies Show x => Show (Stmt x)
+deriving instance ForallXFamilies Show x => Show (Catch x)
+deriving instance ForallXFamilies Show x => Show (SwitchBlock x)
+deriving instance ForallXFamilies Show x => Show (SwitchLabel x)
+deriving instance ForallXFamilies Show x => Show (ForInit x)
+deriving instance ForallXFamilies Show x => Show (ExceptionSpec x)
+deriving instance ForallXFamilies Show x => Show (Exp x)
+deriving instance ForallXFamilies Show x => Show (Literal x)
+deriving instance ForallXFamilies Show x => Show (Op x)
+deriving instance ForallXFamilies Show x => Show (AssignOp x)
+deriving instance ForallXFamilies Show x => Show (Lhs x)
+deriving instance ForallXFamilies Show x => Show (ArrayIndex x)
+deriving instance ForallXFamilies Show x => Show (FieldAccess x)
+deriving instance ForallXFamilies Show x => Show (MethodInvocation x)
+deriving instance ForallXFamilies Show x => Show (ArrayInit x)
+deriving instance ForallXFamilies Show x => Show (ReturnType x)
+deriving instance ForallXFamilies Show x => Show (Type x)
+deriving instance ForallXFamilies Show x => Show (RefType x)
+deriving instance ForallXFamilies Show x => Show (ClassType x)
+deriving instance ForallXFamilies Show x => Show (TypeArgument x)
+deriving instance ForallXFamilies Show x => Show (NonWildTypeArgument x)
+deriving instance ForallXFamilies Show x => Show (WildcardBound x)
+deriving instance ForallXFamilies Show x => Show (PrimType x)
+deriving instance ForallXFamilies Show x => Show (TypeParam x)
+deriving instance ForallXFamilies Show x => Show (PolicyExp x)
+deriving instance ForallXFamilies Show x => Show (LockProperties x)
+deriving instance ForallXFamilies Show x => Show (Clause x)
+deriving instance ForallXFamilies Show x => Show (ClauseVarDecl x)
+deriving instance ForallXFamilies Show x => Show (ClauseHead x)
+deriving instance ForallXFamilies Show x => Show (LClause x)
+deriving instance ForallXFamilies Show x => Show (Actor x)
+deriving instance ForallXFamilies Show x => Show (ActorName x)
+deriving instance ForallXFamilies Show x => Show (Atom x)
+deriving instance ForallXFamilies Show x => Show (Lock x)
+deriving instance ForallXFamilies Show x => Show (Ident x)
+
+
+
+deriving instance ForallXFamilies Eq x => Eq (CompilationUnit x)
+deriving instance ForallXFamilies Eq x => Eq (PackageDecl x)
+deriving instance ForallXFamilies Eq x => Eq (ImportDecl x)
+deriving instance ForallXFamilies Eq x => Eq (TypeDecl x)
+deriving instance ForallXFamilies Eq x => Eq (ClassDecl x)
+deriving instance ForallXFamilies Eq x => Eq (ClassBody x)
+deriving instance ForallXFamilies Eq x => Eq (EnumBody x)
+deriving instance ForallXFamilies Eq x => Eq (EnumConstant x)
+deriving instance ForallXFamilies Eq x => Eq (InterfaceDecl x)
+deriving instance ForallXFamilies Eq x => Eq (InterfaceBody x)
+deriving instance ForallXFamilies Eq x => Eq (Decl x)
+deriving instance ForallXFamilies Eq x => Eq (MemberDecl x)
+deriving instance ForallXFamilies Eq x => Eq (VarDecl x)
+deriving instance ForallXFamilies Eq x => Eq (VarDeclId x)
+deriving instance ForallXFamilies Eq x => Eq (VarInit x)
+deriving instance ForallXFamilies Eq x => Eq (FormalParam x)
+deriving instance ForallXFamilies Eq x => Eq (MethodBody x)
+deriving instance ForallXFamilies Eq x => Eq (ConstructorBody x)
+deriving instance ForallXFamilies Eq x => Eq (ExplConstrInv x)
+deriving instance ForallXFamilies Eq x => Eq (Modifier x)
+deriving instance ForallXFamilies Eq x => Eq (Block x)
+deriving instance ForallXFamilies Eq x => Eq (BlockStmt x)
+deriving instance ForallXFamilies Eq x => Eq (Stmt x)
+deriving instance ForallXFamilies Eq x => Eq (Catch x)
+deriving instance ForallXFamilies Eq x => Eq (SwitchBlock x)
+deriving instance ForallXFamilies Eq x => Eq (SwitchLabel x)
+deriving instance ForallXFamilies Eq x => Eq (ForInit x)
+deriving instance ForallXFamilies Eq x => Eq (ExceptionSpec x)
+deriving instance ForallXFamilies Eq x => Eq (Exp x)
+deriving instance ForallXFamilies Eq x => Eq (Literal x)
+deriving instance ForallXFamilies Eq x => Eq (Op x)
+deriving instance ForallXFamilies Eq x => Eq (AssignOp x)
+deriving instance ForallXFamilies Eq x => Eq (Lhs x)
+deriving instance ForallXFamilies Eq x => Eq (ArrayIndex x)
+deriving instance ForallXFamilies Eq x => Eq (FieldAccess x)
+deriving instance ForallXFamilies Eq x => Eq (MethodInvocation x)
+deriving instance ForallXFamilies Eq x => Eq (ArrayInit x)
+deriving instance ForallXFamilies Eq x => Eq (ReturnType x)
+deriving instance ForallXFamilies Eq x => Eq (Type x)
+deriving instance ForallXFamilies Eq x => Eq (RefType x)
+deriving instance ForallXFamilies Eq x => Eq (ClassType x)
+deriving instance ForallXFamilies Eq x => Eq (TypeArgument x)
+deriving instance ForallXFamilies Eq x => Eq (NonWildTypeArgument x)
+deriving instance ForallXFamilies Eq x => Eq (WildcardBound x)
+deriving instance ForallXFamilies Eq x => Eq (PrimType x)
+deriving instance ForallXFamilies Eq x => Eq (TypeParam x)
+deriving instance ForallXFamilies Eq x => Eq (PolicyExp x)
+deriving instance ForallXFamilies Eq x => Eq (LockProperties x)
+deriving instance ForallXFamilies Eq x => Eq (Clause x)
+deriving instance ForallXFamilies Eq x => Eq (ClauseVarDecl x)
+deriving instance ForallXFamilies Eq x => Eq (ClauseHead x)
+deriving instance ForallXFamilies Eq x => Eq (LClause x)
+deriving instance ForallXFamilies Eq x => Eq (Actor x)
+deriving instance ForallXFamilies Eq x => Eq (ActorName x)
+deriving instance ForallXFamilies Eq x => Eq (Atom x)
+deriving instance ForallXFamilies Eq x => Eq (Lock x)
+deriving instance ForallXFamilies Eq x => Eq (Ident x)
+deriving instance ForallXFamilies Eq x => Eq (Name x)
+
+deriving instance ForallXFamilies Ord x => Ord (CompilationUnit x)
+deriving instance ForallXFamilies Ord x => Ord (PackageDecl x)
+deriving instance ForallXFamilies Ord x => Ord (ImportDecl x)
+deriving instance ForallXFamilies Ord x => Ord (TypeDecl x)
+deriving instance ForallXFamilies Ord x => Ord (ClassDecl x)
+deriving instance ForallXFamilies Ord x => Ord (ClassBody x)
+deriving instance ForallXFamilies Ord x => Ord (EnumBody x)
+deriving instance ForallXFamilies Ord x => Ord (EnumConstant x)
+deriving instance ForallXFamilies Ord x => Ord (InterfaceDecl x)
+deriving instance ForallXFamilies Ord x => Ord (InterfaceBody x)
+deriving instance ForallXFamilies Ord x => Ord (Decl x)
+deriving instance ForallXFamilies Ord x => Ord (MemberDecl x)
+deriving instance ForallXFamilies Ord x => Ord (VarDecl x)
+deriving instance ForallXFamilies Ord x => Ord (VarDeclId x)
+deriving instance ForallXFamilies Ord x => Ord (VarInit x)
+deriving instance ForallXFamilies Ord x => Ord (FormalParam x)
+deriving instance ForallXFamilies Ord x => Ord (MethodBody x)
+deriving instance ForallXFamilies Ord x => Ord (ConstructorBody x)
+deriving instance ForallXFamilies Ord x => Ord (ExplConstrInv x)
+deriving instance ForallXFamilies Ord x => Ord (Modifier x)
+deriving instance ForallXFamilies Ord x => Ord (Block x)
+deriving instance ForallXFamilies Ord x => Ord (BlockStmt x)
+deriving instance ForallXFamilies Ord x => Ord (Stmt x)
+deriving instance ForallXFamilies Ord x => Ord (Catch x)
+deriving instance ForallXFamilies Ord x => Ord (SwitchBlock x)
+deriving instance ForallXFamilies Ord x => Ord (SwitchLabel x)
+deriving instance ForallXFamilies Ord x => Ord (ForInit x)
+deriving instance ForallXFamilies Ord x => Ord (ExceptionSpec x)
+deriving instance ForallXFamilies Ord x => Ord (Exp x)
+deriving instance ForallXFamilies Ord x => Ord (Literal x)
+deriving instance ForallXFamilies Ord x => Ord (Op x)
+deriving instance ForallXFamilies Ord x => Ord (AssignOp x)
+deriving instance ForallXFamilies Ord x => Ord (Lhs x)
+deriving instance ForallXFamilies Ord x => Ord (ArrayIndex x)
+deriving instance ForallXFamilies Ord x => Ord (FieldAccess x)
+deriving instance ForallXFamilies Ord x => Ord (MethodInvocation x)
+deriving instance ForallXFamilies Ord x => Ord (ArrayInit x)
+deriving instance ForallXFamilies Ord x => Ord (ReturnType x)
+deriving instance ForallXFamilies Ord x => Ord (Type x)
+deriving instance ForallXFamilies Ord x => Ord (RefType x)
+deriving instance ForallXFamilies Ord x => Ord (ClassType x)
+deriving instance ForallXFamilies Ord x => Ord (TypeArgument x)
+deriving instance ForallXFamilies Ord x => Ord (NonWildTypeArgument x)
+deriving instance ForallXFamilies Ord x => Ord (WildcardBound x)
+deriving instance ForallXFamilies Ord x => Ord (PrimType x)
+deriving instance ForallXFamilies Ord x => Ord (TypeParam x)
+deriving instance ForallXFamilies Ord x => Ord (PolicyExp x)
+deriving instance ForallXFamilies Ord x => Ord (LockProperties x)
+deriving instance ForallXFamilies Ord x => Ord (Clause x)
+deriving instance ForallXFamilies Ord x => Ord (ClauseVarDecl x)
+deriving instance ForallXFamilies Ord x => Ord (ClauseHead x)
+deriving instance ForallXFamilies Ord x => Ord (LClause x)
+deriving instance ForallXFamilies Ord x => Ord (Actor x)
+deriving instance ForallXFamilies Ord x => Ord (ActorName x)
+deriving instance ForallXFamilies Ord x => Ord (Atom x)
+deriving instance ForallXFamilies Ord x => Ord (Lock x)
+deriving instance ForallXFamilies Ord x => Ord (Ident x)
+deriving instance ForallXFamilies Ord x => Ord (Name x)
+
+deriving instance ForallIncData Data x => Data (CompilationUnit x)
+deriving instance ForallIncData Data x => Data (PackageDecl x)
+deriving instance ForallIncData Data x => Data (ImportDecl x)
+deriving instance ForallIncData Data x => Data (TypeDecl x)
+deriving instance ForallIncData Data x => Data (ClassDecl x)
+deriving instance ForallIncData Data x => Data (ClassBody x)
+deriving instance ForallIncData Data x => Data (EnumBody x)
+deriving instance ForallIncData Data x => Data (EnumConstant x)
+deriving instance ForallIncData Data x => Data (InterfaceDecl x)
+deriving instance ForallIncData Data x => Data (InterfaceBody x)
+deriving instance ForallIncData Data x => Data (Decl x)
+deriving instance ForallIncData Data x => Data (MemberDecl x)
+deriving instance ForallIncData Data x => Data (VarDecl x)
+deriving instance ForallIncData Data x => Data (VarDeclId x)
+deriving instance ForallIncData Data x => Data (VarInit x)
+deriving instance ForallIncData Data x => Data (FormalParam x)
+deriving instance ForallIncData Data x => Data (MethodBody x)
+deriving instance ForallIncData Data x => Data (ConstructorBody x)
+deriving instance ForallIncData Data x => Data (ExplConstrInv x)
+deriving instance ForallIncData Data x => Data (Modifier x)
+deriving instance ForallIncData Data x => Data (Block x)
+deriving instance ForallIncData Data x => Data (BlockStmt x)
+deriving instance ForallIncData Data x => Data (Stmt x)
+deriving instance ForallIncData Data x => Data (Catch x)
+deriving instance ForallIncData Data x => Data (SwitchBlock x)
+deriving instance ForallIncData Data x => Data (SwitchLabel x)
+deriving instance ForallIncData Data x => Data (ForInit x)
+deriving instance ForallIncData Data x => Data (ExceptionSpec x)
+deriving instance ForallIncData Data x => Data (Exp x)
+deriving instance ForallIncData Data x => Data (Literal x)
+deriving instance ForallIncData Data x => Data (Op x)
+deriving instance ForallIncData Data x => Data (AssignOp x)
+deriving instance ForallIncData Data x => Data (Lhs x)
+deriving instance ForallIncData Data x => Data (ArrayIndex x)
+deriving instance ForallIncData Data x => Data (FieldAccess x)
+deriving instance ForallIncData Data x => Data (MethodInvocation x)
+deriving instance ForallIncData Data x => Data (ArrayInit x)
+deriving instance ForallIncData Data x => Data (ReturnType x)
+deriving instance ForallIncData Data x => Data (Type x)
+deriving instance ForallIncData Data x => Data (RefType x)
+deriving instance ForallIncData Data x => Data (ClassType x)
+deriving instance ForallIncData Data x => Data (TypeArgument x)
+deriving instance ForallIncData Data x => Data (NonWildTypeArgument x)
+deriving instance ForallIncData Data x => Data (WildcardBound x)
+deriving instance ForallIncData Data x => Data (PrimType x)
+deriving instance ForallIncData Data x => Data (TypeParam x)
+deriving instance ForallIncData Data x => Data (PolicyExp x)
+deriving instance ForallIncData Data x => Data (LockProperties x)
+deriving instance ForallIncData Data x => Data (Clause x)
+deriving instance ForallIncData Data x => Data (ClauseVarDecl x)
+deriving instance ForallIncData Data x => Data (ClauseHead x)
+deriving instance ForallIncData Data x => Data (LClause x)
+deriving instance ForallIncData Data x => Data (Actor x)
+deriving instance ForallIncData Data x => Data (ActorName x)
+deriving instance ForallIncData Data x => Data (Atom x)
+deriving instance ForallIncData Data x => Data (Lock x)
+deriving instance ForallIncData Data x => Data (Ident x)
+deriving instance ForallIncData Data x => Data (Name x)
+
+
+deriving instance ForallIncData Typeable x => Typeable (CompilationUnit x)
+deriving instance ForallIncData Typeable x => Typeable (PackageDecl x)
+deriving instance ForallIncData Typeable x => Typeable (ImportDecl x)
+deriving instance ForallIncData Typeable x => Typeable (TypeDecl x)
+deriving instance ForallIncData Typeable x => Typeable (ClassDecl x)
+deriving instance ForallIncData Typeable x => Typeable (ClassBody x)
+deriving instance ForallIncData Typeable x => Typeable (EnumBody x)
+deriving instance ForallIncData Typeable x => Typeable (EnumConstant x)
+deriving instance ForallIncData Typeable x => Typeable (InterfaceDecl x)
+deriving instance ForallIncData Typeable x => Typeable (InterfaceBody x)
+deriving instance ForallIncData Typeable x => Typeable (Decl x)
+deriving instance ForallIncData Typeable x => Typeable (MemberDecl x)
+deriving instance ForallIncData Typeable x => Typeable (VarDecl x)
+deriving instance ForallIncData Typeable x => Typeable (VarDeclId x)
+deriving instance ForallIncData Typeable x => Typeable (VarInit x)
+deriving instance ForallIncData Typeable x => Typeable (FormalParam x)
+deriving instance ForallIncData Typeable x => Typeable (MethodBody x)
+deriving instance ForallIncData Typeable x => Typeable (ConstructorBody x)
+deriving instance ForallIncData Typeable x => Typeable (ExplConstrInv x)
+deriving instance ForallIncData Typeable x => Typeable (Modifier x)
+deriving instance ForallIncData Typeable x => Typeable (Block x)
+deriving instance ForallIncData Typeable x => Typeable (BlockStmt x)
+deriving instance ForallIncData Typeable x => Typeable (Stmt x)
+deriving instance ForallIncData Typeable x => Typeable (Catch x)
+deriving instance ForallIncData Typeable x => Typeable (SwitchBlock x)
+deriving instance ForallIncData Typeable x => Typeable (SwitchLabel x)
+deriving instance ForallIncData Typeable x => Typeable (ForInit x)
+deriving instance ForallIncData Typeable x => Typeable (ExceptionSpec x)
+deriving instance ForallIncData Typeable x => Typeable (Exp x)
+deriving instance ForallIncData Typeable x => Typeable (Literal x)
+deriving instance ForallIncData Typeable x => Typeable (Op x)
+deriving instance ForallIncData Typeable x => Typeable (AssignOp x)
+deriving instance ForallIncData Typeable x => Typeable (Lhs x)
+deriving instance ForallIncData Typeable x => Typeable (ArrayIndex x)
+deriving instance ForallIncData Typeable x => Typeable (FieldAccess x)
+deriving instance ForallIncData Typeable x => Typeable (MethodInvocation x)
+deriving instance ForallIncData Typeable x => Typeable (ArrayInit x)
+deriving instance ForallIncData Typeable x => Typeable (ReturnType x)
+deriving instance ForallIncData Typeable x => Typeable (Type x)
+deriving instance ForallIncData Typeable x => Typeable (RefType x)
+deriving instance ForallIncData Typeable x => Typeable (ClassType x)
+deriving instance ForallIncData Typeable x => Typeable (TypeArgument x)
+deriving instance ForallIncData Typeable x => Typeable (NonWildTypeArgument x)
+deriving instance ForallIncData Typeable x => Typeable (WildcardBound x)
+deriving instance ForallIncData Typeable x => Typeable (PrimType x)
+deriving instance ForallIncData Typeable x => Typeable (TypeParam x)
+deriving instance ForallIncData Typeable x => Typeable (PolicyExp x)
+deriving instance ForallIncData Typeable x => Typeable (LockProperties x)
+deriving instance ForallIncData Typeable x => Typeable (Clause x)
+deriving instance ForallIncData Typeable x => Typeable (ClauseVarDecl x)
+deriving instance ForallIncData Typeable x => Typeable (ClauseHead x)
+deriving instance ForallIncData Typeable x => Typeable (LClause x)
+deriving instance ForallIncData Typeable x => Typeable (Actor x)
+deriving instance ForallIncData Typeable x => Typeable (ActorName x)
+deriving instance ForallIncData Typeable x => Typeable (Atom x)
+deriving instance ForallIncData Typeable x => Typeable (Lock x)
+deriving instance ForallIncData Typeable x => Typeable (Ident x)
+deriving instance ForallIncData Typeable x => Typeable (Name x)
+
+
+-- deriving instance ForallIncData Functor x => Functor (CompilationUnit x)
+-- deriving instance ForallIncData Functor x => Functor (PackageDecl x)
+-- deriving instance ForallIncData Functor x => Functor (ImportDecl x)
+-- deriving instance ForallIncData Functor x => Functor (TypeDecl x)
+-- deriving instance ForallIncData Functor x => Functor (ClassDecl x)
+-- deriving instance ForallIncData Functor x => Functor (ClassBody x)
+-- deriving instance ForallIncData Functor x => Functor (EnumBody x)
+-- deriving instance ForallIncData Functor x => Functor (EnumConstant x)
+-- deriving instance ForallIncData Functor x => Functor (InterfaceDecl x)
+-- deriving instance ForallIncData Functor x => Functor (InterfaceBody x)
+-- deriving instance ForallIncData Functor x => Functor (Decl x)
+-- deriving instance ForallIncData Functor x => Functor (MemberDecl x)
+-- deriving instance ForallIncData Functor x => Functor (VarDecl x)
+-- deriving instance ForallIncData Functor x => Functor (VarDeclId x)
+-- deriving instance ForallIncData Functor x => Functor (VarInit x)
+-- deriving instance ForallIncData Functor x => Functor (FormalParam x)
+-- deriving instance ForallIncData Functor x => Functor (MethodBody x)
+-- deriving instance ForallIncData Functor x => Functor (ConstructorBody x)
+-- deriving instance ForallIncData Functor x => Functor (ExplConstrInv x)
+-- deriving instance ForallIncData Functor x => Functor (Modifier x)
+-- deriving instance ForallIncData Functor x => Functor (Block x)
+-- deriving instance ForallIncData Functor x => Functor (BlockStmt x)
+-- deriving instance ForallIncData Functor x => Functor (Stmt x)
+-- deriving instance ForallIncData Functor x => Functor (Catch x)
+-- deriving instance ForallIncData Functor x => Functor (SwitchBlock x)
+-- deriving instance ForallIncData Functor x => Functor (SwitchLabel x)
+-- deriving instance ForallIncData Functor x => Functor (ForInit x)
+-- deriving instance ForallIncData Functor x => Functor (ExceptionSpec x)
+-- deriving instance ForallIncData Functor x => Functor (Exp x)
+-- deriving instance ForallIncData Functor x => Functor (Literal x)
+-- deriving instance ForallIncData Functor x => Functor (Op x)
+-- deriving instance ForallIncData Functor x => Functor (AssignOp x)
+-- deriving instance ForallIncData Functor x => Functor (Lhs x)
+-- deriving instance ForallIncData Functor x => Functor (ArrayIndex x)
+-- deriving instance ForallIncData Functor x => Functor (FieldAccess x)
+-- deriving instance ForallIncData Functor x => Functor (MethodInvocation x)
+-- deriving instance ForallIncData Functor x => Functor (ArrayInit x)
+-- deriving instance ForallIncData Functor x => Functor (ReturnType x)
+-- deriving instance ForallIncData Functor x => Functor (Type x)
+-- deriving instance ForallIncData Functor x => Functor (RefType x)
+-- deriving instance ForallIncData Functor x => Functor (ClassType x)
+-- deriving instance ForallIncData Functor x => Functor (TypeArgument x)
+-- deriving instance ForallIncData Functor x => Functor (NonWildTypeArgument x)
+-- deriving instance ForallIncData Functor x => Functor (WildcardBound x)
+-- deriving instance ForallIncData Functor x => Functor (PrimType x)
+-- deriving instance ForallIncData Functor x => Functor (TypeParam x)
+-- deriving instance ForallIncData Functor x => Functor (PolicyExp x)
+-- deriving instance ForallIncData Functor x => Functor (LockProperties x)
+-- deriving instance ForallIncData Functor x => Functor (Clause x)
+-- deriving instance ForallIncData Functor x => Functor (ClauseVarDecl x)
+-- deriving instance ForallIncData Functor x => Functor (ClauseHead x)
+-- deriving instance ForallIncData Functor x => Functor (LClause x)
+-- deriving instance ForallIncData Functor x => Functor (Actor x)
+-- deriving instance ForallIncData Functor x => Functor (ActorName x)
+-- deriving instance ForallIncData Functor x => Functor (Atom x)
+-- deriving instance ForallIncData Functor x => Functor (Lock x)
+-- deriving instance ForallIncData Functor x => Functor (Ident x)
+-- deriving instance ForallIncData Functor x => Functor (Name )
+
+--  Prints name as a simple string to be easier to read.
+-- To get printout of the whole recursive name structure, comment this out and put
+-- Show in the deriving clause.
+instance Show (Name a) where
+  show (Name _ _ nextBase (Ident _ _ iBase)) =
+    show (showInner nextBase ++ B.unpack iBase)
+    where
+      showInner Nothing = ""
+      showInner (Just (Name _ _ next (Ident _ _ i))) =  showInner next ++ B.unpack i ++ "."
