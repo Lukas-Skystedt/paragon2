@@ -26,6 +26,7 @@ import Language.Java.Paragon.Monad.PiReader
 import Language.Java.Paragon.SourcePos
 
 import Control.Monad
+import qualified Control.Monad.Fail as Fail
 import qualified Data.Map as Map
 import qualified Data.ByteString.Char8 as B
 
@@ -34,6 +35,9 @@ import qualified Data.ByteString.Char8 as B
 -- contains the list of resolved names in scope
 newtype NameRes a = NameRes { runNameRes :: Name SourcePos -> Expansion -> PiReader a }
 
+instance Fail.MonadFail NameRes where
+  fail = liftPR . fail
+
 instance Monad NameRes where
   return = liftPR . return
   NameRes f >>= k = NameRes $ \n e -> do
@@ -41,7 +45,6 @@ instance Monad NameRes where
                          let NameRes g = k a
                           in g n e
 
-  fail = liftPR . fail
 
 instance MonadPR NameRes where
   liftPR pr = NameRes $ \_ _ -> pr

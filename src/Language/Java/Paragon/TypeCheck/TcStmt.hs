@@ -462,8 +462,8 @@ tcLocalVars pV tyV fin (vd@(VarDecl _ (VarId _ i) Nothing):vds) acc cont = do
   debugPrint $ "\n####    " ++ prettyPrint vd ++ "    ####\n"
   _styV <- registerStateType i tyV True Nothing
   extendVarEnv (unIdent i) (VSig tyV pV False False fin False) $ do
-  addBranchPC (varE (mkSimpleName EName i)) $ do
-    tcLocalVars pV tyV fin vds (notAppl vd : acc) cont
+    addBranchPC (varE (mkSimpleName EName i)) $ do
+      tcLocalVars pV tyV fin vds (notAppl vd : acc) cont
 
 -- Rule LOCALVARINIT (Exp)
 tcLocalVars pV tyV fin (vd0@(VarDecl _sp (VarId _ i) (Just (InitExp spE e))):vds) acc cont = do
