@@ -30,6 +30,12 @@ import Text.ParserCombinators.Parsec as PS (errorPos)
 import Text.ParserCombinators.Parsec.Error (messageString, errorMessages)
 import System.Console.GetOpt
 
+import Language.Java.Paragon.NewTypeCheck as NTc
+import Language.Java.Paragon.PolicyTypeEval
+import Language.Java.Paragon.LockStateEval
+import Language.Java.Paragon.PolicyConstraintGen
+import Language.Java.Paragon.PolicyConstraintSolver
+
 -- | Main method, invokes the compiler
 main :: IO ()
 main = do
@@ -168,10 +174,17 @@ compile flags filePath = do
            ast <- liftEitherMB . convertParseToErr $ parser compilationUnit fc
            raiseErrors
            detailPrint "Parsing complete!"
+
            -- Name resolution
            ast1 <- resolveNames pDirs ast
            raiseErrors
            detailPrint "Name resolution complete!"
+
+           -- Placeholder for the new 5-phase pipeline
+           ast2 <- NTc.typeCheck ast1
+           ast3 <- evalPolicyTypes ast2
+           ast4 <- evalLockState ast3
+           solvePolicyConstraints undefined
 
            debugPrint $ prettyPrint ast1
            -- Type check
