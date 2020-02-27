@@ -14,8 +14,9 @@ module Language.Java.Paragon.Monad.PiReader
 
     ) where
 
-import Language.Java.Paragon.Syntax (Name(..), NameType(..), CompilationUnit, Ident(..))
-import Language.Java.Paragon.Pretty (prettyPrint)
+import Language.Java.Paragon.SyntaxTTG (Name(..), NameType(..), CompilationUnit, Ident(..))
+import Language.Java.Paragon.Decorations (Pa)
+-- import Language.Java.Paragon.Pretty (prettyPrint)
 import Language.Java.Paragon.Parser (parser, compilationUnit)
 import Language.Java.Paragon.SourcePos (SourcePos)
 import Language.Java.Paragon.Interaction
@@ -33,6 +34,9 @@ import qualified Control.Monad.Fail as Fail
 
 piReaderModule :: String
 piReaderModule = libraryBase ++ ".Monad.PiReader"
+
+-- TODO remove this temporary prettyPrint placeholder
+prettyPrint = error "prettyPrint placeholder evaluated."
 
 type PiPath = [FilePath] -- Should be a choice of many different
 
@@ -165,13 +169,13 @@ getPiPathContents = do
 
 -- |Find and parse .pi file for given AST name
 -- Note: If more than 1 corresponding file in path, the first is selected
-getTypeContents :: MonadPR m => Name a -> m (CompilationUnit SourcePos)
+getTypeContents :: MonadPR m => Name a -> m (CompilationUnit Pa)
 getTypeContents n = liftPR $ do
   let path = tNameToFile n
   piPath <- getPiPath
   findFirstPi path piPath
 
-      where findFirstPi :: FilePath -> [FilePath] -> PiReader (CompilationUnit SourcePos)
+      where findFirstPi :: FilePath -> [FilePath] -> PiReader (CompilationUnit Pa)
             findFirstPi _ [] = panic (piReaderModule ++ ".getTypeContents")
                                ("No such type exists - doesTypeExist not called successfully: "
                                 ++ show n)
@@ -208,17 +212,17 @@ filterPkgIdentsM dir files = liftIO $ do
 
 -- |Convert AST package name representation to file path to package directory
 pNameToDir :: Name a -> FilePath
-pNameToDir (Name _ PName mPre (Ident _ str)) =
+pNameToDir (Name _ _ PName mPre (Ident _ _ str)) =
     let pf = case mPre of
                Nothing -> id
                Just pre -> let fp = pNameToDir pre in (fp </>)
     in pf (B.unpack str)
-pNameToDir (Name _ TName _ _) = fail "Inner types not supported"
+pNameToDir (Name _ _ TName _ _) = fail "Inner types not supported"
 pNameToDir n = panic (piReaderModule ++ ".pNameToDir") $ show n
 
 -- |Convert AST type name representation to file path to actual .pi file
 tNameToFile :: Name a -> FilePath
-tNameToFile (Name _ TName mPre (Ident _ str)) =
+tNameToFile (Name _ _ TName mPre (Ident _ _ str)) =
     let pf = case mPre of
                Nothing -> id
                Just pre -> let fp = pNameToDir pre in (fp </>)

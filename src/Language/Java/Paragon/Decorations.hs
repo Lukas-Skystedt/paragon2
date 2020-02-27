@@ -202,7 +202,7 @@ pattern PSwitchBlock sp sl bs = SwitchBlock () sp sl bs
 
 pattern PSwitchCase sp e = SwitchCase () sp e
 pattern PDefault sp = Default () sp
- 
+
 pattern PForLocalVars sp mod t vd = ForLocalVars () sp mod t vd
 pattern PForInitExps sp e = ForInitExps () sp e
 
@@ -368,7 +368,7 @@ pattern PLockVar sp id = LockVar () sp id
 
 pattern PIdent sp bs = Ident () sp bs
 
-  
+
 -- AntiQStuff
 pattern PAntiQIdent sp s = AntiQIdent () sp s
 pattern PAntiQName  sp s = AntiQName  () sp s
@@ -738,130 +738,346 @@ type instance XIdent               PCG = PcgPlaceHolder
 data PCS
 type PcsPlaceHolder = ()
 
-type instance XSP                  PCS = SourcePos
-type instance XCompilationUnit     PCS = PcsPlaceHolder
-type instance XPackageDecl         PCS = PcsPlaceHolder
-type instance XImportDecl          PCS = PcsPlaceHolder
-type instance XTypeDecl            PCS = PcsPlaceHolder
-type instance XClassDecl           PCS = PcsPlaceHolder
-type instance XClassBody           PCS = PcsPlaceHolder
-type instance XEnumBody            PCS = PcsPlaceHolder
-type instance XEnumConstant        PCS = PcsPlaceHolder
-type instance XInterfaceDecl       PCS = PcsPlaceHolder
-type instance XInterfaceBody       PCS = PcsPlaceHolder
-type instance XDecl                PCS = PcsPlaceHolder
-type instance XMemberDecl          PCS = PcsPlaceHolder
-type instance XVarDecl             PCS = PcsPlaceHolder
-type instance XVarDeclId           PCS = PcsPlaceHolder
--- type instance XInitExp             PCS = PcsPlaceHolder
-type instance XFormalParam         PCS = PcsPlaceHolder
-type instance XMethodBody          PCS = PcsPlaceHolder
-type instance XConstructorBody     PCS = PcsPlaceHolder
-type instance XExplConstrInv       PCS = PcsPlaceHolder
-type instance XMod                 PCS = PcsPlaceHolder
-type instance XBlock               PCS = PcsPlaceHolder
-type instance XBlockStm            PCS = PcsPlaceHolder
-type instance XStm                 PCS = PcsPlaceHolder
-type instance XCatch               PCS = PcsPlaceHolder
-type instance XSwitchBlock         PCS = PcsPlaceHolder
-type instance XSwitchLabel         PCS = PcsPlaceHolder
-type instance XForInit             PCS = PcsPlaceHolder
-type instance XExceptionSpec       PCS = PcsPlaceHolder
-type instance XExp                 PCS = PcsPlaceHolder
-type instance XLiteral             PCS = PcsPlaceHolder
-type instance XOp                  PCS = PcsPlaceHolder
-type instance XAssignOp            PCS = PcsPlaceHolder
-type instance XLhs                 PCS = PcsPlaceHolder
-type instance XArrayIndex          PCS = PcsPlaceHolder
-type instance XFieldAccess         PCS = PcsPlaceHolder
-type instance XMethodInvocation    PCS = PcsPlaceHolder
-type instance XArrayInit           PCS = PcsPlaceHolder
-type instance XReturnType          PCS = PcsPlaceHolder
-type instance XType                PCS = PcsPlaceHolder
-type instance XRefType             PCS = PcsPlaceHolder
-type instance XClassType           PCS = PcsPlaceHolder
-type instance XTypeArgument        PCS = PcsPlaceHolder
-type instance XNonWildTypeArgument PCS = PcsPlaceHolder
-type instance XWildcardBound       PCS = PcsPlaceHolder
-type instance XPrimType            PCS = PcsPlaceHolder
-type instance XTypeParam           PCS = PcsPlaceHolder
-type instance XPolicyExp           PCS = PcsPlaceHolder
-type instance XLockProperties      PCS = PcsPlaceHolder
-type instance XClause              PCS = PcsPlaceHolder
-type instance XClauseVarDecl       PCS = PcsPlaceHolder
-type instance XClauseHead          PCS = PcsPlaceHolder
-type instance XLClause             PCS = PcsPlaceHolder
-type instance XActor               PCS = PcsPlaceHolder
-type instance XActorName           PCS = PcsPlaceHolder
-type instance XAtom                PCS = PcsPlaceHolder
-type instance XLock                PCS = PcsPlaceHolder
-type instance XIdent               PCS = PcsPlaceHolder
+type instance XSP                  PCS = NoFieldExt
+type instance XCompilationUnit     PCS = NoFieldExt
+type instance XPackageDecl         PCS = NoFieldExt
+type instance XImportDecl          PCS = NoFieldExt
+type instance XTypeDecl            PCS = NoFieldExt
+type instance XClassDecl           PCS = NoFieldExt
+type instance XClassBody           PCS = NoFieldExt
+type instance XEnumBody            PCS = NoFieldExt
+type instance XEnumConstant        PCS = NoFieldExt
+type instance XInterfaceDecl       PCS = NoFieldExt
+type instance XInterfaceBody       PCS = NoFieldExt
+type instance XDecl                PCS = NoFieldExt
+type instance XMemberDecl          PCS = NoFieldExt
+type instance XVarDecl             PCS = NoFieldExt
+type instance XVarDeclId           PCS = NoFieldExt
+type instance XFormalParam         PCS = NoFieldExt
+type instance XMethodBody          PCS = NoFieldExt
+type instance XConstructorBody     PCS = NoFieldExt
+type instance XExplConstrInv       PCS = NoFieldExt
+type instance XMod                 PCS = NoFieldExt
+type instance XBlock               PCS = NoFieldExt
+type instance XBlockStm            PCS = NoFieldExt
+type instance XStm                 PCS = NoFieldExt
+type instance XCatch               PCS = NoFieldExt
+type instance XSwitchBlock         PCS = NoFieldExt
+type instance XSwitchLabel         PCS = NoFieldExt
+type instance XForInit             PCS = NoFieldExt
+type instance XExceptionSpec       PCS = NoFieldExt
+type instance XExp                 PCS = NoFieldExt
+type instance XLiteral             PCS = NoFieldExt
+type instance XOp                  PCS = NoFieldExt
+type instance XAssignOp            PCS = NoFieldExt
+type instance XLhs                 PCS = NoFieldExt
+type instance XArrayIndex          PCS = NoFieldExt
+type instance XFieldAccess         PCS = NoFieldExt
+type instance XMethodInvocation    PCS = NoFieldExt
+type instance XArrayInit           PCS = NoFieldExt
+type instance XReturnType          PCS = NoFieldExt
+type instance XType                PCS = NoFieldExt
+type instance XRefType             PCS = NoFieldExt
+type instance XClassType           PCS = NoFieldExt
+type instance XTypeArgument        PCS = NoFieldExt
+type instance XNonWildTypeArgument PCS = NoFieldExt
+type instance XWildcardBound       PCS = NoFieldExt
+type instance XPrimType            PCS = NoFieldExt
+type instance XTypeParam           PCS = NoFieldExt
+type instance XPolicyExp           PCS = NoFieldExt
+type instance XLockProperties      PCS = NoFieldExt
+type instance XClause              PCS = NoFieldExt
+type instance XClauseVarDecl       PCS = NoFieldExt
+type instance XClauseHead          PCS = NoFieldExt
+type instance XLClause             PCS = NoFieldExt
+type instance XActor               PCS = NoFieldExt
+type instance XActorName           PCS = NoFieldExt
+type instance XAtom                PCS = NoFieldExt
+type instance XLock                PCS = NoFieldExt
+type instance XIdent               PCS = NoFieldExt
+
+pattern PcsTypeParam id re = TypeParam () () id re
+
+pattern PcsCompilationUnit mpd id td = CompilationUnit () () mpd id td
+
+pattern PcsPackageDecl n = PackageDecl () () n
+
+pattern PcsSingleTypeImport n = SingleTypeImport () () n
+pattern PcsTypeImportOnDemand n = TypeImportOnDemand () () n
+pattern PcsSingleStaticImport n id = SingleStaticImport () () n id
+pattern PcsStaticImportOnDemand n = StaticImportOnDemand () () n
 
 
--- Unit instances (hack-solution?)
+pattern PcsClassTypeDecl cl = ClassTypeDecl () () cl
+pattern PcsInterfaceTypeDecl id = InterfaceTypeDecl () () id
+
+pattern PcsClassDecl mod id tp mct ct cb = ClassDecl () () mod id tp mct ct cb
+pattern PcsEnumDecl mod id ct eb = EnumDecl () () mod id ct eb
+
+pattern PcsClassBody d = ClassBody () () d
+
+pattern PcsEnumBody ec d = EnumBody () () ec d
+
+pattern PcsEnumConstant id arg mcb = EnumConstant () () id arg mcb
+
+
+pattern PcsInterfaceDecl mod id tp ct ib = InterfaceDecl () () mod id tp ct ib
+
+pattern PcsInterfaceBody md = InterfaceBody () () md
+
+pattern PcsMemberDecl md = MemberDecl () () md
+pattern PcsInitDecl b bl = InitDecl () () b bl
+
+pattern PcsFieldDecl mod t vd = FieldDecl () () mod t vd
+pattern PcsMethodDecl mod tp rt id fp es mb = MethodDecl () () mod tp rt id fp es mb
+pattern PcsConstructorDecl mod tp id fp es cb = ConstructorDecl () () mod tp id fp es cb
+pattern PcsMemberClassDecl cd = MemberClassDecl () () cd
+pattern PcsMemberInterfaceDecl id = MemberInterfaceDecl () () id
+pattern PcsLockDecl mod id rt mlp = LockDecl () () mod id rt mlp
+
+
+pattern PcsVarDecl vdi mvi = VarDecl () () vdi mvi
+
+pattern PcsVarId id = VarId () () id
+pattern PcsVarDeclArray vdi = VarDeclArray () () vdi
+
+pattern PcsInitExp ex = InitExp () () ex
+pattern PcsInitArray ai = InitArray () () ai
+
+pattern PcsFormalParam mod t b vdi = FormalParam () () mod t b vdi
+
+pattern PcsMethodBody mb = MethodBody () () mb
+
+pattern PcsConstructorBody meci bs = ConstructorBody () () meci bs
+
+pattern PcsThisInvoke nwta a = ThisInvoke () () nwta a
+pattern PcsSuperInvoke nwta a = SuperInvoke () () nwta a
+pattern PcsPrimarySuperInvoke e nwta a = PrimarySuperInvoke () () e nwta a
+
+
+pattern PcsPublic = Public () ()
+pattern PcsPrivate = Private () ()
+pattern PcsProtected = Protected () ()
+pattern PcsAbstract = Abstract () ()
+pattern PcsFinal = Final () ()
+pattern PcsStatic = Static () ()
+pattern PcsStrictFP = StrictFP () ()
+pattern PcsTransient = Transient () ()
+pattern PcsVolatile = Volatile () ()
+pattern PcsNative = Native () ()
+
+pattern PcsTypemethod = Typemethod () ()
+pattern PcsReflexive = Reflexive () ()
+pattern PcsTransitive = Transitive () ()
+pattern PcsSymmetric = Symmetric () ()
+pattern PcsReadonly = Readonly () ()
+pattern PcsNotnull = Notnull () ()
+
+pattern PcsReads p = Reads () () p
+pattern PcsWrites p = Writes () () p
+pattern PcsOpens l = Opens () () l
+pattern PcsCloses l = Closes () () l
+pattern PcsExpects l = Expects () () l
+
+pattern PcsBlock bs = Block () () bs
+
+pattern PcsBlockStmt st = BlockStmt () () st
+pattern PcsLocalClass cd = LocalClass () () cd
+pattern PcsLocalVars mod t vd = LocalVars () () mod t vd
+pattern PcsLocalLock mod id rt mlp = LocalLock () () mod id rt mlp
+
+pattern PcsStmtBlock b = StmtBlock () () b
+pattern PcsIfThen e s = IfThen () () e s
+pattern PcsIfThenElse e s1 s2 = IfThenElse () () e s1 s2
+pattern PcsWhile e s = While () () e s
+pattern PcsBasicFor mfi me mes st = BasicFor () () mfi me mes st
+pattern PcsEnhancedFor mod t id e st = EnhancedFor () () mod t id e st
+pattern PcsEmpty = Empty () ()
+pattern PcsExpStmt e = ExpStmt () () e
+pattern PcsAssert e me = Assert () () e me
+pattern PcsSwitch e sb = Switch () () e sb
+pattern PcsDo s e = Do () () s e
+pattern PcsBreak mid = Break () () mid
+pattern PcsContinue mid = Continue () () mid
+pattern PcsReturn me = Return () () me
+pattern PcsSynchronized e b = Synchronized () () e b
+pattern PcsThrow e = Throw () () e
+pattern PcsTry b c mb = Try () () b c mb
+pattern PcsLabeled id s = Labeled () () id s
+pattern PcsOpen l = Open () () l
+pattern PcsClose l = Close () () l
+pattern PcsOpenBlock l b = OpenBlock () () l b
+pattern PcsCloseBlock l b = CloseBlock () () l b
+
+pattern PcsCatch fp b = Catch () () fp b
+
+pattern PcsSwitchBlock sl bs = SwitchBlock () () sl bs
+
+pattern PcsSwitchCase e = SwitchCase () () e
+pattern PcsDefault = Default () ()
+
+pattern PcsForLocalVars mod t vd = ForLocalVars () () mod t vd
+pattern PcsForInitExps e = ForInitExps () () e
+
+pattern PcsExceptionSpec mod et = ExceptionSpec () () mod et
+
+pattern PcsLit l = Lit () () l
+pattern PcsClassLit mt = ClassLit () () mt
+pattern PcsThis = This () ()
+pattern PcsThisClass n = ThisClass () () n
+pattern PcsParen e = Paren () () e
+pattern PcsInstanceCreation ta ct a mcb = InstanceCreation () () ta ct a mcb
+pattern PcsQualInstanceCreation e ta id a mcb = QualInstanceCreation () () e ta id a mcb
+pattern PcsArrayCreate t emp mp = ArrayCreate () () t emp mp
+pattern PcsArrayCreateInit t mp ai = ArrayCreateInit () () t mp ai
+pattern PcsFieldAccess fa = FieldAccess () () fa
+pattern PcsMethodInv mi = MethodInv () () mi
+pattern PcsArrayAccess ai = ArrayAccess () () ai
+pattern PcsExpName n = ExpName () () n
+pattern PcsPostIncrement e = PostIncrement () () e
+pattern PcsPostDecrement e = PostDecrement () () e
+pattern PcsPreIncrement e = PreIncrement () () e
+pattern PcsPreDecrement e = PreDecrement () () e
+pattern PcsPrePlus e = PrePlus () () e
+pattern PcsPreMinus e = PreMinus () () e
+pattern PcsPreBitCompl e = PreBitCompl () () e
+pattern PcsPreNot e = PreNot () () e
+pattern PcsCast t e = Cast () () t e
+pattern PcsBinOp e1 o e2 = BinOp () () e1 o e2
+pattern PcsInstanceOf e rt = InstanceOf () () e rt
+pattern PcsCond e1 e2 e3 = Cond () () e1 e2 e3
+pattern PcsAssign l ao e = Assign () () l ao e
+pattern PcsPolicyExp pe = PolicyExp () () pe
+pattern PcsLockExp l = LockExp () () l
+
+pattern PcsInt i = Int () () i
+pattern PcsWord i = Word () () i
+pattern PcsFloat d = Float () () d
+pattern PcsDouble d = Double () () d
+pattern PcsBoolean b = Boolean () () b
+pattern PcsChar c = Char () () c
+pattern PcsString s = String () () s
+pattern PcsNull = Null () ()
+
+pattern PcsMult = Mult () ()
+pattern PcsDiv = Div () ()
+pattern PcsRem = Rem () ()
+pattern PcsAdd = Add () ()
+pattern PcsSub = Sub () ()
+pattern PcsLShift = LShift () ()
+pattern PcsRShift = RShift () ()
+pattern PcsRRShift = RRShift () ()
+pattern PcsLThan = LThan () ()
+pattern PcsGThan = GThan () ()
+pattern PcsLThanE = LThanE () ()
+pattern PcsGThanE = GThanE () ()
+pattern PcsEqual = Equal () ()
+pattern PcsNotEq = NotEq () ()
+pattern PcsAnd = And () ()
+pattern PcsOr = Or () ()
+pattern PcsXor = Xor () ()
+pattern PcsCAnd = CAnd () ()
+pattern PcsCOr = COr () ()
+
+pattern PcsEqualA = EqualA () ()
+pattern PcsMultA = MultA () ()
+pattern PcsDivA = DivA () ()
+pattern PcsRemA = RemA () ()
+pattern PcsAddA = AddA () ()
+pattern PcsSubA = SubA () ()
+pattern PcsLShiftA = LShiftA () ()
+pattern PcsRShiftA = RShiftA () ()
+pattern PcsRRShiftA = RRShiftA () ()
+pattern PcsAndA = AndA () ()
+pattern PcsXorA = XorA () ()
+pattern PcsOrA = OrA () ()
+
+pattern PcsNameLhs n = NameLhs () () n
+pattern PcsFieldLhs fa = FieldLhs () () fa
+pattern PcsArrayLhs ai = ArrayLhs () () ai
+
+pattern PcsArrayIndex e1 e2 = ArrayIndex () () e1 e2
+
+pattern PcsPrimaryFieldAccess e id = PrimaryFieldAccess () () e id
+pattern PcsSuperFieldAccess id = SuperFieldAccess () () id
+pattern PcsClassFieldAccess n id = ClassFieldAccess () () n id
+
+pattern PcsMethodCallOrLockQuery n a = MethodCallOrLockQuery () () n a
+pattern PcsPrimaryMethodCall e nwta id a = PrimaryMethodCall () () e nwta id a
+pattern PcsSuperMethodCall nwta id a = SuperMethodCall () () nwta id a
+pattern PcsClassMethodCall n nwta id a = ClassMethodCall () () n nwta id a
+pattern PcsTypeMethodCall n nwta i a = TypeMethodCall () () n nwta i a
+
+pattern PcsArrayInit vi = ArrayInit () () vi
+
+pattern PcsVoidType = VoidType () ()
+pattern PcsLockType = LockType () ()
+pattern PcsType t = Type () () t
+
+pattern PcsPrimType pt = PrimType () () pt
+pattern PcsRefType rt = RefType () () rt
+
+pattern PcsClassRefType ct = ClassRefType () () ct
+pattern PcsTypeVariable id = TypeVariable () () id
+pattern PcsArrayType t mp = ArrayType () () t mp
+
+pattern PcsClassType n ta = ClassType () () n ta
+
+pattern PcsWildcard mwb = Wildcard () () mwb
+pattern PcsActualArg nwta = ActualArg () () nwta
+
+pattern PcsActualName n = ActualName () () n
+pattern PcsActualType rt = ActualType () () rt
+pattern PcsActualExp e = ActualExp () () e
+pattern PcsActualLockState l = ActualLockState () () l
+
+pattern PcsExtendsBound rt = ExtendsBound () () rt
+pattern PcsSuperBound rt = SuperBound () () rt
+
+pattern PcsBooleanT = BooleanT () ()
+pattern PcsByteT = ByteT () ()
+pattern PcsShortT = ShortT () ()
+pattern PcsIntT = IntT () ()
+pattern PcsLongT = LongT () ()
+pattern PcsCharT = CharT () ()
+pattern PcsFloatT = FloatT () ()
+pattern PcsDoubleT = DoubleT () ()
+pattern PcsActorT = ActorT () ()
+pattern PcsPolicyT = PolicyT () ()
+
+pattern PcsActorParam rt id = ActorParam () () rt id
+pattern PcsPolicyParam id = PolicyParam () () id
+pattern PcsLockStateParam id = LockStateParam () () id
+
+pattern PcsPolicyLit c = PolicyLit () () c
+pattern PcsPolicyOf id = PolicyOf () () id
+pattern PcsPolicyThis = PolicyThis () ()
+pattern PcsPolicyTypeVar id = PolicyTypeVar () () id
+
+pattern PcsLockProperties lc = LockProperties () () lc
+
+pattern PcsClause cvd ch a = Clause () () cvd ch a
+
+pattern PcsClauseVarDecl rt i = ClauseVarDecl () () rt i
+
+pattern PcsClauseDeclHead cvd = ClauseDeclHead () () cvd
+pattern PcsClauseVarHead a = ClauseVarHead () () a
+
+pattern PcsLClause cvd a1 a2 = LClause () () cvd a1 a2
+pattern PcsConstraintClause cvd a = ConstraintClause () () cvd a
+
+pattern PcsActor an = Actor () () an
+pattern PcsVar id = Var () () id
+
+pattern PcsActorName n = ActorName () () n
+pattern PcsActorTypeVar rt id = ActorTypeVar () () rt id
+
+pattern PcsAtom n a = Atom () () n a
+
+pattern PcsLock n an = Lock () () n an
+pattern PcsLockVar id = LockVar () () id
+
+pattern PcsIdent bs = Ident () () bs
+
 type instance XSP () = ()
 type instance XOp () = ()
-
-
---------------------------------------------------------------------------------
--- Since the new Syntax file does not compile, the type families are replicated
--- here for now.
---------------------------------------------------------------------------------
--- type family XSP                  x
--- type family XCompilationUnit     x
--- type family XPackageDecl         x
--- type family XImportDecl          x
--- type family XTypeDecl            x
--- type family XClassDecl           x
--- type family XClassBody           x
--- type family XEnumBody            x
--- type family XEnumConstant        x
--- type family XInterfaceDecl       x
--- type family XInterfaceBody       x
--- type family XDecl                x
--- type family XMemberDecl          x
--- type family XVarDecl             x
--- type family XVarDeclId           x
--- type family XInitExp             x
--- type family XFormalParam         x
--- type family XMethodBody          x
--- type family XConstructorBody     x
--- type family XExplConstrInv       x
--- type family XMod                 x
--- type family XBlock               x
--- type family XBlockStm            x
--- type family XStm                 x
--- type family XCatch               x
--- type family XSwitchBlock         x
--- type family XSwitchLabel         x
--- type family XForInit             x
--- type family XExceptionSpec       x
--- type family XExp                 x
--- type family XLiteral             x
--- type family XOp                  x
--- type family XAssignOp            x
--- type family XLhs                 x
--- type family XArrayIndex          x
--- type family XFieldAccess         x
--- type family XMethodInvocation    x
--- type family XArrayInit           x
--- type family XReturnType          x
--- type family XType                x
--- type family XRefType             x
--- type family XClassType           x
--- type family XTypeArgument        x
--- type family XNonWildTypeArgument x
--- type family XWildcardBound       x
--- type family XPrimType            x
--- type family XTypeParam           x
--- type family XPolicyExp           x
--- type family XLockProperties      x
--- type family XClause              x
--- type family XClauseVarDecl       x
--- type family XClauseHead          x
--- type family XLClause             x
--- type family XActor               x
--- type family XActorName           x
--- type family XAtom                x
--- type family XLock                x
--- type family XIdent               x
