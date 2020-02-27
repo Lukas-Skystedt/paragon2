@@ -20,11 +20,12 @@ where
 
 import Data.Data
 
-import Language.Java.Paragon.Annotated
+
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos
 import GHC.Types (Constraint)
 import qualified Data.ByteString.Char8 as B
+
 
 syntaxModule :: String
 syntaxModule = libraryBase ++ ".Syntax"
@@ -33,6 +34,11 @@ syntaxModule = libraryBase ++ ".Syntax"
 -----------------------------------------------------------------------
 -- Packages
 type family XSP x
+
+-- Removed import Annotated atm, adding an error implementation
+-- for ann
+
+ann = error "Phasing out Annotatated"
 
 -- | A compilation unit is the top level syntactic goal symbol of a Java program
 -- This usually corresponds to a single .java source file that may start with
@@ -712,10 +718,10 @@ unIdent (AntiQIdent _ _ str) = panic (syntaxModule ++ ".unIdent")
 
 -- | A name, i.e. a period-separated list of identifiers.
 -- type families : XName
-data Name a = Name a NameType (Maybe (Name a)) (Ident a)
-            | AntiQName a String
+data Name x = Name (XName x) (XSP x) NameType (Maybe (Name x)) (Ident x)
+            | AntiQName (XName x) (XSP x) String
    -- Show removed to get more readable debug output
-
+type family XName x
 data NameType
     = EName    -- ^Expression name
     | MName    -- ^Method name
@@ -729,59 +735,64 @@ data NameType
   deriving (Eq,Ord,Show,Typeable,Data)
 
 nameType :: Name a -> NameType
-nameType (Name _ nt _ _) = nt
+nameType (Name _ _ nt _ _) = nt
 nameType _ = panic (syntaxModule ++ ".nameType")
                    "AntiQName"
 
 setNameType :: NameType -> Name a -> Name a
-setNameType nt (Name a _ mPre i) = Name a nt mPre i
+setNameType nt (Name a sp _ mPre i) = Name a sp nt mPre i
 setNameType _ n = n
 
-mkSimpleName :: NameType -> Ident a -> Name a
-mkSimpleName nt i = Name (ann i) nt Nothing i
+-- Changed, see Syntax.hs for old impl.
+mkSimpleName :: XSP a -> NameType -> Ident a -> Name a
+mkSimpleName sp nt i =  Name (ann i) sp nt Nothing i
 
-mkUniformName :: (a -> a -> a) -- Merge annotations
+mkUniformName :: (XName a -> XName a -> XName a) -> XSP a -- Merge annotations
               -> NameType -> [Ident a] -> Name a
-mkUniformName f nt ids = mkName' (reverse ids)
+mkUniformName f sp nt ids = mkName' (reverse ids)
     where mkName' [] = panic (syntaxModule ++ ".mkUniformName")
                              "Empty list of idents"
-          mkName' [i] = Name (ann i) nt Nothing i
+          mkName' [i] = Name (ann i) sp nt Nothing i
           mkName' (i:is) =
               let pre = mkName' is
                   a = f (ann pre) (ann i)
-              in Name a nt (Just pre) i
-
-mkUniformName_ :: NameType -> [Ident a] -> Name a
+              in Name a sp nt (Just pre) i
+-- Changed, see Syntax.hs for old impl.
+mkUniformName_ :: XSP a -> NameType -> [Ident a] -> Name a
 mkUniformName_ = mkUniformName const
 
-mkName :: (a -> a -> a) -- Merge annotations
+mkName :: (XName a -> XName a -> XName a) -> XSP a -- Merge annotations
        -> NameType -> NameType -> [Ident a] -> Name a
-mkName f nt ntPre ids = mkName' (reverse ids)
+mkName f sp nt ntPre ids = mkName' (reverse ids)
     where mkName' [] = panic (syntaxModule ++ ".mkName")
                              "Empty list of idents"
-          mkName' [i] = Name (ann i) nt Nothing i
+          mkName' [i] = Name (ann i) sp nt Nothing i
           mkName' (i:is) =
-              let pre = mkUniformName f ntPre (reverse is)
+              let pre = mkUniformName f sp ntPre (reverse is)
                   a = f (ann pre) (ann i)
-              in Name a nt (Just pre) i
+              in Name a sp nt (Just pre) i
 
-mkName_ :: NameType -> NameType -> [Ident a] -> Name a
+mkName_ :: XSP a -> NameType -> NameType -> [Ident a] -> Name a
 mkName_ = mkName const
 
 flattenName :: Name a -> [Ident a]
 flattenName n = reverse $ flName n
-    where flName (Name _ _ mPre i) = i : maybe [] flName mPre
+    where flName (Name _ _ _ mPre i) = i : maybe [] flName mPre
 
           flName AntiQName{} = panic (syntaxModule ++ ".flattenName")
                                      "Cannot flatten name anti-quote"
 
 temp = error "The temp variable used for the old Name type was evaluated."
 
-mkIdent :: a -> String -> Ident a
-mkIdent a = Ident a . B.pack
 
-mkIdent_ :: String -> Ident SourcePos
-mkIdent_ = mkIdent defaultPos
+-- These will probably not be used anymore, commented out for now
+-------------------------------------------------------
+-- mkIdent :: XIdent a -> XSP a -> String -> Ident a --
+-- mkIdent a sp = Ident a sp . B.pack                --
+--                                                   --
+-- mkIdent_ :: XIdent a -> String -> Ident a         --
+-- mkIdent_ a = mkIdent a defaultPos                 --
+-------------------------------------------------------
 
 -----------------------------------------------------------------------
 -- Annotations
@@ -816,14 +827,15 @@ type ForallXFamilies (f :: * -> Constraint) x =
         f(XBlockStm x),	f(XStm x), f(XCatch x), f(XSwitchBlock x),
         f(XSwitchBlock x), f(XSwitchLabel x), f(XForInit x),
         f(XExceptionSpec x), f(XExp x), f(XLiteral x), f(XOp x),
-	f(XAssignOp x), f(XLhs x), f(XArrayIndex x), f(XFieldAccess x), f(XMethodInvocation x),
-	f(XArrayInit x), f(XReturnType x), f(XType x), f(XRefType x), f(XClassType x), f(XTypeArgument x),
-	f(XNonWildTypeArgument x), f(XWildcardBound x), f(XPrimType x), f(XTypeParam x), f(XPolicyExp x),
-	f(XLockProperties x), f(XClause x), f(XClauseVarDecl x), f(XClauseHead x), f(XLClause x), f(XActor x),
-	f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XVarDecl x), f(XVarInit x)
-
+	f(XAssignOp x), f(XLhs x), f(XArrayIndex x), f(XFieldAccess x),
+        f(XMethodInvocation x),	f(XArrayInit x), f(XReturnType x), f(XType x),
+        f(XRefType x), f(XClassType x), f(XTypeArgument x),
+        f(XNonWildTypeArgument x), f(XWildcardBound x), f(XPrimType x),
+        f(XTypeParam x), f(XPolicyExp x), f(XLockProperties x), f(XClause x),
+        f(XClauseVarDecl x), f(XClauseHead x), f(XLClause x), f(XActor x),
+	f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XVarDecl x),
+        f(XVarInit x), f (XName x)
   )
-
 type ForallIncData (f :: * -> Constraint) x = (ForallXFamilies f x, Data x, Typeable x)
 
 deriving instance ForallXFamilies Show x => Show (CompilationUnit x)
@@ -1187,8 +1199,8 @@ deriving instance ForallIncData Typeable x => Typeable (Name x)
 -- To get printout of the whole recursive name structure, comment this out and put
 -- Show in the deriving clause.
 instance Show (Name a) where
-  show (Name _ _ nextBase (Ident _ _ iBase)) =
+  show (Name _ _ _ nextBase (Ident _ _ iBase)) =
     show (showInner nextBase ++ B.unpack iBase)
     where
       showInner Nothing = ""
-      showInner (Just (Name _ _ next (Ident _ _ i))) =  showInner next ++ B.unpack i ++ "."
+      showInner (Just (Name _ _ _ next (Ident _ _ i))) =  showInner next ++ B.unpack i ++ "."

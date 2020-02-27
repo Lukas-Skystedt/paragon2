@@ -1,10 +1,13 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# Language TemplateHaskell#-}
 module Language.Java.Paragon.Decorations where
 import Language.Java.Paragon.SourcePos
 import Language.Java.Paragon.TypesTTG
 import Language.Java.Paragon.SyntaxTTG
 import Data.Void
+import Data.Data
 -- import Language.Java.Paragon.SyntaxTTG
 
 -- | Data type for when an extension field is not used. (As in Trees That Grow)
@@ -15,7 +18,7 @@ type NoConExt = Void
 --------------------------------------------------------------------------------
 -- Parser
 --------------------------------------------------------------------------------
-data Pa
+data Pa deriving Data
 
 type instance XSP                  Pa = SourcePos
 type instance XCompilationUnit     Pa = NoFieldExt
@@ -32,6 +35,7 @@ type instance XDecl                Pa = NoFieldExt
 type instance XMemberDecl          Pa = NoFieldExt
 type instance XVarDecl             Pa = NoFieldExt
 type instance XVarDeclId           Pa = NoFieldExt
+type instance XVarInit             Pa = NoFieldExt
 -- type instance XInitExp             Pa = NoFieldExt
 type instance XFormalParam         Pa = NoFieldExt
 type instance XMethodBody          Pa = NoFieldExt
@@ -233,34 +237,34 @@ pattern PAssign sp l ao e = Assign () sp l ao e
 pattern PPolicyExp sp pe = PolicyExp () sp pe
 pattern PLockExp sp l = LockExp () sp l
 
-pattern PInt sp i = Int () sp i
-pattern PWord sp i = Word () sp i
-pattern PFloat sp d = Float () sp d
-pattern PDouble sp d = Double () sp d
-pattern PBoolean sp b = Boolean () sp b
-pattern PChar sp c = Char () sp c
-pattern PString sp s = String () sp s
-pattern PNull sp = Null () sp
 
-pattern PMult sp = Mult () sp
-pattern PDiv sp = Div () sp
-pattern PRem sp = Rem () sp
-pattern PAdd sp = Add () sp
-pattern PSub sp = Sub () sp
-pattern PLShift sp = LShift () sp
-pattern PRShift sp = RShift () sp
-pattern PRRShift sp = RRShift () sp
-pattern PLThan sp = LThan () sp
-pattern PGThan sp = GThan () sp
-pattern PLThanE sp = LThanE () sp
-pattern PGThanE sp = GThanE () sp
-pattern PEqual sp = Equal () sp
-pattern PNotEq sp = NotEq () sp
-pattern PAnd sp = And () sp
-pattern POr sp = Or () sp
-pattern PXor sp = Xor () sp
-pattern PCAnd sp = CAnd () sp
-pattern PCOr sp = COr () sp
+pattern PInt     sp i = Int     () sp i
+pattern PWord    sp i = Word    () sp i
+pattern PFloat   sp d = Float   () sp d
+pattern PDouble  sp d = Double  () sp d
+pattern PBoolean sp b = Boolean () sp b
+pattern PChar    sp c = Char    () sp c
+pattern PString  sp s = String  () sp s
+pattern PNull    sp   = Null    () sp
+pattern PMult    sp   = Mult    () sp
+pattern PDiv     sp   = Div     () sp
+pattern PRem     sp   = Rem     () sp
+pattern PAdd     sp   = Add     () sp
+pattern PSub     sp   = Sub     () sp
+pattern PLShift  sp   = LShift  () sp
+pattern PRShift  sp   = RShift  () sp
+pattern PRRShift sp   = RRShift () sp
+pattern PLThan   sp   = LThan   () sp
+pattern PGThan   sp   = GThan   () sp
+pattern PLThanE  sp   = LThanE  () sp
+pattern PGThanE  sp   = GThanE  () sp
+pattern PEqual   sp   = Equal   () sp
+pattern PNotEq   sp   = NotEq   () sp
+pattern PAnd     sp   = And     () sp
+pattern POr      sp   = Or      () sp
+pattern PXor     sp   = Xor     () sp
+pattern PCAnd    sp   = CAnd    () sp
+pattern PCOr     sp   = COr     () sp
 
 pattern PEqualA sp = EqualA () sp
 pattern PMultA sp = MultA () sp
@@ -337,6 +341,8 @@ pattern PPolicyOf sp id = PolicyOf () sp id
 pattern PPolicyThis sp = PolicyThis () sp
 pattern PPolicyTypeVar sp id = PolicyTypeVar () sp id
 
+
+
 pattern PLockProperties sp lc = LockProperties () sp lc
 
 pattern PClause sp cvd ch a = Clause () sp cvd ch a
@@ -362,6 +368,12 @@ pattern PLockVar sp id = LockVar () sp id
 
 pattern PIdent sp bs = Ident () sp bs
 
+  
+-- AntiQStuff
+pattern PAntiQIdent sp s = AntiQIdent () sp s
+pattern PAntiQName  sp s = AntiQName  () sp s
+pattern PAntiQType  sp s = AntiQType  () sp s
+pattern PAntiQExp   sp s = AntiQExp   () sp s
 
 -- FormalParam
 -- LockType
@@ -652,6 +664,7 @@ type instance XAtom                LSE = LsePlaceHolder
 type instance XLock                LSE = LsePlaceHolder
 type instance XIdent               LSE = LsePlaceHolder
 
+
 --------------------------------------------------------------------------------
 -- PolicyConstraintGen (PCG)
 --------------------------------------------------------------------------------
@@ -783,6 +796,11 @@ type instance XActorName           PCS = PcsPlaceHolder
 type instance XAtom                PCS = PcsPlaceHolder
 type instance XLock                PCS = PcsPlaceHolder
 type instance XIdent               PCS = PcsPlaceHolder
+
+
+-- Unit instances (hack-solution?)
+type instance XSP () = ()
+type instance XOp () = ()
 
 
 --------------------------------------------------------------------------------

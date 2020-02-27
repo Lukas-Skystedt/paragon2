@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE CPP, PatternGuards, TupleSections #-}
 module Language.Java.Paragon.Parser (
     parser,
@@ -86,6 +89,7 @@ infixr 2 >>, >>=
 setPos :: (SourcePos -> b) -> P b
 setPos x = getPosition >>= \pos -> return $ x (parSecToSourcePos pos)
 
+-- PArrayInit :: SourcePos -> ArrayInit Pa -> VarInit Pa
 ----------------------------------------------------------------------------
 -- Top-level parsing
 
@@ -93,7 +97,7 @@ parser :: P a -> String -> Either ParseError a
 parser p = runParser p () "" . lexer
 
 -- | Convert a parsec SourcePos to a paragon SourcePos
-getParaPosition :: P Pa
+getParaPosition :: P SourcePos
 getParaPosition = do pos <- getPosition
                      return (parSecToSourcePos pos)
 
@@ -101,7 +105,7 @@ getParaPosition = do pos <- getPosition
 -- Packages and compilation units
 
 compilationUnit :: P (CompilationUnit Pa)
-compilationUnit = setPos CompilationUnit
+compilationUnit = setPos PCompilationUnit
     <*> opt packageDecl
     <*> list importDecl
     <*> fmap catMaybes (list typeDecl)
@@ -507,7 +511,7 @@ varDeclId = do
     bs <- list arrBrackets
     return $ foldl (\f pos' -> PVarDeclArray pos' . f) (PVarId pos) bs i
 
-arrBrackets :: P Pa
+arrBrackets :: P SourcePos
 arrBrackets = brackets getParaPosition
 
 localVarDecl :: P ([Modifier Pa], Type Pa, [VarDecl Pa])
@@ -516,7 +520,13 @@ localVarDecl = do
     typ <- ttype
     vds <- varDecls varDecl
     return (ms, typ, vds)
+    
+-- setPos :: (SourcePos -> (ArrayInit Pa -> VarInit Pa))
+--          ->  P (ArrayInit Pa -> VarInit Pa) <*> P (ArrayInit Pa)
+-- setPos :: (SourcePos -> b) -> P b
+-- setPos x = getPosition >>= \pos -> return $ x (parSecToSourcePos pos)
 
+-- PInitArray :: SourcePos -> ArrayInit Pa -> VarInit Pa
 varInit :: P (VarInit Pa)
 varInit =
     try (setPos PInitArray <*> arrayInit) <|>
@@ -684,7 +694,7 @@ stmtNoTrail =
         s <- stmt
         tok KW_While
         e <- parens exp
-        return $ Do pos s e) <|>
+        return $ PDo pos s e) <|>
     -- break
     (endSemi $ do
         pos <- getParaPosition
@@ -817,10 +827,10 @@ assignExp :: P (Exp Pa)
 assignExp = try assignment <|> condExp
 
 condExp :: P (Exp Pa)
-condExp = do
-    ie <- fixPrecs <$> infixExp -- TODO: precedence resolution
-    ces <- list condExpSuffix
-    return $ foldl (\a s -> s a) ie ces
+condExp = error "phasing out condExp"-- do
+    -- ie <- fixPrecs <$> infixExp -- TODO: precedence resolution
+    -- ces <- list condExpSuffix
+    -- return $ foldl (\a s -> s a) ie ces
 
 condExpSuffix :: P (Exp Pa -> Exp Pa)
 condExpSuffix = do
@@ -1235,7 +1245,7 @@ primType =
     tok KW_Double  >> setPos PDoubleT
     -- Paragon
 --     <|> tok KW_P_Actor  >> setPos ActorT
-     <|> tok KW_P_Policy >> setPos PolicyT
+     <|> tok KW_P_Policy >> setPos PPolicyT
 
 
 refType :: P (RefType Pa)
@@ -1290,7 +1300,7 @@ classTypeE = {- trace "classTypeE" $ -} do
 returnType :: P (ReturnType Pa)
 returnType = tok KW_Void   >> setPos PVoidType <|>
              tok KW_P_Lock >> setPos PLockType <|>
-             setPos Type <*> ttype <?> "returnType"
+             setPos PType <*> ttype <?> "returnType"
 
 classTypeList :: P [ClassType Pa]
 classTypeList = seplist1 classType comma
@@ -1579,7 +1589,7 @@ matchToken t = javaToken (\r -> if r == t then Just () else Nothing)
 
 -- | Convert a token (line, column) to a source position representation.
 -- TODO would be nice to add filename here?
-pos2sourcePos :: (Int, Int) -> Pa
+pos2sourcePos :: (Int, Int) -> SourcePos
 pos2sourcePos (l,c) = newPos "" l c
 
 type Mod a = [Modifier Pa] -> a
@@ -1605,37 +1615,36 @@ checkConstrs :: ClassDecl Pa -> P ()
 checkConstrs (PClassDecl _ _ i _ _ _ cb) = do
     let errs = [ ci | PConstructorDecl _ _ _ ci _ _ _ <- universeBi cb, ci /= i ]
     if null errs then return ()
-     else fail $ "Declaration of class " ++ prettyPrint i
+     else fail $ "Declaration of class " -- ++ prettyPrint i
                   ++ " cannot contain constructor with name "
-                  ++ prettyPrint (head errs)
+                --  ++ prettyPrint (head errs)
 checkConstrs _ = panic (parserModule ++ ".checkConstrs")
                  "Checking constructors of Enum decl"
 
 -----------------------------------------------------
 -- Making the meaning of a name explicit
 
-ambName :: [Ident a] -> Name a
-ambName = mkUniformName_ PAmbName
+ambName :: [Ident Pa] -> Name Pa
+ambName = mkUniformName_ defaultPos AmbName
 
 -- A package name can only have a package name prefix
-pName :: [Ident a] -> Name a
-pName = mkUniformName_ AST.PName
+pName :: [Ident Pa] -> Name Pa
+pName = mkUniformName_ defaultPos AST.PName
 
 -- A package-or-type name has a package-or-type prefix
-pOrTName :: [Ident a] -> Name a
-pOrTName = mkUniformName_ POrTName
+pOrTName :: [Ident Pa] -> Name Pa
+pOrTName = mkUniformName_ defaultPos POrTName
 
 -- A type name has a package-or-type prefix
-tName :: [Ident a] -> Name a
-tName = mkName_ TName POrTName
+tName :: [Ident Pa] -> Name Pa
+tName = mkName_ defaultPos TName POrTName
 
 -- Names with ambiguous prefixes
-eName, lName, eOrLName, mOrLName :: [Ident a] -> Name a
-eName = mkName_ EName AmbName
-lName = mkName_ LName AmbName
-eOrLName = mkName_ EOrLName AmbName
-mOrLName = mkName_ MOrLName AmbName
-
+eName, lName, eOrLName, mOrLName :: [Ident Pa] -> Name Pa
+eName     = mkName_ defaultPos EName AmbName
+lName     = mkName_ defaultPos LName AmbName
+eOrLName  = mkName_ defaultPos EOrLName AmbName
+mOrLName  = mkName_ defaultPos MOrLName AmbName
 
 -----------------------------------------------------
 
@@ -1651,22 +1660,22 @@ generalize pars = transformBi gen
                   . transformBi genP
                   . transformBi genL
     where gen :: RefType Pa -> RefType Pa
-          gen (PClassRefType pos (PClassType _ (Name _ TName Nothing i) []))
+          gen (PClassRefType pos (PClassType _ (Name _ _ TName Nothing i) []))
               | i `elem` parIs = PTypeVariable pos i
           gen rt = rt
 
           genA :: ActorName Pa -> ActorName Pa
-          genA (PActorName pos (Name _ EName Nothing i))
+          genA (PActorName pos (Name _ _ EName Nothing i))
                | Just rt <- lookup i actIs = PActorTypeVar pos rt i
           genA a = a
 
           genP :: Exp Pa -> Exp Pa
-          genP (PExpName pos (Name _ EName Nothing i))
+          genP (PExpName pos (Name _ _ EName Nothing i))
               | i `elem` polIs = PPolicyExp pos (PPolicyTypeVar pos i)
           genP e = e
 
           genL :: Lock Pa -> Lock Pa
-          genL (PLock pos (Name _ LName Nothing i) [])
+          genL (PLock pos (Name _ _ LName Nothing i) [])
               | i `elem` locIs = PLockVar pos i
           genL l = l
 
@@ -1680,18 +1689,18 @@ generalize pars = transformBi gen
 genActorVars :: Data x => [Ident Pa] -> x -> x
 genActorVars is = transformBi gen
   where --gen :: Actor a -> Actor a
-        gen (PActor _ (PActorName _ (Name _ _ Nothing i)))
+        gen (PActor _ (PActorName _ (Name  _ _ _ Nothing i)))
             | i `elem` is = PVar (ann i) i
         gen ac = ac
 
 -- TODO: Temporary ann definiton. The real one is probably form Annotated.hs
-ann = undefined
+--ann = undefined
 
 --------------------------------------------------------------
 -- Resolving precedences
-
+-- () instance created in decorations to fix this function
 builtInPrecs :: [(Op (), Int)]
-builtInPrecs =
+builtInPrecs = 
     map (,9) [PMult   (), PDiv    (), PRem     ()            ] ++
     map (,8) [PAdd    (), PSub    ()                         ] ++
     map (,7) [PLShift (), PRShift (), PRRShift ()            ] ++
