@@ -8,9 +8,9 @@ import Language.Java.Paragon.Syntax (CompilationUnit)
 import Language.Java.Paragon.Parser (compilationUnit, parser, ParseError)
 import Language.Java.Paragon.Pretty (prettyPrint)
 import Language.Java.Paragon.NameResolution (resolveNames)
-import Language.Java.Paragon.TypeCheck (T, typeCheck)
+-- import Language.Java.Paragon.TypeCheck (T, typeCheck)
 import Language.Java.Paragon.Compile (compileTransform)
-import Language.Java.Paragon.PiGeneration (piTransform)
+-- import Language.Java.Paragon.PiGeneration (piTransform)
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos (parSecToSourcePos)
 import Language.Java.Paragon.Error
@@ -174,6 +174,7 @@ compile flags filePath = do
            ast <- liftEitherMB . convertParseToErr $ parser compilationUnit fc
            raiseErrors
            detailPrint "Parsing complete!"
+           detailPrint $ show ast
 
            -- Name resolution
            ast1 <- resolveNames pDirs ast
@@ -186,14 +187,16 @@ compile flags filePath = do
            ast4 <- evalLockState ast3
            solvePolicyConstraints undefined
 
-           debugPrint $ prettyPrint ast1
-           -- Type check
-           ast2 <- typeCheck pDirs (takeBaseName filePath) ast1
-           raiseErrors
-           detailPrint "Type checking complete!"
+          --  debugPrint $ prettyPrint ast1
+
+           -- OLD Type check
+          --  ast2 <- typeCheck pDirs (takeBaseName filePath) ast1
+          --  raiseErrors
+          --  detailPrint "Type checking complete!"
+
            -- Generate .java and .pi files
-           liftIO $ genFiles flags filePath  ast2
-           detailPrint "File generation complete!"
+          --  liftIO $ genFiles flags filePath  ast2
+          --  detailPrint "File generation complete!"
 
 convertParseToErr :: Either ParseError a -> Either Error a
 convertParseToErr (Left x)  = Left $
@@ -213,24 +216,27 @@ getPIPATH = do
   -- argument, i.e. the exception is ignored).
   return $ splitSearchPath $ either (const []) id ePpStr
 
+-- TODO: Remove, this is a hack
+data T
+
 -- | Generate .pi and .java files
 genFiles :: [Flag] -> FilePath -> CompilationUnit T -> IO ()
 genFiles flags filePath ast  = let -- create .java ast
                              astC      = compileTransform ast
                              -- create .pi ast
-                             astPi     = piTransform (void ast)
+                            --  astPi     = piTransform (void ast)
                              -- output to right files
                              baseName  = takeBaseName filePath
                              directory = takeDirectory filePath
                              outdir    = getOutdir flags </> makeRelative (getIndir flags) directory
                              javaPath  = outdir </> baseName <.> "java"
                              piPath    = outdir </> baseName <.> "pi"
-                             java,pifile :: String
-                             java      = prettyPrint astC
-                             pifile    = prettyPrint astPi
+                            --  java,pifile :: String
+                            --  java      = prettyPrint astC
+                            --  pifile    = prettyPrint astPi
                          in do createDirectoryIfMissing True outdir
-                               writeFile javaPath java
-                               >> writeFile piPath pifile
+                              --  writeFile javaPath java
+                              --  >> writeFile piPath pifile
   where getOutdir []               = "."
         getOutdir (OutputPath p:_) = p
         getOutdir (_:xs)           = getOutdir xs

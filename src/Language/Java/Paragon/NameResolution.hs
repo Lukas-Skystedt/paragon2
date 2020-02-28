@@ -3,10 +3,11 @@
 module Language.Java.Paragon.NameResolution (resolveNames) where
 
 import Language.Java.Paragon.Error
-import Language.Java.Paragon.Syntax
-import Language.Java.Paragon.Pretty
-import Language.Java.Paragon.SourcePos
+import Language.Java.Paragon.SyntaxTTG
+-- import Language.Java.Paragon.Pretty
+import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.Interaction
+import Language.Java.Paragon.SourcePos (defaultPos)
 import Language.Java.Paragon.NameResolution.Monad
 
 import qualified Data.Map as Map
@@ -22,6 +23,9 @@ import Prelude hiding (mapM)
 nameResModule :: String
 nameResModule = libraryBase ++ ".NameResolution"
 
+prettyPrint :: a
+prettyPrint = error "prettyPrint not yet implemented"
+
 ------------------------------------------
 -- Top level exported function
 
@@ -29,8 +33,8 @@ nameResModule = libraryBase ++ ".NameResolution"
 -- Returns annotated compilation unit
 -- Name resolution based on .pi files in the given pipath
 resolveNames :: PiPath
-             -> CompilationUnit SourcePos
-             -> BaseM (CompilationUnit SourcePos)
+             -> CompilationUnit Pa
+             -> BaseM (CompilationUnit Pa)
 resolveNames piPath (CompilationUnit pos pkg imps [td])
  = runPiReader piPath $ do
 
@@ -68,7 +72,7 @@ resolveNames _ _ = failE . mkErrorFromInfo $ UnsupportedFeature "Encountered mul
 
 
 -- | Extract Name from package declaration
-unPkgDecl :: Maybe (PackageDecl SourcePos) -> Maybe (Name SourcePos)
+unPkgDecl :: Maybe (PackageDecl Pa) -> Maybe (Name Pa)
 unPkgDecl = fmap (\(PackageDecl _ n) -> n)
 
 -------------------------------------------
@@ -76,9 +80,9 @@ unPkgDecl = fmap (\(PackageDecl _ n) -> n)
 
 -- | Resolution of an entity is a transformation of that entity that lives
 -- in the NameRes monad
-type Resolve ast = ast SourcePos -> NameRes (ast SourcePos)
+type Resolve ast = ast Pa -> NameRes (ast Pa)
 
-mkTpsExpn :: [TypeParam SourcePos] -> Expansion
+mkTpsExpn :: [TypeParam Pa] -> Expansion
 mkTpsExpn tps =
     expandAll $ newER {
           expandTypes = [ tI | TypeParam _ tI _ <- tps ],
@@ -253,15 +257,15 @@ rnExceptionSpec (ExceptionSpec pos ms et) =
 rnBlock :: Resolve Block
 rnBlock (Block pos bss) = Block pos <$> rnBlockStmts bss
 
-rnBlockStmts :: [BlockStmt SourcePos] -> NameRes [BlockStmt SourcePos]
+rnBlockStmts :: [BlockStmt Pa] -> NameRes [BlockStmt Pa]
 rnBlockStmts [] = return []
 rnBlockStmts (bs:bss) = do
   (bs', bss') <- rnBlockStmt bs $ rnBlockStmts bss
   return $ bs':bss'
 
-rnBlockStmt :: BlockStmt SourcePos
+rnBlockStmt :: BlockStmt Pa
                -> NameRes a
-               -> NameRes (BlockStmt SourcePos, a)
+               -> NameRes (BlockStmt Pa, a)
 rnBlockStmt bs cont =
     case bs of
       BlockStmt pos stmt ->
@@ -277,13 +281,13 @@ rnBlockStmt bs cont =
       _ -> failE . mkErrorFromInfo $ UnsupportedFeature
              "Local classes or locks not yet supported"
 
-rnVarDecls :: [VarDecl SourcePos] -> NameRes a -> NameRes ([VarDecl SourcePos], a)
+rnVarDecls :: [VarDecl Pa] -> NameRes a -> NameRes ([VarDecl Pa], a)
 rnVarDecls = rnVarDeclsAcc []
 
-rnVarDeclsAcc :: [VarDecl SourcePos]  -- ^Accumulator (reversed)
-              -> [VarDecl SourcePos]  -- ^List to resolve
+rnVarDeclsAcc :: [VarDecl Pa]  -- ^Accumulator (reversed)
+              -> [VarDecl Pa]  -- ^List to resolve
               -> NameRes a -- ^What to do when all vardecls have been resolved
-              -> NameRes ([VarDecl SourcePos], a) -- ^Result (re-reversed)
+              -> NameRes ([VarDecl Pa], a) -- ^Result (re-reversed)
 rnVarDeclsAcc acc [] cont = (reverse acc,) <$> cont
 rnVarDeclsAcc acc (vd@(VarDecl _ (VarId _ i) _) : vds) cont = do
   let expn = mkEExpansion $ unIdent i
@@ -357,7 +361,7 @@ rnSwitchLabel (SwitchCase pos e) = SwitchCase pos <$> rnExp e
 rnSwitchLabel d = return d
 
 
-rnForInit :: Maybe (ForInit SourcePos) -> NameRes a -> NameRes (Maybe (ForInit SourcePos), a)
+rnForInit :: Maybe (ForInit Pa) -> NameRes a -> NameRes (Maybe (ForInit Pa), a)
 rnForInit Nothing cont = (Nothing,) <$> cont
 rnForInit (Just (ForInitExps pos es)) cont =
     (,) <$> (Just . ForInitExps pos <$> mapM rnExp es) <*> cont
@@ -789,8 +793,8 @@ buildMapFromPiPath = do
 -- Returns (fully qualified name,
 --          expansion for type itself,
 --          expansion for all its super types)
-buildMapFromTd :: Maybe (Name SourcePos) -> TypeDecl SourcePos
-               -> Expansion -> PiReader (Name SourcePos, Expansion, Expansion)
+buildMapFromTd :: Maybe (Name Pa) -> TypeDecl Pa
+               -> Expansion -> PiReader (Name Pa, Expansion, Expansion)
 buildMapFromTd mPkgPre td expn = do
     -- Extract ident, type params, super types from type declaration
     (pos, i, tps, supers) <-
@@ -816,7 +820,7 @@ buildMapFromTd mPkgPre td expn = do
 
     return (thisFullName, iExpn, unionExpnMaps superExpns)
 
- where buildMapFromSuper ::  ClassType SourcePos -> PiReader Expansion
+ where buildMapFromSuper ::  ClassType Pa -> PiReader Expansion
        buildMapFromSuper (ClassType _ (Name pos' _ mPre i) _) = do
          mPre' <- resolvePre mPre
          let resName = Name pos' TName mPre' i
@@ -844,8 +848,8 @@ buildMapFromTd mPkgPre td expn = do
        buildMapFromSuper n = panic (nameResModule ++ ".buildMapFromTd") $ show n
 
        -- Return list of super types and list of members of the type
-       supersAndMembers :: TypeDecl SourcePos ->
-                           PiReader ([ClassType SourcePos], [MemberDecl SourcePos])
+       supersAndMembers :: TypeDecl Pa ->
+                           PiReader ([ClassType Pa], [MemberDecl Pa])
        supersAndMembers superTd =
          case superTd of
            ClassTypeDecl _ (ClassDecl _ _ _ _ mSupSup _ (ClassBody _ ds))
@@ -856,28 +860,28 @@ buildMapFromTd mPkgPre td expn = do
                   UnsupportedFeature "Enums not yet supported"
 
        -- Extract member declarations from list of declarations
-       unMemberDecls :: [Decl SourcePos] -> [MemberDecl SourcePos]
+       unMemberDecls :: [Decl Pa] -> [MemberDecl Pa]
        unMemberDecls []                  = []
        unMemberDecls (MemberDecl _ d:ds) = d : unMemberDecls ds
        unMemberDecls (_:ds)              = unMemberDecls ds
 
 -- | Build an expansion map from explicit (or implicit) imports
 -- (or, incidentally, for implicit import of local package)
-buildMapFromImports :: [ImportDecl SourcePos] -> PiReader ([ImportDecl SourcePos], Expansion)
+buildMapFromImports :: [ImportDecl Pa] -> PiReader ([ImportDecl Pa], Expansion)
 buildMapFromImports imps = do
   (imps', expns) <- unzip <$> mapM buildMapFromImportName imps
   return (imps', unionExpnMaps expns)
 
 -- | Build an expansion map from a package declaration
-buildMapFromPkg :: Maybe (PackageDecl SourcePos) -> PiReader Expansion
+buildMapFromPkg :: Maybe (PackageDecl Pa) -> PiReader Expansion
 buildMapFromPkg Nothing = return Map.empty
 buildMapFromPkg (Just (PackageDecl pos n)) =
     snd <$> buildMapFromImportName (TypeImportOnDemand pos n)
 
 -- | Build expansion map from an import declaration
 -- | Returns declaration with resolved prefix and the constructed expansion
-buildMapFromImportName :: ImportDecl SourcePos
-                       -> PiReader (ImportDecl SourcePos, Expansion)
+buildMapFromImportName :: ImportDecl Pa
+                       -> PiReader (ImportDecl Pa, Expansion)
 buildMapFromImportName imp = do
     finePrint $ "Resolving import: " ++ prettyPrint imp
 
@@ -943,7 +947,7 @@ buildMapFromImportName imp = do
 
 -- | Resolve prefix of a name
 -- Always resolve as package name for now
-resolvePre :: Maybe (Name SourcePos) -> PiReader (Maybe (Name SourcePos))
+resolvePre :: Maybe (Name Pa) -> PiReader (Maybe (Name Pa))
 resolvePre Nothing = return Nothing
 resolvePre (Just (Name pos nt mPre i))
     | nt `elem` [PName, POrTName] = do
@@ -954,7 +958,7 @@ resolvePre n = panic (nameResModule ++ ".resolvePre")
 
 
 -- | Execute action if given name is a package. Fails with error otherwise
-withPackage :: MonadPR m => Name SourcePos -> m a -> m a
+withPackage :: MonadPR m => Name Pa -> m a -> m a
 withPackage pkg@(Name pos _ _ _) action = do
   isP <- doesPkgExist pkg
   if isP then action
@@ -965,7 +969,7 @@ withPackage pkg@(Name pos _ _ _) action = do
 -- | Execute action if given name is a type. Compare to current name first
 -- (I.e. to be called only in a context were the current name is a type)
 -- Fails with error if argument not a type
-withTypeCurr :: Name SourcePos -> NameRes a -> NameRes a
+withTypeCurr :: Name Pa -> NameRes a -> NameRes a
 withTypeCurr typ@(Name pos _ _ _) action = do
   isT <- checkForType typ
   if isT then action
@@ -974,7 +978,7 @@ withTypeCurr typ@(Name pos _ _ _) action = do
 
 -- | Execute action if given name is a type
 -- Fails with error if argument not a type
-withType :: MonadPR m => Name SourcePos -> m a -> m a
+withType :: MonadPR m => Name Pa -> m a -> m a
 withType typ@(Name pos _ _ _) action = do
   isT <- doesTypeExist typ
   if isT then action
@@ -983,7 +987,7 @@ withType typ@(Name pos _ _ _) action = do
 
 -- | See if type of given name is in scope, by looking at pi-path and
 -- comparing to the name of the type that we're currently resolving
-checkForType :: Name SourcePos -> NameRes Bool
+checkForType :: Name Pa -> NameRes Bool
 checkForType n = do
   n' <- getCurrentName
   -- debugPrint $ "checkForType: " ++ show (n, n')
@@ -991,10 +995,10 @@ checkForType n = do
 
 -- | A record for collecting various types of idents that need to be expanded
 data ExpansionRecord = ExpansionRecord {
-  expandTypes   :: [Ident SourcePos],
-  expandMethods :: [Ident SourcePos],
-  expandLocks   :: [Ident SourcePos],
-  expandExps    :: [Ident SourcePos]
+  expandTypes   :: [Ident Pa],
+  expandMethods :: [Ident Pa],
+  expandLocks   :: [Ident Pa],
+  expandExps    :: [Ident Pa]
 }
 
 -- | Empty expansion record

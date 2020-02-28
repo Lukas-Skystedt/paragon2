@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE EmptyDataDeriving #-}
 
 module Language.Java.Paragon.Decorations.PcsDecoration where
 import Language.Java.Paragon.Decorations.DecorationTypes
@@ -8,7 +9,7 @@ import Language.Java.Paragon.TypesTTG
 import Language.Java.Paragon.SyntaxTTG
 import Data.Void
 
-data PCS
+data PCS deriving Eq
 type PcsPlaceHolder = ()
 
 type instance XCompilationUnit     PCS = NoFieldExt
@@ -68,6 +69,7 @@ type instance XAtom                PCS = NoFieldExt
 type instance XLock                PCS = NoFieldExt
 type instance XIdent               PCS = NoFieldExt
 type instance XName                PCS = NoFieldExt
+type instance XVarInit             PCS = NoFieldExt
 
 pattern PcsTypeParam id re = TypeParam () id re
 

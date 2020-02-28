@@ -2,6 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE CPP, PatternGuards, TupleSections #-}
+{-# LANGUAGE StandaloneDeriving, FlexibleInstances #-}
 module Language.Java.Paragon.Parser (
     parser,
 
@@ -47,6 +48,8 @@ module Language.Java.Paragon.Parser (
 import Language.Java.Paragon.Lexer (L(..), Token(..), lexer)
 import Language.Java.Paragon.SyntaxTTG as AST
 import Language.Java.Paragon.Decorations.PaDecoration as D
+import Language.Java.Paragon.Decorations.DecorationTypes
+import Language.Java.Paragon.Decorations.PcsDecoration (PCS) -- TODO: remove, this is a hack
 
 -- import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Pretty (prettyPrint)
@@ -828,10 +831,11 @@ assignExp :: P (Exp Pa)
 assignExp = try assignment <|> condExp
 
 condExp :: P (Exp Pa)
-condExp = error "phasing out condExp"-- do
-    -- ie <- fixPrecs <$> infixExp -- TODO: precedence resolution
-    -- ces <- list condExpSuffix
-    -- return $ foldl (\a s -> s a) ie ces
+-- condExp = error "phasing out condExp"-- do
+condExp = do
+    ie <- fixPrecs <$> infixExp -- TODO: precedence resolution
+    ces <- list condExpSuffix
+    return $ foldl (\a s -> s a) ie ces
 
 condExpSuffix :: P (Exp Pa -> Exp Pa)
 condExpSuffix = do
@@ -1625,27 +1629,40 @@ checkConstrs _ = panic (parserModule ++ ".checkConstrs")
 -----------------------------------------------------
 -- Making the meaning of a name explicit
 
-ambName :: [Ident Pa] -> Name Pa
-ambName = mkUniformName_ defaultPos AmbName
+-- ambName :: [Ident Pa] -> Name Pa
+-- ambName = mkUniformName_ defaultPos AmbName
+ambName :: a
+ambName = error "ambName not yet implemented"
 
 -- A package name can only have a package name prefix
-pName :: [Ident Pa] -> Name Pa
-pName = mkUniformName_ defaultPos AST.Name
+-- pName :: [Ident Pa] -> Name Pa
+-- pName = mkUniformName_ defaultPos AST.Name
+pName :: a
+pName = error "pName not yet implemented"
 
 -- A package-or-type name has a package-or-type prefix
-pOrTName :: [Ident Pa] -> Name Pa
-pOrTName = mkUniformName_ defaultPos OrTName
+-- pOrTName :: [Ident Pa] -> Name Pa
+-- pOrTName = mkUniformName_ defaultPos POrTName
+pOrTName :: a
+pOrTName = error "pOrTName not yet implemented"
 
 -- A type name has a package-or-type prefix
-tName :: [Ident Pa] -> Name Pa
-tName = mkName_ defaultPos TName OrTName
+-- tName :: [Ident Pa] -> Name Pa
+-- tName = mkName_ defaultPos TName POrTName
+tName :: a
+tName = error "tName not yet implemented"
 
 -- Names with ambiguous prefixes
-eName, lName, eOrLName, mOrLName :: [Ident Pa] -> Name Pa
-eName     = mkName_ defaultPos EName AmbName
-lName     = mkName_ defaultPos LName AmbName
-eOrLName  = mkName_ defaultPos EOrLName AmbName
-mOrLName  = mkName_ defaultPos MOrLName AmbName
+-- eName, lName, eOrLName, mOrLName :: [Ident Pa] -> Name Pa
+-- eName     = mkName_ defaultPos EName AmbName
+-- lName     = mkName_ defaultPos LName AmbName
+-- eOrLName  = mkName_ defaultPos EOrLName AmbName
+-- mOrLName  = mkName_ defaultPos MOrLName AmbName
+eName, lName, eOrLName, mOrLName :: a
+eName = error "eName not yet implemented"
+lName = error "lName not yet implemented"
+eOrLName = error "eOrLName not yet implemented"
+mOrLName = error "mOrLName not yet implemented"
 
 -----------------------------------------------------
 
@@ -1661,22 +1678,22 @@ generalize pars = transformBi gen
                   . transformBi genP
                   . transformBi genL
     where gen :: RefType Pa -> RefType Pa
-          gen (ClassRefType pos (ClassType _ (Name _ _ TName Nothing i) []))
+          gen (ClassRefType pos (ClassType _ (Name _ TName Nothing i) []))
               | i `elem` parIs = TypeVariable pos i
           gen rt = rt
 
           genA :: ActorName Pa -> ActorName Pa
-          genA (ActorName pos (Name _ _ EName Nothing i))
+          genA (ActorName pos (Name _ EName Nothing i))
                | Just rt <- lookup i actIs = ActorTypeVar pos rt i
           genA a = a
 
           genP :: Exp Pa -> Exp Pa
-          genP (ExpName pos (Name _ _ EName Nothing i))
+          genP (ExpName pos (Name _ EName Nothing i))
               | i `elem` polIs = PolicyExp pos (PolicyTypeVar pos i)
           genP e = e
 
           genL :: Lock Pa -> Lock Pa
-          genL (Lock pos (Name _ _ LName Nothing i) [])
+          genL (Lock pos (Name _ LName Nothing i) [])
               | i `elem` locIs = LockVar pos i
           genL l = l
 
@@ -1690,7 +1707,7 @@ generalize pars = transformBi gen
 genActorVars :: Data x => [Ident Pa] -> x -> x
 genActorVars is = transformBi gen
   where --gen :: Actor a -> Actor a
-        gen (Actor _ (ActorName _ (Name  _ _ _ Nothing i)))
+        gen (Actor _ (ActorName _ (Name _ _ Nothing i)))
             | i `elem` is = Var (ann i) i
         gen ac = ac
 
@@ -1700,7 +1717,7 @@ genActorVars is = transformBi gen
 --------------------------------------------------------------
 -- Resolving precedences
 -- () instance created in decorations to fix this function
-builtInPrecs :: [(Op (), Int)]
+builtInPrecs :: [(Op PCS, Int)]
 builtInPrecs =
     map (,9) [Mult   (), Div    (), Rem     ()            ] ++
     map (,8) [Add    (), Sub    ()                         ] ++
@@ -1716,41 +1733,40 @@ builtInPrecs =
 instanceOfPrec :: Int
 instanceOfPrec = 6 -- same as comparison ops
 
--- ### This section has been removed because the new AST deals with SourcePos
--- ### differently.
+-- TODO: remove, using PCS is a hack
+dropData :: Op a -> Op PCS
+dropData (Mult _)    = Mult    ()
+dropData (Div _)     = Div     ()
+dropData (Rem _)     = Rem     ()
+dropData (Add _)     = Add     ()
+dropData (Sub _)     = Sub     ()
+dropData (LShift _)  = LShift  ()
+dropData (RShift _)  = RShift  ()
+dropData (RRShift _) = RRShift ()
+dropData (LThan _)   = LThan   ()
+dropData (GThan _)   = GThan   ()
+dropData (LThanE _)  = LThanE  ()
+dropData (GThanE _)  = GThanE  ()
+dropData (Equal _)   = Equal   ()
+dropData (NotEq _)   = NotEq   ()
+dropData (And _)     = And     ()
+dropData (Or _)      = Or      ()
+dropData (Xor _)     = Xor     ()
+dropData (CAnd _)    = CAnd    ()
+dropData (COr _)     = COr     ()
 
--- dropData :: Op a -> Op NoFieldExt
--- dropData (Mult _ _)    = Mult    () ()
--- dropData (Div _ _)     = Div     () ()
--- dropData (Rem _ _)     = Rem     () ()
--- dropData (Add _ _)     = Add     () ()
--- dropData (Sub _ _)     = Sub     () ()
--- dropData (LShift _ _)  = LShift  () ()
--- dropData (RShift _ _)  = RShift  () ()
--- dropData (RRShift _ _) = RRShift () ()
--- dropData (LThan _ _)   = LThan   () ()
--- dropData (GThan _ _)   = GThan   () ()
--- dropData (LThanE _ _)  = LThanE  () ()
--- dropData (GThanE _ _)  = GThanE  () ()
--- dropData (Equal _ _)   = Equal   () ()
--- dropData (NotEq _ _)   = NotEq   () ()
--- dropData (And _ _)     = And     () ()
--- dropData (Or _ _)      = Or      () ()
--- dropData (Xor _ _)     = Xor     () ()
--- dropData (CAnd _ _)    = CAnd    () ()
--- dropData (COr _ _)     = COr     () ()
-
+-- deriving instance Eq (Op ())
 -- -- TODO: Fix positions?
--- fixPrecs :: Exp Pa -> Exp Pa
--- fixPrecs (BinOp pos a op2 z) =
---     let e = fixPrecs a -- recursively fix left subtree
---         getPrec op = fromJust $ lookup op builtInPrecs
---         fixup p1 p2 y pre =
---             if p1 >= p2
---              then BinOp pos e op2 z -- already right order
---              else pre (fixPrecs $ BinOp pos y op2 z)
---     in case e of
---          BinOp pos' x op1 y   -> fixup (getPrec . dropData $ op1)  (getPrec . dropData $ op2) y (BinOp pos' x op1)
---          InstanceOf pos' y rt -> fixup instanceOfPrec (getPrec . dropData $ op2) y (flip (InstanceOf pos') rt)
---          _ -> BinOp pos e op2 z
--- fixPrecs e = e
+fixPrecs :: Exp Pa -> Exp Pa
+fixPrecs (BinOp pos a op2 z) =
+    let e = fixPrecs a -- recursively fix left subtree
+        getPrec op = fromJust $ lookup op builtInPrecs
+        fixup p1 p2 y pre =
+            if p1 >= p2
+             then BinOp pos e op2 z -- already right order
+             else pre (fixPrecs $ BinOp pos y op2 z)
+    in case e of
+         BinOp pos' x op1 y   -> fixup (getPrec . dropData $ op1)  (getPrec . dropData $ op2) y (BinOp pos' x op1)
+         InstanceOf pos' y rt -> fixup instanceOfPrec (getPrec . dropData $ op2) y (flip (InstanceOf pos') rt)
+         _ -> BinOp pos e op2 z
+fixPrecs e = e

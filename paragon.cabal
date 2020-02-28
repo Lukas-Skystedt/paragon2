@@ -71,18 +71,18 @@ Library
                       , Language.Java.Paragon.Decorations.PcsDecoration
                       , Language.Java.Paragon.Decorations.PteDecoration
                       , Language.Java.Paragon.Decorations.TcDecoration
-                      , Language.Java.Paragon.TypeCheck
-                      , Language.Java.Paragon.TypeCheck.Interpreter
-                      , Language.Java.Paragon.TypeCheck.Monad
-                      , Language.Java.Paragon.TypeCheck.Monad.TcCodeM
-                      , Language.Java.Paragon.TypeCheck.Monad.TcDeclM
-                      , Language.Java.Paragon.TypeCheck.Monad.CodeState
-                      , Language.Java.Paragon.TypeCheck.Monad.CodeEnv
-                      , Language.Java.Paragon.TypeCheck.NullAnalysis
-                      , Language.Java.Paragon.TypeCheck.TcExp
-                      , Language.Java.Paragon.TypeCheck.TcStmt
-                      , Language.Java.Paragon.TypeCheck.TypeMap
-                      , Language.Java.Paragon.TypeCheck.Types
+                      -- , Language.Java.Paragon.TypeCheck
+                      -- , Language.Java.Paragon.TypeCheck.Interpreter
+                      -- , Language.Java.Paragon.TypeCheck.Monad
+                      -- , Language.Java.Paragon.TypeCheck.Monad.TcCodeM
+                      -- , Language.Java.Paragon.TypeCheck.Monad.TcDeclM
+                      -- , Language.Java.Paragon.TypeCheck.Monad.CodeState
+                      -- , Language.Java.Paragon.TypeCheck.Monad.CodeEnv
+                      -- , Language.Java.Paragon.TypeCheck.NullAnalysis
+                      -- , Language.Java.Paragon.TypeCheck.TcExp
+                      -- , Language.Java.Paragon.TypeCheck.TcStmt
+                      -- , Language.Java.Paragon.TypeCheck.TypeMap
+                      -- , Language.Java.Paragon.TypeCheck.Types
                       , Language.Java.Paragon.Compile
                       , Language.Java.Paragon.PiGeneration
                       , Language.Java.Paragon.Interaction
@@ -90,10 +90,10 @@ Library
                       , Language.Java.Paragon.Error
                       , Language.Java.Paragon.ErrorTxt
                       , Language.Java.Paragon.ErrorEclipse
-                      , Language.Java.Paragon.PolicyLang
-                      , Language.Java.Paragon.PolicyLang.Actors
-                      , Language.Java.Paragon.PolicyLang.Locks
-                      , Language.Java.Paragon.PolicyLang.Policy
+                      -- , Language.Java.Paragon.PolicyLang
+                      -- , Language.Java.Paragon.PolicyLang.Actors
+                      -- , Language.Java.Paragon.PolicyLang.Locks
+                      -- , Language.Java.Paragon.PolicyLang.Policy
   Hs-source-dirs:       src
 
 
@@ -128,18 +128,18 @@ Executable parac
                       , Language.Java.Paragon.Decorations.PcsDecoration
                       , Language.Java.Paragon.Decorations.PteDecoration
                       , Language.Java.Paragon.Decorations.TcDecoration
-                      , Language.Java.Paragon.TypeCheck
-                      , Language.Java.Paragon.TypeCheck.Interpreter
-                      , Language.Java.Paragon.TypeCheck.Monad
-                      , Language.Java.Paragon.TypeCheck.Monad.TcCodeM
-                      , Language.Java.Paragon.TypeCheck.Monad.TcDeclM
-                      , Language.Java.Paragon.TypeCheck.Monad.CodeEnv
-                      , Language.Java.Paragon.TypeCheck.Monad.CodeState
-                      , Language.Java.Paragon.TypeCheck.NullAnalysis
-                      , Language.Java.Paragon.TypeCheck.TcExp
-                      , Language.Java.Paragon.TypeCheck.TcStmt
-                      , Language.Java.Paragon.TypeCheck.TypeMap
-                      , Language.Java.Paragon.TypeCheck.Types
+                      -- , Language.Java.Paragon.TypeCheck
+                      -- , Language.Java.Paragon.TypeCheck.Interpreter
+                      -- , Language.Java.Paragon.TypeCheck.Monad
+                      -- , Language.Java.Paragon.TypeCheck.Monad.TcCodeM
+                      -- , Language.Java.Paragon.TypeCheck.Monad.TcDeclM
+                      -- , Language.Java.Paragon.TypeCheck.Monad.CodeEnv
+                      -- , Language.Java.Paragon.TypeCheck.Monad.CodeState
+                      -- , Language.Java.Paragon.TypeCheck.NullAnalysis
+                      -- , Language.Java.Paragon.TypeCheck.TcExp
+                      -- , Language.Java.Paragon.TypeCheck.TcStmt
+                      -- , Language.Java.Paragon.TypeCheck.TypeMap
+                      -- , Language.Java.Paragon.TypeCheck.Types
                       , Language.Java.Paragon.Compile
                       , Language.Java.Paragon.PiGeneration
                       , Language.Java.Paragon.Interaction
@@ -147,10 +147,10 @@ Executable parac
                       , Language.Java.Paragon.Error
                       , Language.Java.Paragon.ErrorTxt
                       , Language.Java.Paragon.ErrorEclipse
-                      , Language.Java.Paragon.PolicyLang
-                      , Language.Java.Paragon.PolicyLang.Actors
-                      , Language.Java.Paragon.PolicyLang.Locks
-                      , Language.Java.Paragon.PolicyLang.Policy
+                      -- , Language.Java.Paragon.PolicyLang
+                      -- , Language.Java.Paragon.PolicyLang.Actors
+                      -- , Language.Java.Paragon.PolicyLang.Locks
+                      -- , Language.Java.Paragon.PolicyLang.Policy
 
   Build-Tools:   alex >= 2.3
   Build-Depends:        array >= 0.1

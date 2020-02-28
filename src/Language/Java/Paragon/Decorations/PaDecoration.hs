@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternSynonyms #-}
 
@@ -9,7 +11,7 @@ import Language.Java.Paragon.SyntaxTTG
 import Data.Void
 import Data.Data
 
-data Pa deriving Data
+data Pa deriving (Data, Eq, Show)
 
 -- This is a hack.
 type instance XOp () = ()

@@ -212,17 +212,17 @@ filterPkgIdentsM dir files = liftIO $ do
 
 -- |Convert AST package name representation to file path to package directory
 pNameToDir :: Name a -> FilePath
-pNameToDir (Name _ _ PName mPre (Ident _ _ str)) =
+pNameToDir (Name _ PName mPre (Ident _ str)) =
     let pf = case mPre of
                Nothing -> id
                Just pre -> let fp = pNameToDir pre in (fp </>)
     in pf (B.unpack str)
-pNameToDir (Name _ _ TName _ _) = fail "Inner types not supported"
+pNameToDir (Name _ TName _ _) = fail "Inner types not supported"
 pNameToDir n = panic (piReaderModule ++ ".pNameToDir") $ show n
 
 -- |Convert AST type name representation to file path to actual .pi file
 tNameToFile :: Name a -> FilePath
-tNameToFile (Name _ _ TName mPre (Ident _ _ str)) =
+tNameToFile (Name _ TName mPre (Ident _ str)) =
     let pf = case mPre of
                Nothing -> id
                Just pre -> let fp = pNameToDir pre in (fp </>)
