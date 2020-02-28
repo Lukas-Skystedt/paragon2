@@ -47,11 +47,11 @@ ann = error "Phasing out Annotatated"
 -- Note that the paragon compiler currently only accepts a single type per
 -- compilation unit and does not yet suport enums, although files containing
 -- enums can be parsed
-data CompilationUnit x = CompilationUnit (XCompilationUnit x) (XSP x) (Maybe (PackageDecl x)) [ImportDecl x] [TypeDecl x]
+data CompilationUnit x = CompilationUnit (XCompilationUnit x) (Maybe (PackageDecl x)) [ImportDecl x] [TypeDecl x]
 type family XCompilationUnit x
 
 -- | A package declaration appears within a compilation unit to indicate the package to which the compilation unit belongs.
-data PackageDecl x = PackageDecl (XPackageDecl x) (XSP x) (Name x)
+data PackageDecl x = PackageDecl (XPackageDecl x) (Name x)
 type family XPackageDecl x
 
 -------------------------------------------------------------------------------
@@ -75,13 +75,13 @@ type family XPackageDecl x
 -- The last argument signals whether the declaration brings all names in the
 -- named type or package, or only brings a single name into scope.
 data ImportDecl x
-    = SingleTypeImport     (XImportDecl x) (XSP x) (Name x)
+    = SingleTypeImport     (XImportDecl x) (Name x)
       -- ^Import a single type (class/interface/enum)
-    | TypeImportOnDemand   (XImportDecl x) (XSP x) (Name x)
+    | TypeImportOnDemand   (XImportDecl x) (Name x)
       -- ^Bring all types of package into scope, e.g. import java.lang.util.*
-    | SingleStaticImport   (XImportDecl x) (XSP x) (Name x) (Ident x)
+    | SingleStaticImport   (XImportDecl x) (Name x) (Ident x)
       -- ^Single static import, e.g. import static java.lang.Math.PI
-    | StaticImportOnDemand (XImportDecl x) (XSP x) (Name x)
+    | StaticImportOnDemand (XImportDecl x) (Name x)
       -- ^Static import of all members, e.g. import static java.lang.Math.*
 type family XImportDecl x
 
@@ -90,32 +90,32 @@ type family XImportDecl x
 
 -- | A type declaration declares a class type or an interface type.
 data TypeDecl x
-    = ClassTypeDecl (XTypeDecl x) (XSP x) (ClassDecl x)
-    | InterfaceTypeDecl (XTypeDecl x) (XSP x) (InterfaceDecl x)
+    = ClassTypeDecl (XTypeDecl x) (ClassDecl x)
+    | InterfaceTypeDecl (XTypeDecl x) (InterfaceDecl x)
 type family XTypeDecl x
 
 -- | A class declaration specifies a new named reference type.
 -- Note that the compiler does not actually deal with enums yet!
 data ClassDecl x
-    = ClassDecl (XClassDecl x) (XSP x) [Modifier x] (Ident x) [TypeParam x] (Maybe (ClassType x)) [ClassType x] (ClassBody x)
+    = ClassDecl (XClassDecl x) [Modifier x] (Ident x) [TypeParam x] (Maybe (ClassType x)) [ClassType x] (ClassBody x)
       -- ^Fields: Class modifiers, class identifier, type params, super class,
       -- if any, list of implemented interfaces, class body
-    | EnumDecl  (XClassDecl x) (XSP x) [Modifier x] (Ident x)                                     [ClassType x] (EnumBody x)
+    | EnumDecl  (XClassDecl x) [Modifier x] (Ident x)                                     [ClassType x] (EnumBody x)
 type family XClassDecl x
 
 -- | A class body may contain declarations of members of the class, that is,
 --   fields, classes, interfaces and methods.
 --   A class body may also contain instance initializers, static
 --   initializers, and declarations of constructors for the class.
-data ClassBody x = ClassBody (XClassBody x) (XSP x) [Decl x]
+data ClassBody x = ClassBody (XClassBody x) [Decl x]
 type family XClassBody x
 
 -- | The body of an enum type may contain enum constants.
-data EnumBody x = EnumBody (XEnumBody x) (XSP x) [EnumConstant x] [Decl x]
+data EnumBody x = EnumBody (XEnumBody x) [EnumConstant x] [Decl x]
 type family XEnumBody x
 
 -- | An enum constant defines an instance of the enum type.
-data EnumConstant x = EnumConstant (XEnumConstant x) (XSP x) (Ident x) [Argument x] (Maybe (ClassBody x))
+data EnumConstant x = EnumConstant (XEnumConstant x) (Ident x) [Argument x] (Maybe (ClassBody x))
 type family XEnumConstant x
 
 -- | An interface declaration introduces a new reference type whose members
@@ -123,19 +123,19 @@ type family XEnumConstant x
 --   no implementation, but otherwise unrelated classes can implement it by
 --   providing implementations for its abstract methods.
 data InterfaceDecl x
-    = InterfaceDecl (XInterfaceDecl x) (XSP x) [Modifier x] (Ident x) [TypeParam x] [ClassType x] (InterfaceBody x)
+    = InterfaceDecl (XInterfaceDecl x) [Modifier x] (Ident x) [TypeParam x] [ClassType x] (InterfaceBody x)
 type family XInterfaceDecl x
 
 -- | The body of an interface may declare members of the interface.
 data InterfaceBody x
-    = InterfaceBody (XInterfaceBody x) (XSP x) [MemberDecl x]
+    = InterfaceBody (XInterfaceBody x) [MemberDecl x]
 type family XInterfaceBody x
 
 -- | A declaration is either a member declaration, or a declaration of an
 --   initializer, which may be static.
 data Decl x
-    = MemberDecl (XDecl x) (XSP x) (MemberDecl x)
-    | InitDecl (XDecl x) (XSP x) Bool (Block x)
+    = MemberDecl (XDecl x) (MemberDecl x)
+    | InitDecl (XDecl x) Bool (Block x)
 type family XDecl x
 
 
@@ -144,19 +144,19 @@ type family XDecl x
 --   constants (not fields), abstract methods, and no constructors.
 data MemberDecl x
     -- | The variables of a class type are introduced by field declarations.
-    = FieldDecl (XMemberDecl x) (XSP x) [Modifier x] (Type x) [VarDecl x]
+    = FieldDecl (XMemberDecl x) [Modifier x] (Type x) [VarDecl x]
     -- | A method declares executable code that can be invoked, passing a fixed number of values as arguments.
-    | MethodDecl (XMemberDecl x) (XSP x) [Modifier x] [TypeParam x] (ReturnType x) (Ident x) [FormalParam x] [ExceptionSpec x] (MethodBody x)
+    | MethodDecl (XMemberDecl x) [Modifier x] [TypeParam x] (ReturnType x) (Ident x) [FormalParam x] [ExceptionSpec x] (MethodBody x)
     -- | A constructor is used in the creation of an object that is an instance of a class.
-    | ConstructorDecl (XMemberDecl x) (XSP x) [Modifier x] [TypeParam x]                  (Ident x) [FormalParam x] [ExceptionSpec x] (ConstructorBody x)
+    | ConstructorDecl (XMemberDecl x) [Modifier x] [TypeParam x]                  (Ident x) [FormalParam x] [ExceptionSpec x] (ConstructorBody x)
     -- | A member class is a class whose declaration is directly enclosed in another class or interface declaration.
-    | MemberClassDecl (XMemberDecl x) (XSP x) (ClassDecl x)
+    | MemberClassDecl (XMemberDecl x) (ClassDecl x)
     -- | A member interface is an interface whose declaration is directly enclosed in another class or interface declaration.
-    | MemberInterfaceDecl (XMemberDecl x) (XSP x) (InterfaceDecl x)
+    | MemberInterfaceDecl (XMemberDecl x) (InterfaceDecl x)
 
 -- Paragon
     -- | A lock declaration is a special kind of field declaration.
-    | LockDecl (XMemberDecl x) (XSP x) [Modifier x]  (Ident x) [RefType x] (Maybe (LockProperties x))
+    | LockDecl (XMemberDecl x) [Modifier x]  (Ident x) [RefType x] (Maybe (LockProperties x))
 {-    -- | A policy declaration - should be a field decl really.
     | PolicyDecl a [Modifier a] Ident Policy -}
 {-    -- | An actor declaration is a special kind of field declaration.
@@ -167,13 +167,13 @@ type family XMemberDecl x
 -- int x = 1; => VarDecl (VarId "x") (Just ...)
 -- | A declaration of a variable, which may be explicitly initialized.
 data VarDecl x
-    = VarDecl (XVarDecl x) (XSP x) (VarDeclId x) (Maybe (VarInit x))
+    = VarDecl (XVarDecl x) (VarDeclId x) (Maybe (VarInit x))
 type family XVarDecl x
 
 -- | The name of a variable in a declaration, which may be an array.
 data VarDeclId x
-    = VarId (XVarDeclId x) (XSP x) (Ident x)
-    | VarDeclArray (XVarDeclId x) (XSP x) (VarDeclId x)
+    = VarId (XVarDeclId x) (Ident x)
+    | VarDeclArray (XVarDeclId x) (VarDeclId x)
     -- ^ Multi-dimensional arrays are represented by nested applications of 'VarDeclArray' (Deprecated)
 type family XVarDeclId x
 
@@ -183,14 +183,14 @@ getVarDeclId (VarDeclArray _ _ varDeclId) = getVarDeclId varDeclId
 
 -- | Explicit initializer for a variable declaration.
 data VarInit x
-    = InitExp (XVarInit x) (XSP x) (Exp x)
-    | InitArray (XVarInit x) (XSP x) (ArrayInit x)
+    = InitExp (XVarInit x) (Exp x)
+    | InitArray (XVarInit x) (ArrayInit x)
 type family XVarInit x
 
 -- | A formal parameter in method declaration. The last parameter
 --   for a given declaration may be marked as variable arity,
 --   indicated by the boolean argument.
-data FormalParam x = FormalParam (XFormalParam x) (XSP x) [Modifier x] (Type x) Bool (VarDeclId x)
+data FormalParam x = FormalParam (XFormalParam x) [Modifier x] (Type x) Bool (VarDeclId x)
 type family XFormalParam x
 
 getFormalParamId :: FormalParam a -> Ident a
@@ -198,12 +198,12 @@ getFormalParamId (FormalParam _ _ _ _ _ varDeclId) = getVarDeclId varDeclId
 
 -- | A method body is either a block of code that implements the method or simply a
 --   semicolon, indicating the lack of an implementation (modelled by 'Nothing').
-data MethodBody x = MethodBody (XMethodBody x) (XSP x) (Maybe (Block x))
+data MethodBody x = MethodBody (XMethodBody x) (Maybe (Block x))
 type family XMethodBody x
 
 -- | The first statement of a constructor body may be an explicit invocation of
 --   another constructor of the same class or of the direct superclass.
-data ConstructorBody x = ConstructorBody (XConstructorBody x) (XSP x) (Maybe (ExplConstrInv x)) [BlockStmt x]
+data ConstructorBody x = ConstructorBody (XConstructorBody x) (Maybe (ExplConstrInv x)) [BlockStmt x]
 type family XConstructorBody x
 
 -- | An explicit constructor invocation invokes another constructor of the
@@ -211,9 +211,9 @@ type family XConstructorBody x
 --   be qualified to explicitly specify the newly created object's immediately
 --   enclosing instance.
 data ExplConstrInv x
-    = ThisInvoke         (XExplConstrInv x) (XSP x)         [NonWildTypeArgument x] [Argument x]
-    | SuperInvoke        (XExplConstrInv x) (XSP x)         [NonWildTypeArgument x] [Argument x]
-    | PrimarySuperInvoke (XExplConstrInv x) (XSP x) (Exp x) [NonWildTypeArgument x] [Argument x]
+    = ThisInvoke         (XExplConstrInv x)         [NonWildTypeArgument x] [Argument x]
+    | SuperInvoke        (XExplConstrInv x)         [NonWildTypeArgument x] [Argument x]
+    | PrimarySuperInvoke (XExplConstrInv x) (Exp x) [NonWildTypeArgument x] [Argument x]
 type family XExplConstrInv x
 
 -- | A modifier specifying properties of a given declaration. In general only
@@ -238,11 +238,11 @@ data Modifier x
     | Readonly   (XMod x) (XSP x)
     | Notnull    (XMod x) (XSP x)
 
-    | Reads   (XMod x) (XSP x) (Policy x)
-    | Writes  (XMod x) (XSP x) (Policy x)
-    | Opens   (XMod x) (XSP x) [Lock x]
-    | Closes  (XMod x) (XSP x) [Lock x]
-    | Expects (XMod x) (XSP x) [Lock x]
+    | Reads   (XMod x) (Policy x)
+    | Writes  (XMod x) (Policy x)
+    | Opens   (XMod x) [Lock x]
+    | Closes  (XMod x) [Lock x]
+    | Expects (XMod x) [Lock x]
 type family XMod x
 
 -- isMethodStatic :: (XMod -> a) -> [Modifier x] -> Bool
@@ -253,18 +253,18 @@ type family XMod x
 
 -- | A block is a sequence of statements, local class declarations
 --   and local variable declaration statements within braces.
-data Block x = Block (XBlock x) (XSP x) [BlockStmt x]
+data Block x = Block (XBlock x) [BlockStmt x]
 type family XBlock x
 
 -- | A block statement is either a normal statement, a local
 --   class declaration or a local variable declaration.
 data BlockStmt x
-    = BlockStmt (XBlockStm x) (XSP x) (Stmt x)
-    | LocalClass (XBlockStm x) (XSP x) (ClassDecl x)
-    | LocalVars (XBlockStm x) (XSP x) [Modifier x] (Type x) [VarDecl x]
+    = BlockStmt (XBlockStm x) (Stmt x)
+    | LocalClass (XBlockStm x) (ClassDecl x)
+    | LocalVars (XBlockStm x) [Modifier x] (Type x) [VarDecl x]
 
 -- Paragon
-    | LocalLock (XBlockStm x) (XSP x) [Modifier x] (Ident x) [RefType x] (Maybe (LockProperties x))
+    | LocalLock (XBlockStm x) [Modifier x] (Ident x) [RefType x] (Maybe (LockProperties x))
 {-    | LocalPolicy [Modifier] Ident Policy
       | LocalActor [Modifier] Ident (Maybe VarInit) -}
 type family XBlockStm x
@@ -273,57 +273,57 @@ type family XBlockStm x
 -- | A Java statement.
 data Stmt x
     -- | A statement can be a nested block.
-    = StmtBlock (XStm x) (XSP x) (Block x)
+    = StmtBlock (XStm x) (Block x)
     -- | The @if-then@ statement allows conditional execution of a statement.
-    | IfThen (XStm x) (XSP x) (Exp x) (Stmt x)
+    | IfThen (XStm x) (Exp x) (Stmt x)
     -- | The @if-then-else@ statement allows conditional choice of two statements, executing one or the other but not both.
-    | IfThenElse (XStm x) (XSP x) (Exp x) (Stmt x) (Stmt x)
+    | IfThenElse (XStm x) (Exp x) (Stmt x) (Stmt x)
     -- | The @while@ statement executes an expression and a statement repeatedly until the value of the expression is false.
-    | While (XStm x) (XSP x) (Exp x) (Stmt x)
+    | While (XStm x) (Exp x) (Stmt x)
     -- | The basic @for@ statement executes some initialization code, then executes an expression, a statement, and some
     --   update code repeatedly until the value of the expression is false.
-    | BasicFor (XStm x) (XSP x) (Maybe (ForInit x)) (Maybe (Exp x)) (Maybe [Exp x]) (Stmt x)
+    | BasicFor (XStm x) (Maybe (ForInit x)) (Maybe (Exp x)) (Maybe [Exp x]) (Stmt x)
     -- | The enhanced @for@ statement iterates over an array or a value of a class that implements the @iterator@ interface.
-    | EnhancedFor (XStm x) (XSP x) [Modifier x] (Type x) (Ident x) (Exp x) (Stmt x)
+    | EnhancedFor (XStm x) [Modifier x] (Type x) (Ident x) (Exp x) (Stmt x)
     -- | An empty statement does nothing.
     | Empty (XStm x) (XSP x)
     -- | Certain kinds of expressions may be used as statements by following them with semicolons:
     --   assignments, pre- or post-inc- or decrementation, method invocation or class instance
     --   creation expressions.
-    | ExpStmt (XStm x) (XSP x) (Exp x)
+    | ExpStmt (XStm x) (Exp x)
     -- | An assertion is a statement containing a boolean expression, where an error is reported if the expression
     --   evaluates to false.
-    | Assert (XStm x) (XSP x) (Exp x) (Maybe (Exp x))
+    | Assert (XStm x) (Exp x) (Maybe (Exp x))
     -- | The switch statement transfers control to one of several statements depending on the value of an expression.
-    | Switch (XStm x) (XSP x) (Exp x) [SwitchBlock x]
+    | Switch (XStm x) (Exp x) [SwitchBlock x]
     -- | The @do@ statement executes a statement and an expression repeatedly until the value of the expression is false.
-    | Do (XStm x) (XSP x) (Stmt x) (Exp x)
+    | Do (XStm x) (Stmt x) (Exp x)
     -- | A @break@ statement transfers control out of an enclosing statement.
-    | Break (XStm x) (XSP x) (Maybe (Ident x))
+    | Break (XStm x) (Maybe (Ident x))
     -- | A @continue@ statement may occur only in a while, do, or for statement. Control passes to the loop-continuation
     --   point of that statement.
-    | Continue (XStm x) (XSP x) (Maybe (Ident x))
+    | Continue (XStm x) (Maybe (Ident x))
     -- A @return@ statement returns control to the invoker of a method or constructor.
-    | Return (XStm x) (XSP x) (Maybe (Exp x))
+    | Return (XStm x) (Maybe (Exp x))
     -- | A @synchronized@ statement acquires a mutual-exclusion lock on behalf of the executing thread, executes a block,
     --   then releases the lock. While the executing thread owns the lock, no other thread may acquire the lock.
-    | Synchronized (XStm x) (XSP x) (Exp x) (Block x)
+    | Synchronized (XStm x) (Exp x) (Block x)
     -- | A @throw@ statement causes an exception to be thrown.
-    | Throw (XStm x) (XSP x) (Exp x)
+    | Throw (XStm x) (Exp x)
     -- | A try statement executes a block. If a value is thrown and the try statement has one or more catch clauses that
     --   can catch it, then control will be transferred to the first such catch clause. If the try statement has a finally
     --   clause, then another block of code is executed, no matter whether the try block completes normally or abruptly,
     --   and no matter whether a catch clause is first given control.
-    | Try (XStm x) (XSP x) (Block x) [Catch x] (Maybe {- finally -} (Block x))
+    | Try (XStm x) (Block x) [Catch x] (Maybe {- finally -} (Block x))
     -- | Statements may have label prefixes.
-    | Labeled (XStm x) (XSP x) (Ident x) (Stmt x)
+    | Labeled (XStm x) (Ident x) (Stmt x)
 
 -- Paragon
     -- | Locks can be opened or closed.
-    | Open  (XStm x) (XSP x) (Lock x)
-    | Close (XStm x) (XSP x) (Lock x)
-    | OpenBlock  (XStm x) (XSP x) (Lock x) (Block x)
-    | CloseBlock (XStm x) (XSP x) (Lock x) (Block x)
+    | Open  (XStm x) (Lock x)
+    | Close (XStm x) (Lock x)
+    | OpenBlock  (XStm x) (Lock x) (Block x)
+    | CloseBlock (XStm x) (Lock x) (Block x)
 {-    -- A @when@ statement is a variant of @if@ that only tests whether locks are open.
     | WhenThen     Lock Stmt
     | WhenThenElse Lock Stmt Stmt    -}
@@ -331,31 +331,31 @@ type family XStm x
 
 -- | If a value is thrown and the try statement has one or more catch clauses that can catch it, then control will be
 --   transferred to the first such catch clause.
-data Catch x = Catch (XCatch x) (XSP x) (FormalParam x) (Block x)
+data Catch x = Catch (XCatch x) (FormalParam x) (Block x)
 type family XCatch x
 
 -- | A block of code labelled with a @case@ or @default@ within a @switch@ statement.
 data SwitchBlock x
-    = SwitchBlock (XSwitchBlock x) (XSP x) (SwitchLabel x) [BlockStmt x]
+    = SwitchBlock (XSwitchBlock x) (SwitchLabel x) [BlockStmt x]
 type family XSwitchBlock x
 
 -- | A label within a @switch@ statement.
 data SwitchLabel x
     -- | The expression contained in the @case@ must be a 'Lit' or an @enum@ constant.
-    = SwitchCase (XSwitchLabel x) (XSP x) (Exp x)
+    = SwitchCase (XSwitchLabel x) (Exp x)
     | Default (XSwitchLabel x) (XSP x)
 type family XSwitchLabel x
 
 -- | Initialization code for a basic @for@ statement.
 data ForInit x
-    = ForLocalVars (XForInit x) (XSP x) [Modifier x] (Type x) [VarDecl x]
-    | ForInitExps (XForInit x) (XSP x) [Exp x]
+    = ForLocalVars (XForInit x) [Modifier x] (Type x) [VarDecl x]
+    | ForInitExps (XForInit x) [Exp x]
 type family XForInit x
 
 -- | An exception type has to be a class type or a type variable.
 type ExceptionType x = RefType x -- restricted to ClassType or TypeVariable
 
-data ExceptionSpec x = ExceptionSpec (XExceptionSpec x) (XSP x) [Modifier x] (ExceptionType x)
+data ExceptionSpec x = ExceptionSpec (XExceptionSpec x) [Modifier x] (ExceptionType x)
 type family XExceptionSpec x
 
 
@@ -368,101 +368,101 @@ type Argument x = (Exp x)
 -- | A Java expression.
 data Exp x
     -- | A literal denotes a fixed, unchanging value.
-    = Lit (XExp x) (XSP x) (Literal x)
+    = Lit (XExp x) (Literal x)
     -- | A class literal, which is an expression consisting of the name of a class, interface, array,
     --   or primitive type, or the pseudo-type void (modelled by 'Nothing'), followed by a `.' and the token class.
-    | ClassLit (XExp x) (XSP x) (Maybe (Type x))
+    | ClassLit (XExp x) (Maybe (Type x))
     -- | The keyword @this@ denotes a value that is a reference to the object for which the instance method
     --   was invoked, or to the object being constructed.
     | This (XExp x) (XSP x)
     -- | Any lexically enclosing instance can be referred to by explicitly qualifying the keyword this.
-    | ThisClass (XExp x) (XSP x) (Name x)
+    | ThisClass (XExp x) (Name x)
     -- | A parenthesized expression is a primary expression whose type is the type of the contained expression
     --   and whose value at run time is the value of the contained expression. If the contained expression
     --   denotes a variable then the parenthesized expression also denotes that variable.
-    | Paren (XExp x) (XSP x) (Exp x)
+    | Paren (XExp x) (Exp x)
     -- | A class instance creation expression is used to create new objects that are instances of classes.
     -- | The first argument is a list of non-wildcard type arguments to a generic constructor.
     --   What follows is the type to be instantiated, the list of arguments passed to the constructor, and
     --   optionally a class body that makes the constructor result in an object of an /anonymous/ class.
-    | InstanceCreation (XExp x) (XSP x) [TypeArgument x] (ClassType x) [Argument x] (Maybe (ClassBody x))
+    | InstanceCreation (XExp x) [TypeArgument x] (ClassType x) [Argument x] (Maybe (ClassBody x))
     -- | A qualified class instance creation expression enables the creation of instances of inner member classes
     --   and their anonymous subclasses.
-    | QualInstanceCreation (XExp x) (XSP x) (Exp x) [TypeArgument x] (Ident x) [Argument x] (Maybe (ClassBody x))
+    | QualInstanceCreation (XExp x) (Exp x) [TypeArgument x] (Ident x) [Argument x] (Maybe (ClassBody x))
     -- | An array instance creation expression is used to create new arrays. The last argument denotes the number
     --   of dimensions that have no explicit length given. These dimensions must be given last.
-    | ArrayCreate (XExp x) (XSP x) (Type x) [(Exp x, Maybe (Policy x))] [Maybe (Policy x)]
+    | ArrayCreate (XExp x) (Type x) [(Exp x, Maybe (Policy x))] [Maybe (Policy x)]
     -- | An array instance creation expression may come with an explicit initializer. Such expressions may not
     --   be given explicit lengths for any of its dimensions.
-    | ArrayCreateInit (XExp x) (XSP x) (Type x) [Maybe (Policy x)] (ArrayInit x)
+    | ArrayCreateInit (XExp x) (Type x) [Maybe (Policy x)] (ArrayInit x)
     -- | A field access expression.
-    | FieldAccess (XExp x) (XSP x) (FieldAccess x)
+    | FieldAccess (XExp x) (FieldAccess x)
     -- | A method invocation expression.
-    | MethodInv (XExp x) (XSP x) (MethodInvocation x)
+    | MethodInv (XExp x) (MethodInvocation x)
     -- | An array access expression refers to a variable that is a component of an array.
-    | ArrayAccess (XExp x) (XSP x) (ArrayIndex x)
+    | ArrayAccess (XExp x) (ArrayIndex x)
     -- | An expression name, e.g. a variable.
-    | ExpName (XExp x) (XSP x) (Name x)
+    | ExpName (XExp x) (Name x)
     -- | Post-incrementation expression, i.e. an expression followed by @++@.
-    | PostIncrement (XExp x) (XSP x) (Exp x)
+    | PostIncrement (XExp x) (Exp x)
     -- | Post-decrementation expression, i.e. an expression followed by @--@.
-    | PostDecrement (XExp x) (XSP x) (Exp x)
+    | PostDecrement (XExp x) (Exp x)
     -- | Pre-incrementation expression, i.e. an expression preceded by @++@.
-    | PreIncrement  (XExp x) (XSP x) (Exp x)
+    | PreIncrement  (XExp x) (Exp x)
     -- | Pre-decrementation expression, i.e. an expression preceded by @--@.
-    | PreDecrement  (XExp x) (XSP x) (Exp x)
+    | PreDecrement  (XExp x) (Exp x)
     -- | Unary plus, the promotion of the value of the expression to a primitive numeric type.
-    | PrePlus  (XExp x) (XSP x) (Exp x)
+    | PrePlus  (XExp x) (Exp x)
     -- | Unary minus, the promotion of the negation of the value of the expression to a primitive numeric type.
-    | PreMinus (XExp x) (XSP x) (Exp x)
+    | PreMinus (XExp x) (Exp x)
     -- | Unary bitwise complementation: note that, in all cases, @~x@ equals @(-x)-1@.
-    | PreBitCompl (XExp x) (XSP x) (Exp x)
+    | PreBitCompl (XExp x) (Exp x)
     -- | Logical complementation of boolean values.
-    | PreNot  (XExp x) (XSP x) (Exp x)
+    | PreNot  (XExp x) (Exp x)
     -- | A cast expression converts, at run time, a value of one numeric type to a similar value of another
     --   numeric type; or confirms, at compile time, that the type of an expression is boolean; or checks,
     --   at run time, that a reference value refers to an object whose class is compatible with a specified
     --   reference type.
-    | Cast (XExp x) (XSP x) (Type x) (Exp x)
+    | Cast (XExp x) (Type x) (Exp x)
     -- | The application of a binary operator to two operand expressions.
-    | BinOp (XExp x) (XSP x) (Exp x) (Op x) (Exp x)
+    | BinOp (XExp x) (Exp x) (Op x) (Exp x)
     -- | Testing whether the result of an expression is an instance of some reference type.
-    | InstanceOf (XExp x) (XSP x) (Exp x) (RefType x)
+    | InstanceOf (XExp x) (Exp x) (RefType x)
     -- | The conditional operator @? :@ uses the boolean value of one expression to decide which of two other
     --   expressions should be evaluated.
-    | Cond (XExp x) (XSP x) (Exp x) (Exp x) (Exp x)
+    | Cond (XExp x) (Exp x) (Exp x) (Exp x)
     -- | Assignment of the result of an expression to a variable.
-    | Assign (XExp x) (XSP x) (Lhs x) (AssignOp x) (Exp x)
+    | Assign (XExp x) (Lhs x) (AssignOp x) (Exp x)
 
 -- Paragon
-    | PolicyExp (XExp x) (XSP x) (PolicyExp x)
+    | PolicyExp (XExp x) (PolicyExp x)
 --    | PolicyOf (Ident x)
-    | LockExp (XExp x) (XSP x) (Lock x)
+    | LockExp (XExp x) (Lock x)
 
 -- Quasi-quotation
-    | AntiQExp (XExp x) (XSP x) String
+    | AntiQExp (XExp x) String
 type family XExp x
 
 -- | A literal denotes a fixed, unchanging value.
 data Literal  x
-    = Int     (XLiteral x) (XSP x) Integer
-    | Word    (XLiteral x) (XSP x) Integer
-    | Float   (XLiteral x) (XSP x) Double
-    | Double  (XLiteral x) (XSP x) Double
-    | Boolean (XLiteral x) (XSP x) Bool
-    | Char    (XLiteral x) (XSP x) Char
-    | String  (XLiteral x) (XSP x) String
+    = Int     (XLiteral x) Integer
+    | Word    (XLiteral x) Integer
+    | Float   (XLiteral x) Double
+    | Double  (XLiteral x) Double
+    | Boolean (XLiteral x) Bool
+    | Char    (XLiteral x) Char
+    | String  (XLiteral x) String
     | Null    (XLiteral x) (XSP x)
 type family XLiteral x
 
 -- | A binary infix operator.
 data Op x
-    = Mult   (XOp x) (XSP x) | Div     (XOp x) (XSP x) | Rem    (XOp x) (XSP x)
-    | Add    (XOp x) (XSP x) | Sub     (XOp x) (XSP x) | LShift (XOp x) (XSP x)
-    | RShift (XOp x) (XSP x) | RRShift (XOp x) (XSP x) | LThan  (XOp x) (XSP x)
-    | GThan  (XOp x) (XSP x) | LThanE  (XOp x) (XSP x) | GThanE (XOp x) (XSP x)
-    | Equal  (XOp x) (XSP x) | NotEq   (XOp x) (XSP x) | And    (XOp x) (XSP x)
-    | Or     (XOp x) (XSP x) | Xor     (XOp x) (XSP x) | CAnd   (XOp x) (XSP x)
+    = Mult   (XOp x) | Div     (XOp x) | Rem    (XOp x) (XSP x)
+    | Add    (XOp x) | Sub     (XOp x) | LShift (XOp x) (XSP x)
+    | RShift (XOp x) | RRShift (XOp x) | LThan  (XOp x) (XSP x)
+    | GThan  (XOp x) | LThanE  (XOp x) | GThanE (XOp x) (XSP x)
+    | Equal  (XOp x) | NotEq   (XOp x) | And    (XOp x) (XSP x)
+    | Or     (XOp x) | Xor     (XOp x) | CAnd   (XOp x) (XSP x)
     | COr    (XOp x) (XSP x)
 type family XOp x
 
@@ -470,11 +470,11 @@ type family XOp x
 -- type families: XAssignOp
 data AssignOp x
     = EqualA  (XAssignOp x) (XSP x)
-    | MultA   (XAssignOp x) (XSP x) | DivA     (XAssignOp x) (XSP x)
-    | RemA    (XAssignOp x) (XSP x) | AddA     (XAssignOp x) (XSP x)
-    | SubA    (XAssignOp x) (XSP x) | LShiftA  (XAssignOp x) (XSP x)
-    | RShiftA (XAssignOp x) (XSP x) | RRShiftA (XAssignOp x) (XSP x)
-    | AndA    (XAssignOp x) (XSP x) | XorA     (XAssignOp x) (XSP x)
+    | MultA   (XAssignOp x) | DivA     (XAssignOp x) (XSP x)
+    | RemA    (XAssignOp x) | AddA     (XAssignOp x) (XSP x)
+    | SubA    (XAssignOp x) | LShiftA  (XAssignOp x) (XSP x)
+    | RShiftA (XAssignOp x) | RRShiftA (XAssignOp x) (XSP x)
+    | AndA    (XAssignOp x) | XorA     (XAssignOp x) (XSP x)
     | OrA     (XAssignOp x) (XSP x)
 type family XAssignOp x
 
@@ -482,44 +482,44 @@ type family XAssignOp x
 --   variable or a field of the current object or class, or it may be a computed variable, as can result from
 --   a field access or an array access.
 data Lhs x
-    = NameLhs (XLhs x) (XSP x)  (Name x)          -- ^ Assign to a variable
-    | FieldLhs (XLhs x) (XSP x)  (FieldAccess x)  -- ^ Assign through a field access
-    | ArrayLhs (XLhs x) (XSP x)  (ArrayIndex  x)  -- ^ Assign to an array
+    = NameLhs (XLhs x)  (Name x)          -- ^ Assign to a variable
+    | FieldLhs (XLhs x)  (FieldAccess x)  -- ^ Assign through a field access
+    | ArrayLhs (XLhs x)  (ArrayIndex  x)  -- ^ Assign to an array
 type family XLhs x
 
 -- | Array access
 -- type families: XArrayIndex
-data ArrayIndex x = ArrayIndex (XArrayIndex x) (XSP x) (Exp x) (Exp x)    -- ^ Index into an array
+data ArrayIndex x = ArrayIndex (XArrayIndex x) (Exp x) (Exp x)    -- ^ Index into an array
 type family XArrayIndex x
 
 -- | A field access expression may access a field of an object or array, a reference to which is the value
 --   of either an expression or the special keyword super.
 data FieldAccess x
-    = PrimaryFieldAccess (XFieldAccess x) (XSP x) (Exp x) (Ident x)     -- ^ Accessing a field of an object or array computed from an expression.
-    | SuperFieldAccess   (XFieldAccess x) (XSP x) (Ident x)             -- ^ Accessing a field of the superclass.
-    | ClassFieldAccess   (XFieldAccess x) (XSP x) (Name x) (Ident x)    -- ^ Accessing a (static) field of a named class.
+    = PrimaryFieldAccess (XFieldAccess x) (Exp x) (Ident x)     -- ^ Accessing a field of an object or array computed from an expression.
+    | SuperFieldAccess   (XFieldAccess x) (Ident x)             -- ^ Accessing a field of the superclass.
+    | ClassFieldAccess   (XFieldAccess x) (Name x) (Ident x)    -- ^ Accessing a (static) field of a named class.
 type family XFieldAccess x
 
 -- | A method invocation expression is used to invoke a class or instance method.
 -- type families: XMethodInvocation
 data MethodInvocation x
-    -- | Invoking (XMethodInvocation x) (XSP x) specific named method.
-    = MethodCallOrLockQuery (XMethodInvocation x) (XSP x) (Name x) [Argument x]
-    -- | Invoking (XMethodInvocation x) (XSP x) method of (XMethodInvocation x) (XSP x) class computed from (XMethodInvocation x) (XSP x) primary expression, giving arguments for any generic type parameters.
-    | PrimaryMethodCall (XMethodInvocation x) (XSP x) (Exp x) [NonWildTypeArgument x] (Ident x) [Argument x]
-    -- | Invoking (XMethodInvocation x) (XSP x) method of the super class, giving arguments for any generic type parameters.
-    | SuperMethodCall (XMethodInvocation x) (XSP x) [NonWildTypeArgument x] (Ident x) [Argument x]
-    -- | Invoking (XMethodInvocation x) (XSP x) method of the superclass of (XMethodInvocation x) (XSP x) named class, giving arguments for any generic type parameters.
-    | ClassMethodCall (XMethodInvocation x) (XSP x) (Name x) [NonWildTypeArgument x] (Ident x) [Argument x]
-    -- | Invoking (XMethodInvocation x) (XSP x) method of (XMethodInvocation x) (XSP x) named type, giving arguments for any generic type parameters.
-    | TypeMethodCall (XMethodInvocation x) (XSP x) (Name x) [NonWildTypeArgument x] (Ident x) [Argument x]
+    -- | Invoking (XMethodInvocation x) specific named method.
+    = MethodCallOrLockQuery (XMethodInvocation x) (Name x) [Argument x]
+    -- | Invoking (XMethodInvocation x) method of (XMethodInvocation x) class computed from (XMethodInvocation x) primary expression, giving arguments for any generic type parameters.
+    | PrimaryMethodCall (XMethodInvocation x) (Exp x) [NonWildTypeArgument x] (Ident x) [Argument x]
+    -- | Invoking (XMethodInvocation x) method of the super class, giving arguments for any generic type parameters.
+    | SuperMethodCall (XMethodInvocation x) [NonWildTypeArgument x] (Ident x) [Argument x]
+    -- | Invoking (XMethodInvocation x) method of the superclass of (XMethodInvocation x) named class, giving arguments for any generic type parameters.
+    | ClassMethodCall (XMethodInvocation x) (Name x) [NonWildTypeArgument x] (Ident x) [Argument x]
+    -- | Invoking (XMethodInvocation x) method of (XMethodInvocation x) named type, giving arguments for any generic type parameters.
+    | TypeMethodCall (XMethodInvocation x) (Name x) [NonWildTypeArgument x] (Ident x) [Argument x]
 type family XMethodInvocation x
 
 -- | An array initializer may be specified in a declaration, or as part of an array creation expression, creating an
 --   array and providing some initial values
 -- type families: XArrayInit
 data ArrayInit x
-    = ArrayInit (XArrayInit x) (XSP x) [VarInit x]
+    = ArrayInit (XArrayInit x) [VarInit x]
 type family XArrayInit x
 
 -----------------------------------------------------------------------
@@ -528,15 +528,15 @@ type family XArrayInit x
 data ReturnType x
     = VoidType (XReturnType x) (XSP x)
     | LockType (XReturnType x) (XSP x)
-    | Type (XReturnType x) (XSP x) (Type x)
+    | Type (XReturnType x) (Type x)
 type family XReturnType x
 
 -- | There are two kinds of types in the Java programming language: primitive types and reference types.
 -- type families: XType
 data Type x
-    = PrimType (XType x) (XSP x) (PrimType x)
-    | RefType (XType x) (XSP x) (RefType x)
-    | AntiQType (XType x) (XSP x) String
+    = PrimType (XType x) (PrimType x)
+    | RefType (XType x) (RefType x)
+    | AntiQType (XType x) String
 type family XType x
 
 -- | There are three kinds of reference types: class types, interface types, and array types.
@@ -544,9 +544,9 @@ type family XType x
 --   Type variables are introduced by generic type parameters.
 -- type families: XRefType
 data RefType x
-    = ClassRefType (XRefType x) (XSP x) (ClassType x)
-    | TypeVariable (XRefType x) (XSP x) (Ident x)
-    | ArrayType    (XRefType x) (XSP x) (Type x) [Maybe (Policy x)]
+    = ClassRefType (XRefType x) (ClassType x)
+    | TypeVariable (XRefType x) (Ident x)
+    | ArrayType    (XRefType x) (Type x) [Maybe (Policy x)]
     -- ^ The second argument to ArrayType is the base type, and should not be an array type
 type family XRefType x
 
@@ -554,29 +554,29 @@ type family XRefType x
 --   optionally followed by type arguments (in which case it is a parameterized type).
 -- type families: XClassType
 data ClassType x
-    = ClassType(XClassType x) (XSP x) (Name x) [TypeArgument x]
+    = ClassType(XClassType x) (Name x) [TypeArgument x]
 type family XClassType x
 
 -- | Type arguments may be either reference types or wildcards.
 -- type families: XTypeArgument
 data TypeArgument x
-    = Wildcard  (XTypeArgument x) (XSP x) (Maybe (WildcardBound x))
-    | ActualArg (XTypeArgument x) (XSP x) (NonWildTypeArgument x)
+    = Wildcard  (XTypeArgument x) (Maybe (WildcardBound x))
+    | ActualArg (XTypeArgument x) (NonWildTypeArgument x)
 type family XTypeArgument x
 
 data NonWildTypeArgument x
-    = ActualName (XNonWildTypeArgument x) (XSP x) (Name x)      -- Can mean (XNonWildTypeArgument x) (XSP x) type or an exp
-    | ActualType (XNonWildTypeArgument x) (XSP x) (RefType x)
-    | ActualExp (XNonWildTypeArgument x) (XSP x) (Exp x)        -- Constrained to argExp
-    | ActualLockState (XNonWildTypeArgument x) (XSP x) [Lock x]
+    = ActualName (XNonWildTypeArgument x) (Name x)      -- Can mean (XNonWildTypeArgument x) type or an exp
+    | ActualType (XNonWildTypeArgument x) (RefType x)
+    | ActualExp (XNonWildTypeArgument x) (Exp x)        -- Constrained to argExp
+    | ActualLockState (XNonWildTypeArgument x) [Lock x]
 type family XNonWildTypeArgument x
 
 
 -- | Wildcards may be given explicit bounds, either upper (@extends@) or lower (@super@) bounds.
 -- type families: XWildcardBound
 data WildcardBound x
-    = ExtendsBound (XWildcardBound x) (XSP x) (RefType x)
-    | SuperBound (XWildcardBound x) (XSP x) (RefType x)
+    = ExtendsBound (XWildcardBound x) (RefType x)
+    | SuperBound (XWildcardBound x) (RefType x)
 type family XWildcardBound x
 
 -- | A primitive type is predefined by the Java programming language and named by its reserved keyword.
@@ -616,11 +616,11 @@ aPrimType f (BooleanT x _) = f x
 --   as the type parameters of the class.
 --   Paragon adds three new forms - actor, policy and lockstate parameters.
 -- type families: XTypeParam
-data TypeParam x = TypeParam (XTypeParam x) (XSP x) (Ident x) [RefType x]
+data TypeParam x = TypeParam (XTypeParam x) (Ident x) [RefType x]
 -- Paragon
-                 | ActorParam    (XTypeParam x) (XSP x) (RefType x) (Ident x)
-                 | PolicyParam   (XTypeParam x) (XSP x) (Ident x)
-                 | LockStateParam(XTypeParam x) (XSP x) (Ident x)
+                 | ActorParam    (XTypeParam x) (RefType x) (Ident x)
+                 | PolicyParam   (XTypeParam x) (Ident x)
+                 | LockStateParam(XTypeParam x) (Ident x)
 type family XTypeParam x
 
 -----------------------------------------------------------------------
@@ -632,62 +632,62 @@ type Policy a = Exp a
 --data PolicyLit = PolicyLit [Clause Actor]
 -- type families : XPolicyExp
 data PolicyExp x = PolicyLit     (XPolicyExp x) (XSP x)[Clause x]
-                 | PolicyOf      (XPolicyExp x) (XSP x) (Ident x)
+                 | PolicyOf      (XPolicyExp x) (Ident x)
                  | PolicyThis    (XPolicyExp x) (XSP x)
-                 | PolicyTypeVar (XPolicyExp x) (XSP x) (Ident x)
+                 | PolicyTypeVar (XPolicyExp x) (Ident x)
 type family XPolicyExp x
 
 -- | A lock property is a potentially recursive policy with an atom head.
 -- type families: XLockProperties
-data LockProperties x = LockProperties (XLockProperties x) (XSP x) [LClause x]
+data LockProperties x = LockProperties (XLockProperties x) [LClause x]
 type family XLockProperties x
 
 -- HERE
 -- | A clause of the form Sigma => a, where a is an actor and Sigma a set of
 --   locks/atomic predicates that must be open/true.
 -- type families: XClause
-data Clause x = Clause (XClause x) (XSP x) [ClauseVarDecl x] (ClauseHead x) [Atom x]
+data Clause x = Clause (XClause x) [ClauseVarDecl x] (ClauseHead x) [Atom x]
 type family XClause x
 
 -- | type families : XClauseVarDecl
-data ClauseVarDecl x = ClauseVarDecl (XClauseVarDecl x) (XSP x) (RefType x) (Ident x)
+data ClauseVarDecl x = ClauseVarDecl (XClauseVarDecl x) (RefType x) (Ident x)
 type family XClauseVarDecl x
 
 -- | type families : XClauseHead
-data ClauseHead x = ClauseDeclHead (XClauseHead x) (XSP x) (ClauseVarDecl x)
-                  | ClauseVarHead (XClauseHead x) (XSP x) (Actor x)
+data ClauseHead x = ClauseDeclHead (XClauseHead x) (ClauseVarDecl x)
+                  | ClauseVarHead (XClauseHead x) (Actor x)
 type family XClauseHead x
 
 -- | type families: XLClause
-data LClause x = LClause (XLClause x) (XSP x) [ClauseVarDecl x] (Atom x) [Atom x]
-               | ConstraintClause (XLClause x) (XSP x) [ClauseVarDecl x] [Atom x]
+data LClause x = LClause (XLClause x) [ClauseVarDecl x] (Atom x) [Atom x]
+               | ConstraintClause (XLClause x) [ClauseVarDecl x] [Atom x]
 type family XLClause x
 
 -- | An actor variable, either forall-quantified within the current clause, or
 --   free and thus concrete w.r.t. the policy under scrutiny.
 -- type families: XActor
-data Actor x = Actor (XActor x) (XSP x) (ActorName x)    -- ^ Free actor variables
-             | Var   (XActor x) (XSP x) (Ident x)        -- ^ Quantified actor variables
+data Actor x = Actor (XActor x) (ActorName x)    -- ^ Free actor variables
+             | Var   (XActor x) (Ident x)        -- ^ Quantified actor variables
 
 type family XActor x
 
 -- | Type families: XActorName
 data ActorName x
-    = ActorName (XActorName x) (XSP x) (Name x)
+    = ActorName (XActorName x) (Name x)
     -- ^ A free actor variable
-    | ActorTypeVar (XActorName x) (XSP x) (RefType x) (Ident x)
+    | ActorTypeVar (XActorName x) (RefType x) (Ident x)
     -- ^ A free actor type parameter
 type family XActorName x
 
 
 -- | A lock is an atomic n-ary predicate.
 -- Type families: XAtom
-data Atom x = Atom (XAtom x) (XSP x) (Name x) [Actor x]
+data Atom x = Atom (XAtom x) (Name x) [Actor x]
 type family XAtom x
 
 
 -- | Type families: XLock
-data Lock x = Lock (XLock x) (XSP x) (Name x) [ActorName x] | LockVar (XLock x) (XSP x) (Ident x)
+data Lock x = Lock (XLock x) (Name x) [ActorName x] | LockVar (XLock x) (Ident x)
 type family XLock x
 
 -----------------------------------------------------------------------
@@ -706,7 +706,7 @@ importDeclName (StaticImportOnDemand _ _ n)   = n
 
 -- | A single identifier
 -- Type families: XIdent
-data Ident x = Ident (XIdent x) (XSP x) B.ByteString | AntiQIdent (XIdent x) (XSP x) String
+data Ident x = Ident (XIdent x) B.ByteString | AntiQIdent (XIdent x) String
 type family XIdent x
 
 -- | Extract actual identifier string from Ident wrapper type
@@ -717,8 +717,8 @@ unIdent (AntiQIdent _ _ str) = panic (syntaxModule ++ ".unIdent")
 
 -- | A name, i.e. a period-separated list of identifiers.
 -- type families : XName
-data Name x = Name (XName x) (XSP x) NameType (Maybe (Name x)) (Ident x)
-            | AntiQName (XName x) (XSP x) String
+data Name x = Name (XName x) NameType (Maybe (Name x)) (Ident x)
+            | AntiQName (XName x) String
    -- Show removed to get more readable debug output
 type family XName x
 data NameType

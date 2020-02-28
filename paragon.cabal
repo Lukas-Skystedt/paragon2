@@ -63,6 +63,14 @@ Library
                       , Language.Java.Paragon.Monad.Uniq
                       , Language.Java.Paragon.NameResolution
                       , Language.Java.Paragon.NameResolution.Monad
+                      , Language.Java.Paragon.Decorations.DecorationTypes
+                      , Language.Java.Paragon.Decorations.LseDecoration
+                      , Language.Java.Paragon.Decorations.NrDecoration
+                      , Language.Java.Paragon.Decorations.PaDecoration
+                      , Language.Java.Paragon.Decorations.PcgDecoration
+                      , Language.Java.Paragon.Decorations.PcsDecoration
+                      , Language.Java.Paragon.Decorations.PteDecoration
+                      , Language.Java.Paragon.Decorations.TcDecoration
                       , Language.Java.Paragon.TypeCheck
                       , Language.Java.Paragon.TypeCheck.Interpreter
                       , Language.Java.Paragon.TypeCheck.Monad
@@ -105,6 +113,14 @@ Executable parac
                       , Language.Java.Paragon.Monad.Uniq
                       , Language.Java.Paragon.NameResolution
                       , Language.Java.Paragon.NameResolution.Monad
+                      , Language.Java.Paragon.Decorations.DecorationTypes
+                      , Language.Java.Paragon.Decorations.LseDecoration
+                      , Language.Java.Paragon.Decorations.NrDecoration
+                      , Language.Java.Paragon.Decorations.PaDecoration
+                      , Language.Java.Paragon.Decorations.PcgDecoration
+                      , Language.Java.Paragon.Decorations.PcsDecoration
+                      , Language.Java.Paragon.Decorations.PteDecoration
+                      , Language.Java.Paragon.Decorations.TcDecoration
                       , Language.Java.Paragon.TypeCheck
                       , Language.Java.Paragon.TypeCheck.Interpreter
                       , Language.Java.Paragon.TypeCheck.Monad

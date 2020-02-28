@@ -6,7 +6,7 @@ import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Error()
 import Language.Java.Paragon.TypeCheck.Types
 import Language.Java.Paragon.Interaction
-import Language.Java.Paragon.Decorations
+import Language.Java.Paragon.Decorations.PcsDecoration
 
 import Data.Generics.Uniplate.Data
 import Data.List (nub, union, delete)
@@ -90,7 +90,7 @@ splitTypeParams = go ([],[],[],[]) -- error "compileTypeParams undefined"
                      fp = -- [formalParamQQ| final #T#ty #i         |]
                           PcsFormalParam  [PcsFinal ] ty False (PcsVarId  i)
                      a  = -- [blockStmtQQ| this.#i = #i;         |]
-                          PcsBlockStmt  (PcsExpStmt  (PcsAssign 
+                          PcsBlockStmt  (PcsExpStmt  (PcsAssign
                              (PcsFieldLhs  (PcsPrimaryFieldAccess (PcsThis) i))
                              (PcsEqualA) (PcsExpName (PcsName EOrLName Nothing i))))
                  in go (ttps,fd:fds,fp:fps,a:as) tps

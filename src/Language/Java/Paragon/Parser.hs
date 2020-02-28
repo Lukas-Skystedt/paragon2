@@ -46,7 +46,8 @@ module Language.Java.Paragon.Parser (
 
 import Language.Java.Paragon.Lexer (L(..), Token(..), lexer)
 import Language.Java.Paragon.SyntaxTTG as AST
-import Language.Java.Paragon.Decorations as D
+import Language.Java.Paragon.Decorations.PaDecoration as D
+
 -- import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Pretty (prettyPrint)
 import Language.Java.Paragon.Interaction
@@ -520,7 +521,7 @@ localVarDecl = do
     typ <- ttype
     vds <- varDecls varDecl
     return (ms, typ, vds)
-    
+
 -- setPos :: (SourcePos -> (ArrayInit Pa -> VarInit Pa))
 --          ->  P (ArrayInit Pa -> VarInit Pa) <*> P (ArrayInit Pa)
 -- setPos :: (SourcePos -> b) -> P b
@@ -1700,7 +1701,7 @@ genActorVars is = transformBi gen
 -- Resolving precedences
 -- () instance created in decorations to fix this function
 builtInPrecs :: [(Op (), Int)]
-builtInPrecs = 
+builtInPrecs =
     map (,9) [PMult   (), PDiv    (), PRem     ()            ] ++
     map (,8) [PAdd    (), PSub    ()                         ] ++
     map (,7) [PLShift (), PRShift (), PRRShift ()            ] ++
