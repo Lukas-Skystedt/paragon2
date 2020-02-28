@@ -108,6 +108,13 @@ Executable parac
                       , Language.Java.Paragon.Syntax
                       , Language.Java.Paragon.SourcePos
                       , Language.Java.Paragon.Lexer
+                      , Language.Java.Paragon.LockStateEval
+                      , Language.Java.Paragon.NewTypeCheck
+                      , Language.Java.Paragon.PolicyConstraintGen
+                      , Language.Java.Paragon.PolicyConstraintSolver
+                      , Language.Java.Paragon.PolicyTypeEval
+                      , Language.Java.Paragon.SyntaxTTG
+                      , Language.Java.Paragon.TypesTTG
                       , Language.Java.Paragon.Monad.Base
                       , Language.Java.Paragon.Monad.PiReader
                       , Language.Java.Paragon.Monad.Uniq
