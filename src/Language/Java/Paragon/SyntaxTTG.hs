@@ -11,12 +11,11 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
 {-# LANGUAGE DeriveFunctor#-}
 {-# LANGUAGE DeriveAnyClass#-}
-module Language.Java.Paragon.SyntaxTTG
+module Language.Java.Paragon.SyntaxTTG where
   -- (
   --   module Language.Java.Paragon.SyntaxTTG,
   --   module Language.Java.Paragon.Annotated
   --                                   )
-where
 
 import Data.Data
 
@@ -464,7 +463,7 @@ data Op x
     | GThan  (XOp x) (XSP x) | LThanE  (XOp x) (XSP x) | GThanE (XOp x) (XSP x)
     | Equal  (XOp x) (XSP x) | NotEq   (XOp x) (XSP x) | And    (XOp x) (XSP x)
     | Or     (XOp x) (XSP x) | Xor     (XOp x) (XSP x) | CAnd   (XOp x) (XSP x)
-    | COr    (XOp x) (XSP x) 
+    | COr    (XOp x) (XSP x)
 type family XOp x
 
 -- | An assignment operator.
@@ -543,7 +542,7 @@ type family XType x
 -- | There are three kinds of reference types: class types, interface types, and array types.
 --   Reference types may be parameterized with type arguments.
 --   Type variables are introduced by generic type parameters.
--- type families: XRefType 
+-- type families: XRefType
 data RefType x
     = ClassRefType (XRefType x) (XSP x) (ClassType x)
     | TypeVariable (XRefType x) (XSP x) (Ident x)
