@@ -9,8 +9,7 @@
 {-# LANGUAGE GADTs, EmptyCase, StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators, PatternSynonyms #-}
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
-{-# LANGUAGE DeriveFunctor#-}
-{-# LANGUAGE DeriveAnyClass#-}
+{-# LANGUAGE DeriveAnyClass #-}
 module Language.Java.Paragon.SyntaxTTG where
   -- (
   --   module Language.Java.Paragon.SyntaxTTG,
@@ -32,7 +31,6 @@ syntaxModule = libraryBase ++ ".Syntax"
 
 -----------------------------------------------------------------------
 -- Packages
-type family XSP x
 
 -- Removed import Annotated atm, adding an error implementation
 -- for ann
@@ -178,8 +176,8 @@ data VarDeclId x
 type family XVarDeclId x
 
 getVarDeclId :: VarDeclId a -> Ident a
-getVarDeclId (VarId _ _ ident) = ident
-getVarDeclId (VarDeclArray _ _ varDeclId) = getVarDeclId varDeclId
+getVarDeclId (VarId _ ident) = ident
+getVarDeclId (VarDeclArray _ varDeclId) = getVarDeclId varDeclId
 
 -- | Explicit initializer for a variable declaration.
 data VarInit x
@@ -194,7 +192,7 @@ data FormalParam x = FormalParam (XFormalParam x) [Modifier x] (Type x) Bool (Va
 type family XFormalParam x
 
 getFormalParamId :: FormalParam a -> Ident a
-getFormalParamId (FormalParam _ _ _ _ _ varDeclId) = getVarDeclId varDeclId
+getFormalParamId (FormalParam _ _ _ _ varDeclId) = getVarDeclId varDeclId
 
 -- | A method body is either a block of code that implements the method or simply a
 --   semicolon, indicating the lack of an implementation (modelled by 'Nothing').
@@ -220,23 +218,23 @@ type family XExplConstrInv x
 --   a few of these modifiers are allowed for each declaration type, for instance
 --   a member type declaration may only specify one of public, private or protected.
 data Modifier x
-    = Public    (XMod x) (XSP x)
-    | Private   (XMod x) (XSP x)
-    | Protected (XMod x) (XSP x)
-    | Abstract  (XMod x) (XSP x)
-    | Final     (XMod x) (XSP x)
-    | Static    (XMod x) (XSP x)
-    | StrictFP  (XMod x) (XSP x)
-    | Transient (XMod x) (XSP x)
-    | Volatile  (XMod x) (XSP x)
-    | Native    (XMod x) (XSP x)
+    = Public    (XMod x)
+    | Private   (XMod x)
+    | Protected (XMod x)
+    | Abstract  (XMod x)
+    | Final     (XMod x)
+    | Static    (XMod x)
+    | StrictFP  (XMod x)
+    | Transient (XMod x)
+    | Volatile  (XMod x)
+    | Native    (XMod x)
 
-    | Typemethod (XMod x) (XSP x)
-    | Reflexive  (XMod x) (XSP x)
-    | Transitive (XMod x) (XSP x)
-    | Symmetric  (XMod x) (XSP x)
-    | Readonly   (XMod x) (XSP x)
-    | Notnull    (XMod x) (XSP x)
+    | Typemethod (XMod x)
+    | Reflexive  (XMod x)
+    | Transitive (XMod x)
+    | Symmetric  (XMod x)
+    | Readonly   (XMod x)
+    | Notnull    (XMod x)
 
     | Reads   (XMod x) (Policy x)
     | Writes  (XMod x) (Policy x)
@@ -286,7 +284,7 @@ data Stmt x
     -- | The enhanced @for@ statement iterates over an array or a value of a class that implements the @iterator@ interface.
     | EnhancedFor (XStm x) [Modifier x] (Type x) (Ident x) (Exp x) (Stmt x)
     -- | An empty statement does nothing.
-    | Empty (XStm x) (XSP x)
+    | Empty (XStm x)
     -- | Certain kinds of expressions may be used as statements by following them with semicolons:
     --   assignments, pre- or post-inc- or decrementation, method invocation or class instance
     --   creation expressions.
@@ -343,7 +341,7 @@ type family XSwitchBlock x
 data SwitchLabel x
     -- | The expression contained in the @case@ must be a 'Lit' or an @enum@ constant.
     = SwitchCase (XSwitchLabel x) (Exp x)
-    | Default (XSwitchLabel x) (XSP x)
+    | Default (XSwitchLabel x)
 type family XSwitchLabel x
 
 -- | Initialization code for a basic @for@ statement.
@@ -374,7 +372,7 @@ data Exp x
     | ClassLit (XExp x) (Maybe (Type x))
     -- | The keyword @this@ denotes a value that is a reference to the object for which the instance method
     --   was invoked, or to the object being constructed.
-    | This (XExp x) (XSP x)
+    | This (XExp x)
     -- | Any lexically enclosing instance can be referred to by explicitly qualifying the keyword this.
     | ThisClass (XExp x) (Name x)
     -- | A parenthesized expression is a primary expression whose type is the type of the contained expression
@@ -452,30 +450,30 @@ data Literal  x
     | Boolean (XLiteral x) Bool
     | Char    (XLiteral x) Char
     | String  (XLiteral x) String
-    | Null    (XLiteral x) (XSP x)
+    | Null    (XLiteral x)
 type family XLiteral x
 
 -- | A binary infix operator.
 data Op x
-    = Mult   (XOp x) | Div     (XOp x) | Rem    (XOp x) (XSP x)
-    | Add    (XOp x) | Sub     (XOp x) | LShift (XOp x) (XSP x)
-    | RShift (XOp x) | RRShift (XOp x) | LThan  (XOp x) (XSP x)
-    | GThan  (XOp x) | LThanE  (XOp x) | GThanE (XOp x) (XSP x)
-    | Equal  (XOp x) | NotEq   (XOp x) | And    (XOp x) (XSP x)
-    | Or     (XOp x) | Xor     (XOp x) | CAnd   (XOp x) (XSP x)
-    | COr    (XOp x) (XSP x)
+    = Mult   (XOp x) | Div     (XOp x) | Rem    (XOp x)
+    | Add    (XOp x) | Sub     (XOp x) | LShift (XOp x)
+    | RShift (XOp x) | RRShift (XOp x) | LThan  (XOp x)
+    | GThan  (XOp x) | LThanE  (XOp x) | GThanE (XOp x)
+    | Equal  (XOp x) | NotEq   (XOp x) | And    (XOp x)
+    | Or     (XOp x) | Xor     (XOp x) | CAnd   (XOp x)
+    | COr    (XOp x)
 type family XOp x
 
 -- | An assignment operator.
 -- type families: XAssignOp
 data AssignOp x
-    = EqualA  (XAssignOp x) (XSP x)
-    | MultA   (XAssignOp x) | DivA     (XAssignOp x) (XSP x)
-    | RemA    (XAssignOp x) | AddA     (XAssignOp x) (XSP x)
-    | SubA    (XAssignOp x) | LShiftA  (XAssignOp x) (XSP x)
-    | RShiftA (XAssignOp x) | RRShiftA (XAssignOp x) (XSP x)
-    | AndA    (XAssignOp x) | XorA     (XAssignOp x) (XSP x)
-    | OrA     (XAssignOp x) (XSP x)
+    = EqualA  (XAssignOp x)
+    | MultA   (XAssignOp x) | DivA     (XAssignOp x)
+    | RemA    (XAssignOp x) | AddA     (XAssignOp x)
+    | SubA    (XAssignOp x) | LShiftA  (XAssignOp x)
+    | RShiftA (XAssignOp x) | RRShiftA (XAssignOp x)
+    | AndA    (XAssignOp x) | XorA     (XAssignOp x)
+    | OrA     (XAssignOp x)
 type family XAssignOp x
 
 -- | The left-hand side of an assignment expression. This operand may be a named variable, such as a local
@@ -526,8 +524,8 @@ type family XArrayInit x
 -- Types
 
 data ReturnType x
-    = VoidType (XReturnType x) (XSP x)
-    | LockType (XReturnType x) (XSP x)
+    = VoidType (XReturnType x)
+    | LockType (XReturnType x)
     | Type (XReturnType x) (Type x)
 type family XReturnType x
 
@@ -582,22 +580,22 @@ type family XWildcardBound x
 -- | A primitive type is predefined by the Java programming language and named by its reserved keyword.
 -- type families: XPrimType
 data PrimType  x
-    = BooleanT(XPrimType x) (XSP x)
-    | ByteT   (XPrimType x) (XSP x)
-    | ShortT  (XPrimType x) (XSP x)
-    | IntT    (XPrimType x) (XSP x)
-    | LongT   (XPrimType x) (XSP x)
-    | CharT   (XPrimType x) (XSP x)
-    | FloatT  (XPrimType x) (XSP x)
-    | DoubleT (XPrimType x) (XSP x)
+    = BooleanT (XPrimType x)
+    | ByteT    (XPrimType x)
+    | ShortT   (XPrimType x)
+    | IntT     (XPrimType x)
+    | LongT    (XPrimType x)
+    | CharT    (XPrimType x)
+    | FloatT   (XPrimType x)
+    | DoubleT  (XPrimType x)
 -- Paragon
-    | ActorT  (XPrimType x) (XSP x)
-    | PolicyT (XPrimType x) (XSP x)
+    | ActorT   (XPrimType x)
+    | PolicyT  (XPrimType x)
 type family XPrimType x
 
 
 aPrimType :: (XPrimType x -> a) -> PrimType x -> a
-aPrimType f (BooleanT x _) = f x
+aPrimType f (BooleanT x) = f x
 
 
 -- aOfPrimType :: PrimType a -> a
@@ -631,9 +629,9 @@ type Policy a = Exp a
 -- | A policy is a conjunction (set) of clauses, represented as a list.
 --data PolicyLit = PolicyLit [Clause Actor]
 -- type families : XPolicyExp
-data PolicyExp x = PolicyLit     (XPolicyExp x) (XSP x)[Clause x]
+data PolicyExp x = PolicyLit     (XPolicyExp x) [Clause x]
                  | PolicyOf      (XPolicyExp x) (Ident x)
-                 | PolicyThis    (XPolicyExp x) (XSP x)
+                 | PolicyThis    (XPolicyExp x)
                  | PolicyTypeVar (XPolicyExp x) (Ident x)
 type family XPolicyExp x
 
@@ -695,10 +693,10 @@ type family XLock x
 
 
 importDeclName :: ImportDecl a -> Name a
-importDeclName (SingleTypeImport   _  _ n)   = n
-importDeclName (TypeImportOnDemand _  _ n)   = n
-importDeclName (SingleStaticImport _  _ n _) = n
-importDeclName (StaticImportOnDemand _ _ n)   = n
+importDeclName (SingleTypeImport    _ n)   = n
+importDeclName (TypeImportOnDemand  _ n)   = n
+importDeclName (SingleStaticImport  _ n _) = n
+importDeclName (StaticImportOnDemand _ n)   = n
 
 
 -----------------------------------------------------------------------
@@ -711,8 +709,8 @@ type family XIdent x
 
 -- | Extract actual identifier string from Ident wrapper type
 unIdent :: Ident a -> B.ByteString
-unIdent (Ident _ _ bs) = bs
-unIdent (AntiQIdent _ _ str) = panic (syntaxModule ++ ".unIdent")
+unIdent (Ident _ bs) = bs
+unIdent (AntiQIdent _ str) = panic (syntaxModule ++ ".unIdent")
             $ "AntiQIdent " ++ str
 
 -- | A name, i.e. a period-separated list of identifiers.
@@ -734,49 +732,49 @@ data NameType
   deriving (Eq,Ord,Show,Typeable,Data)
 
 nameType :: Name a -> NameType
-nameType (Name _ _ nt _ _) = nt
+nameType (Name _ nt _ _) = nt
 nameType _ = panic (syntaxModule ++ ".nameType")
                    "AntiQName"
 
 setNameType :: NameType -> Name a -> Name a
-setNameType nt (Name a sp _ mPre i) = Name a sp nt mPre i
+setNameType nt (Name a _ mPre i) = Name a nt mPre i
 setNameType _ n = n
 
 -- Changed, see Syntax.hs for old impl.
-mkSimpleName :: XSP a -> NameType -> Ident a -> Name a
-mkSimpleName sp nt i =  Name (ann i) sp nt Nothing i
+mkSimpleName :: NameType -> Ident a -> Name a
+mkSimpleName nt i =  Name (ann i) nt Nothing i
 
-mkUniformName :: (XName a -> XName a -> XName a) -> XSP a -- Merge annotations
+mkUniformName :: (XName a -> XName a -> XName a)
               -> NameType -> [Ident a] -> Name a
-mkUniformName f sp nt ids = mkName' (reverse ids)
+mkUniformName f nt ids = mkName' (reverse ids)
     where mkName' [] = panic (syntaxModule ++ ".mkUniformName")
                              "Empty list of idents"
-          mkName' [i] = Name (ann i) sp nt Nothing i
+          mkName' [i] = Name (ann i) nt Nothing i
           mkName' (i:is) =
               let pre = mkName' is
                   a = f (ann pre) (ann i)
-              in Name a sp nt (Just pre) i
+              in Name a nt (Just pre) i
 -- Changed, see Syntax.hs for old impl.
-mkUniformName_ :: XSP a -> NameType -> [Ident a] -> Name a
+mkUniformName_ :: NameType -> [Ident a] -> Name a
 mkUniformName_ = mkUniformName const
 
-mkName :: (XName a -> XName a -> XName a) -> XSP a -- Merge annotations
-       -> NameType -> NameType -> [Ident a] -> Name a
-mkName f sp nt ntPre ids = mkName' (reverse ids)
+mkName :: (XName a -> XName a -> XName a) -> NameType
+       -> NameType -> [Ident a] -> Name a
+mkName f nt ntPre ids = mkName' (reverse ids)
     where mkName' [] = panic (syntaxModule ++ ".mkName")
                              "Empty list of idents"
-          mkName' [i] = Name (ann i) sp nt Nothing i
+          mkName' [i] = Name (ann i) nt Nothing i
           mkName' (i:is) =
-              let pre = mkUniformName f sp ntPre (reverse is)
+              let pre = mkUniformName f ntPre (reverse is)
                   a = f (ann pre) (ann i)
-              in Name a sp nt (Just pre) i
+              in Name a nt (Just pre) i
 
-mkName_ :: XSP a -> NameType -> NameType -> [Ident a] -> Name a
+mkName_ :: NameType -> NameType -> [Ident a] -> Name a
 mkName_ = mkName const
 
 flattenName :: Name a -> [Ident a]
 flattenName n = reverse $ flName n
-    where flName (Name _ _ _ mPre i) = i : maybe [] flName mPre
+    where flName (Name _ _ mPre i) = i : maybe [] flName mPre
 
           flName AntiQName{} = panic (syntaxModule ++ ".flattenName")
                                      "Cannot flatten name anti-quote"
@@ -817,22 +815,22 @@ temp = error "The temp variable used for the old Name type was evaluated."
 
 type ForallXFamilies (f :: * -> Constraint) x =
   (
-	f(XSP x), f(XCompilationUnit x), f(XPackageDecl x), f(XImportDecl x),
-	f(XImportDecl x), f(XTypeDecl x), f(XClassDecl x), f(XClassBody x),
+    f x, f(XCompilationUnit x), f(XPackageDecl x), f(XImportDecl x),
+    f(XImportDecl x), f(XTypeDecl x), f(XClassDecl x), f(XClassBody x),
         f(XEnumBody x), f(XEnumConstant x), f(XInterfaceDecl x),
         f(XInterfaceBody x), f(XDecl x), f(XMemberDecl x), f(XVarDecl x),
         f(XVarDeclId x), f(XFormalParam x), f(XMethodBody x),
         f(XConstructorBody x), f(XExplConstrInv x), f(XMod x), f(XBlock x),
-        f(XBlockStm x),	f(XStm x), f(XCatch x), f(XSwitchBlock x),
+        f(XBlockStm x), f(XStm x), f(XCatch x), f(XSwitchBlock x),
         f(XSwitchBlock x), f(XSwitchLabel x), f(XForInit x),
         f(XExceptionSpec x), f(XExp x), f(XLiteral x), f(XOp x),
-	f(XAssignOp x), f(XLhs x), f(XArrayIndex x), f(XFieldAccess x),
-        f(XMethodInvocation x),	f(XArrayInit x), f(XReturnType x), f(XType x),
+    f(XAssignOp x), f(XLhs x), f(XArrayIndex x), f(XFieldAccess x),
+        f(XMethodInvocation x), f(XArrayInit x), f(XReturnType x), f(XType x),
         f(XRefType x), f(XClassType x), f(XTypeArgument x),
         f(XNonWildTypeArgument x), f(XWildcardBound x), f(XPrimType x),
         f(XTypeParam x), f(XPolicyExp x), f(XLockProperties x), f(XClause x),
         f(XClauseVarDecl x), f(XClauseHead x), f(XLClause x), f(XActor x),
-	f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XVarDecl x),
+    f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XVarDecl x),
         f(XVarInit x), f (XName x)
   )
 type ForallIncData (f :: * -> Constraint) x = (ForallXFamilies f x, Data x, Typeable x)
@@ -1135,71 +1133,71 @@ deriving instance ForallIncData Typeable x => Typeable (Ident x)
 deriving instance ForallIncData Typeable x => Typeable (Name x)
 
 
--- deriving instance ForallIncData Functor x => Functor (CompilationUnit x)
--- deriving instance ForallIncData Functor x => Functor (PackageDecl x)
--- deriving instance ForallIncData Functor x => Functor (ImportDecl x)
--- deriving instance ForallIncData Functor x => Functor (TypeDecl x)
--- deriving instance ForallIncData Functor x => Functor (ClassDecl x)
--- deriving instance ForallIncData Functor x => Functor (ClassBody x)
--- deriving instance ForallIncData Functor x => Functor (EnumBody x)
--- deriving instance ForallIncData Functor x => Functor (EnumConstant x)
--- deriving instance ForallIncData Functor x => Functor (InterfaceDecl x)
--- deriving instance ForallIncData Functor x => Functor (InterfaceBody x)
--- deriving instance ForallIncData Functor x => Functor (Decl x)
--- deriving instance ForallIncData Functor x => Functor (MemberDecl x)
--- deriving instance ForallIncData Functor x => Functor (VarDecl x)
--- deriving instance ForallIncData Functor x => Functor (VarDeclId x)
--- deriving instance ForallIncData Functor x => Functor (VarInit x)
--- deriving instance ForallIncData Functor x => Functor (FormalParam x)
--- deriving instance ForallIncData Functor x => Functor (MethodBody x)
--- deriving instance ForallIncData Functor x => Functor (ConstructorBody x)
--- deriving instance ForallIncData Functor x => Functor (ExplConstrInv x)
--- deriving instance ForallIncData Functor x => Functor (Modifier x)
--- deriving instance ForallIncData Functor x => Functor (Block x)
--- deriving instance ForallIncData Functor x => Functor (BlockStmt x)
--- deriving instance ForallIncData Functor x => Functor (Stmt x)
--- deriving instance ForallIncData Functor x => Functor (Catch x)
--- deriving instance ForallIncData Functor x => Functor (SwitchBlock x)
--- deriving instance ForallIncData Functor x => Functor (SwitchLabel x)
--- deriving instance ForallIncData Functor x => Functor (ForInit x)
--- deriving instance ForallIncData Functor x => Functor (ExceptionSpec x)
--- deriving instance ForallIncData Functor x => Functor (Exp x)
--- deriving instance ForallIncData Functor x => Functor (Literal x)
--- deriving instance ForallIncData Functor x => Functor (Op x)
--- deriving instance ForallIncData Functor x => Functor (AssignOp x)
--- deriving instance ForallIncData Functor x => Functor (Lhs x)
--- deriving instance ForallIncData Functor x => Functor (ArrayIndex x)
--- deriving instance ForallIncData Functor x => Functor (FieldAccess x)
--- deriving instance ForallIncData Functor x => Functor (MethodInvocation x)
--- deriving instance ForallIncData Functor x => Functor (ArrayInit x)
--- deriving instance ForallIncData Functor x => Functor (ReturnType x)
--- deriving instance ForallIncData Functor x => Functor (Type x)
--- deriving instance ForallIncData Functor x => Functor (RefType x)
--- deriving instance ForallIncData Functor x => Functor (ClassType x)
--- deriving instance ForallIncData Functor x => Functor (TypeArgument x)
--- deriving instance ForallIncData Functor x => Functor (NonWildTypeArgument x)
--- deriving instance ForallIncData Functor x => Functor (WildcardBound x)
--- deriving instance ForallIncData Functor x => Functor (PrimType x)
--- deriving instance ForallIncData Functor x => Functor (TypeParam x)
--- deriving instance ForallIncData Functor x => Functor (PolicyExp x)
--- deriving instance ForallIncData Functor x => Functor (LockProperties x)
--- deriving instance ForallIncData Functor x => Functor (Clause x)
--- deriving instance ForallIncData Functor x => Functor (ClauseVarDecl x)
--- deriving instance ForallIncData Functor x => Functor (ClauseHead x)
--- deriving instance ForallIncData Functor x => Functor (LClause x)
--- deriving instance ForallIncData Functor x => Functor (Actor x)
--- deriving instance ForallIncData Functor x => Functor (ActorName x)
--- deriving instance ForallIncData Functor x => Functor (Atom x)
--- deriving instance ForallIncData Functor x => Functor (Lock x)
--- deriving instance ForallIncData Functor x => Functor (Ident x)
--- deriving instance ForallIncData Functor x => Functor (Name )
+-- deriving instance Functor CompilationUnit
+-- deriving instance Functor PackageDecl
+-- deriving instance Functor ImportDecl
+-- deriving instance Functor TypeDecl
+-- deriving instance Functor ClassDecl
+-- deriving instance Functor ClassBody
+-- deriving instance Functor EnumBody
+-- deriving instance Functor EnumConstant
+-- deriving instance Functor InterfaceDecl
+-- deriving instance Functor InterfaceBody
+-- deriving instance Functor Decl
+-- deriving instance Functor MemberDecl
+-- deriving instance Functor VarDecl
+-- deriving instance Functor VarDeclId
+-- deriving instance Functor VarInit
+-- deriving instance Functor FormalParam
+-- deriving instance Functor MethodBody
+-- deriving instance Functor ConstructorBody
+-- deriving instance Functor ExplConstrInv
+-- deriving instance Functor Modifier
+-- deriving instance Functor Block
+-- deriving instance Functor BlockStmt
+-- deriving instance Functor Stmt
+-- deriving instance Functor Catch
+-- deriving instance Functor SwitchBlock
+-- deriving instance Functor SwitchLabel
+-- deriving instance Functor ForInit
+-- deriving instance Functor ExceptionSpec
+-- deriving instance Functor Exp
+-- deriving instance Functor Literal
+-- deriving instance Functor Op
+-- deriving instance Functor AssignOp
+-- deriving instance Functor Lhs
+-- deriving instance Functor ArrayIndex
+-- deriving instance Functor FieldAccess
+-- deriving instance Functor MethodInvocation
+-- deriving instance Functor ArrayInit
+-- deriving instance Functor ReturnType
+-- deriving instance Functor Type
+-- deriving instance Functor RefType
+-- deriving instance Functor ClassType
+-- deriving instance Functor TypeArgument
+-- deriving instance Functor NonWildTypeArgument
+-- deriving instance Functor WildcardBound
+-- deriving instance Functor PrimType
+-- deriving instance Functor TypeParam
+-- deriving instance Functor PolicyExp
+-- deriving instance Functor LockProperties
+-- deriving instance Functor Clause
+-- deriving instance Functor ClauseVarDecl
+-- deriving instance Functor ClauseHead
+-- deriving instance Functor LClause
+-- deriving instance Functor Actor
+-- deriving instance Functor ActorName
+-- deriving instance Functor Atom
+-- deriving instance Functor Lock
+-- deriving instance Functor Ident
+-- deriving instance Functor Name
 
 --  Prints name as a simple string to be easier to read.
 -- To get printout of the whole recursive name structure, comment this out and put
 -- Show in the deriving clause.
 instance Show (Name a) where
-  show (Name _ _ _ nextBase (Ident _ _ iBase)) =
+  show (Name _ _ nextBase (Ident _ iBase)) =
     show (showInner nextBase ++ B.unpack iBase)
     where
       showInner Nothing = ""
-      showInner (Just (Name _ _ _ next (Ident _ _ i))) =  showInner next ++ B.unpack i ++ "."
+      showInner (Just (Name _ _ next (Ident _ i))) =  showInner next ++ B.unpack i ++ "."
