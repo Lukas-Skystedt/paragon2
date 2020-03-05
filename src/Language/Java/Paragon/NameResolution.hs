@@ -7,7 +7,7 @@ import Language.Java.Paragon.SyntaxTTG
 -- import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.Interaction
-import Language.Java.Paragon.SourcePos (defaultPos)
+import Language.Java.Paragon.SourcePos --(defaultPos)
 import Language.Java.Paragon.NameResolution.Monad
 
 import qualified Data.Map as Map
@@ -23,8 +23,8 @@ import Prelude hiding (mapM)
 nameResModule :: String
 nameResModule = libraryBase ++ ".NameResolution"
 
-prettyPrint :: a
-prettyPrint = error "prettyPrint not yet implemented"
+prettyPrint :: a -> String
+prettyPrint _ = "prettyPrint not yet implemented"
 
 ------------------------------------------
 -- Top level exported function
@@ -40,15 +40,13 @@ resolveNames piPath (CompilationUnit pos pkg imps [td])
 
   -- 1. Expand definitions from java.lang
   (_, javaLangExpnMap) <- buildMapFromImportName $
-       TypeImportOnDemand defaultPos (mkName const PName PName $
+       TypeImportOnDemand defaultPos (paMkName const PName PName $
            map (Ident defaultPos . B.pack) ["java", "lang"])
-
   -- 2. Expand definitions from imports
   (imps', impExpnMap) <- buildMapFromImports imps
 
   -- 3. Expand definitions from pi path
   piExpnMap           <- buildMapFromPiPath
-
   -- 4. Expand definitions from surrounding package
   pkgExpnMap          <- buildMapFromPkg pkg
 
@@ -56,7 +54,6 @@ resolveNames piPath (CompilationUnit pos pkg imps [td])
   let jipExpnMap = unionExpnMaps [javaExpnMap, javaLangExpnMap,
                                   impExpnMap, piExpnMap, pkgExpnMap]
   (thisFullName,tnExpnMap,supExpnMap) <- buildMapFromTd (unPkgDecl pkg) td jipExpnMap
-
   -- 6. Construct final expansion context according to precedence rule
   -- (I.e. local definitions hide definitions in super types hide other defs)
   let expnMap = Map.union tnExpnMap (unionExpnMaps [jipExpnMap,supExpnMap])
@@ -608,6 +605,7 @@ rnName n@(Name pos nt Nothing i) = do
           debugPrint "Expansion: "
           mapM_ (debugPrint . ("  " ++) . show) $ Map.toList expn
           failE $ Error (UnresolvedName (prettyPrint nt) (prettyPrint i)) pos []
+          --liftIO $ print "AFTERSAMETHING"
 
 -- Case 2: The name has a prefix
 rnName (Name pos nt (Just pre) i) = do
@@ -884,7 +882,6 @@ buildMapFromImportName :: ImportDecl Pa
                        -> PiReader (ImportDecl Pa, Expansion)
 buildMapFromImportName imp = do
     finePrint $ "Resolving import: " ++ prettyPrint imp
-
     case imp of
       SingleTypeImport pos tn@(Name pos' TName mPre i) -> do
               -- Explicit import of a single type mPre.tn
@@ -892,7 +889,6 @@ buildMapFromImportName imp = do
               let resName = Name pos' TName mPre' i
                   resImp  = SingleTypeImport pos resName
                   resExpn = mkTExpansionWithPrefix mPre' (unIdent i)
-
               isTy <- doesTypeExist resName
               if isTy
                then return (resImp, resExpn)
@@ -911,7 +907,6 @@ buildMapFromImportName imp = do
               -- This is, of course, only correct because we don't support
               -- inner types
               mPre' <- resolvePre mPre
-
               let resName = Name pos' PName mPre' i
                   resImp  = TypeImportOnDemand pos resName
 
@@ -940,7 +935,8 @@ buildMapFromImportName imp = do
                                           ++ prettyPrint imp)
                     pos)
 
-      _ -> do failEC (imp, Map.empty) $ mkErrorFromInfo
+      _ -> do
+        failEC (imp, Map.empty) $ mkErrorFromInfo
                 (UnsupportedFeature $ "Static imports not yet supported: "
                                           ++ prettyPrint imp)
 
@@ -1012,3 +1008,34 @@ expandAll (ExpansionRecord typs mthds lcks exprs) = expansionUnion $
                   map (mkLExpansion . unIdent) lcks ++
                   map (mkMExpansion . unIdent) mthds ++
                   map (mkTExpansion . unIdent) typs
+
+-- Cleanup: This part is just copied from parser atm. 
+paMkName :: (XName Pa -> XName Pa -> XName Pa) -> NameType
+       -> NameType -> [Ident Pa] -> Name Pa
+paMkName f nt ntPre ids = mkName' (reverse ids)
+    where mkName' [] = panic (syntaxModule ++ ".mkName")
+                             "Empty list of idents"
+          mkName' [i] = Name (paAnnId i) nt Nothing i
+          mkName' (i:is) =
+              let pre = paMkUniformName f ntPre (reverse is)
+                  a = f (paAnn pre) (paAnnId i)
+              in Name a nt (Just pre) i
+
+paMkUniformName :: (XName Pa -> XName Pa -> XName Pa)
+              -> NameType -> [Ident Pa] -> Name Pa
+paMkUniformName f nt ids = mkName' (reverse ids)
+    where mkName' [] = panic (syntaxModule ++ ".mkUniformName")
+                             "Empty list of idents"
+          mkName' [i] = Name (paAnnId i) nt Nothing i
+          mkName' (i:is) =
+              let pre = mkName' is
+                  a = f (paAnn pre) (paAnnId i)
+              in Name a nt (Just pre) i
+
+paAnnId :: Ident Pa -> SourcePos
+paAnnId (Ident sp _)    = sp
+paAnnId _ = error "pattern match paAnnId in parser"
+
+paAnn :: Name Pa -> SourcePos
+paAnn (Name sp _ _ _) = sp
+paAnn _ = error "pattern match paAnn in parser"

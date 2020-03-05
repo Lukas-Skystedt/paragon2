@@ -1482,6 +1482,7 @@ lclause = do
               return $ LClause pos qs h' as'
       Nothing -> return $ ConstraintClause pos qs as'
 
+
 lclauseHead :: P (Maybe (Atom Pa))
 lclauseHead =
   (tok Op_Minus >> return Nothing) <|>
@@ -1629,40 +1630,60 @@ checkConstrs _ = panic (parserModule ++ ".checkConstrs")
 -----------------------------------------------------
 -- Making the meaning of a name explicit
 
--- ambName :: [Ident Pa] -> Name Pa
--- ambName = mkUniformName_ defaultPos AmbName
-ambName :: a
-ambName = error "ambName not yet implemented"
+ambName :: [Ident Pa] -> Name Pa
+ambName = paMkUniformName const AmbName
 
 -- A package name can only have a package name prefix
--- pName :: [Ident Pa] -> Name Pa
--- pName = mkUniformName_ defaultPos AST.Name
-pName :: a
-pName = error "pName not yet implemented"
+pName :: [Ident Pa] -> Name Pa
+pName = paMkUniformName const PName
 
 -- A package-or-type name has a package-or-type prefix
--- pOrTName :: [Ident Pa] -> Name Pa
--- pOrTName = mkUniformName_ defaultPos POrTName
-pOrTName :: a
-pOrTName = error "pOrTName not yet implemented"
+pOrTName :: [Ident Pa] -> Name Pa
+pOrTName = paMkUniformName const POrTName
 
 -- A type name has a package-or-type prefix
--- tName :: [Ident Pa] -> Name Pa
--- tName = mkName_ defaultPos TName POrTName
-tName :: a
-tName = error "tName not yet implemented"
+tName :: [Ident Pa] -> Name Pa
+tName = paMkName const TName POrTName
+
+-- paMkName is a specific case of mkName from syntaxTTG
+paMkName :: (XName Pa -> XName Pa -> XName Pa) -> NameType
+       -> NameType -> [Ident Pa] -> Name Pa
+paMkName f nt ntPre ids = mkName' (reverse ids)
+    where mkName' [] = panic (syntaxModule ++ ".mkName")
+                             "Empty list of idents"
+          mkName' [i] = Name (paAnnId i) nt Nothing i
+          mkName' (i:is) =
+              let pre = paMkUniformName f ntPre (reverse is)
+                  a = f (paAnn pre) (paAnnId i)
+              in Name a nt (Just pre) i
+
+-- Specific case of mkUniformName from syntaxTTG
+paMkUniformName :: (XName Pa -> XName Pa -> XName Pa)
+              -> NameType -> [Ident Pa] -> Name Pa
+paMkUniformName f nt ids = mkName' (reverse ids)
+    where mkName' [] = panic (syntaxModule ++ ".mkUniformName")
+                             "Empty list of idents"
+          mkName' [i] = Name (paAnnId i) nt Nothing i
+          mkName' (i:is) =
+              let pre = mkName' is
+                  a = f (paAnn pre) (paAnnId i)
+              in Name a nt (Just pre) i
+
+-- specific cases of ann from syntaxTTG
+paAnnId :: Ident Pa -> SourcePos
+paAnnId (Ident sp _)    = sp
+paAnnId _ = error "pattern match paAnnId in parser"
+
+paAnn :: Name Pa -> SourcePos
+paAnn (Name sp _ _ _) = sp
+paAnn _ = error "pattern match paAnn in parser"
 
 -- Names with ambiguous prefixes
--- eName, lName, eOrLName, mOrLName :: [Ident Pa] -> Name Pa
--- eName     = mkName_ defaultPos EName AmbName
--- lName     = mkName_ defaultPos LName AmbName
--- eOrLName  = mkName_ defaultPos EOrLName AmbName
--- mOrLName  = mkName_ defaultPos MOrLName AmbName
-eName, lName, eOrLName, mOrLName :: a
-eName = error "eName not yet implemented"
-lName = error "lName not yet implemented"
-eOrLName = error "eOrLName not yet implemented"
-mOrLName = error "mOrLName not yet implemented"
+eName, lName, eOrLName, mOrLName :: [Ident Pa] -> Name Pa
+eName     = paMkName const EName AmbName
+lName     = paMkName const LName AmbName
+eOrLName  = paMkName const EOrLName AmbName
+mOrLName  = paMkName const MOrLName AmbName
 
 -----------------------------------------------------
 
@@ -1708,7 +1729,7 @@ genActorVars :: Data x => [Ident Pa] -> x -> x
 genActorVars is = transformBi gen
   where --gen :: Actor a -> Actor a
         gen (Actor _ (ActorName _ (Name _ _ Nothing i)))
-            | i `elem` is = Var (ann i) i
+            | i `elem` is = Var (paAnnId i) i
         gen ac = ac
 
 -- TODO: Temporary ann definiton. The real one is probably form Annotated.hs
