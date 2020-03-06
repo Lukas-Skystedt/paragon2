@@ -598,17 +598,18 @@ aPrimType :: (XPrimType x -> a) -> PrimType x -> a
 aPrimType f (BooleanT x) = f x
 
 
--- aOfPrimType :: PrimType a -> a
--- aOfPrimType (BooleanT x _) = x
--- aOfPrimType (ByteT    x _) = x
--- aOfPrimType (ShortT   x _) = x
--- aOfPrimType (IntT     x _) = x
--- aOfPrimType (LongT    x _) = x
--- aOfPrimType (CharT    x _) = x
--- aOfPrimType (FloatT   x _) = x
--- aOfPrimType (DoubleT  x _) = x
--- aOfPrimType (ActorT   x _) = x
--- aOfPrimType (PolicyT  x _) = x
+-- Returns a value of whatever XPrimType is when indexed by x
+aOfPrimType :: PrimType x -> XPrimType x
+aOfPrimType (BooleanT a) = a
+aOfPrimType (ByteT    a) = a
+aOfPrimType (ShortT   a) = a
+aOfPrimType (IntT     a) = a
+aOfPrimType (LongT    a) = a
+aOfPrimType (CharT    a) = a
+aOfPrimType (FloatT   a) = a
+aOfPrimType (DoubleT  a) = a
+aOfPrimType (ActorT   a) = a
+aOfPrimType (PolicyT  a) = a
 
 -- | A class is generic if it declares one or more type variables. These type variables are known
 --   as the type parameters of the class.

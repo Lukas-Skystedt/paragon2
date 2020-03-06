@@ -4,5 +4,5 @@ import Language.Java.Paragon.Decorations.TcDecoration
 import Language.Java.Paragon.Decorations.PteDecoration
 -- import Language.Java.Paragon.TypeCheck.Monad.TcCodeM
 
-evalPolicyTypes :: CompilationUnit TC -> a -- TcCodeM (CompilationUnit Pte)
+evalPolicyTypes :: CompilationUnit Tc -> a -- TcCodeM (CompilationUnit Pte)
 evalPolicyTypes = error "evalPolicyTypes placeholder evaluated"

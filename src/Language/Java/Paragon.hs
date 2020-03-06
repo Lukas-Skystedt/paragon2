@@ -182,7 +182,7 @@ compile flags filePath = do
            detailPrint "Name resolution complete!"
 
            -- Placeholder for the new 5-phase pipeline
-           ast2 <- NTc.typeCheck ast1
+           ast2 <- NTc.typeCheck {- pDirs -} (takeBaseName filePath) ast1
            ast3 <- evalPolicyTypes ast2
            ast4 <- evalLockState ast3
            solvePolicyConstraints undefined

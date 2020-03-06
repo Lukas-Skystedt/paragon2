@@ -6,12 +6,15 @@
 module Language.Java.Paragon.Decorations.PaDecoration where
 import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.SourcePos
-import Language.Java.Paragon.TypesTTG
+-- import Language.Java.Paragon.TypesTTG
 import Language.Java.Paragon.SyntaxTTG
 import Data.Void
 import Data.Data
 
-data Pa deriving (Data, Eq, Show)
+-- TODO: We should not have to derive these classes. The reason we currently
+-- have to do it probably stems from the constraints in the instance derivations
+-- in `SyntaxTTG`.
+data Pa deriving (Data, Eq, Show, Ord)
 
 -- This is a hack.
 type instance XOp () = ()
