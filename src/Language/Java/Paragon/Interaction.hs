@@ -46,11 +46,11 @@ verbosePrint n str = liftIO $ do
 -- | Mapping print functions to call to the 'verbosePrint' function with
 -- increasing verbosity
 normalPrint, detailPrint, finePrint, debugPrint, tracePrint :: MonadIO m => String -> m ()
-normalPrint = verbosePrint 1      -- ^Feedback to the user in the normal case
-detailPrint = verbosePrint 2      -- ^Report individual members
-finePrint   = verbosePrint 3      -- ^Report verbosely (default for -v)
-debugPrint  = verbosePrint 4      -- ^Include DEBUG output
-tracePrint  = verbosePrint 5      -- ^State and env changes
+normalPrint = verbosePrint 1      -- Feedback to the user in the normal case
+detailPrint = verbosePrint 2      -- Report individual members
+finePrint   = verbosePrint 3      -- Report verbosely (default for -v)
+debugPrint  = verbosePrint 4      -- Include DEBUG output
+tracePrint  = verbosePrint 5      -- State and env changes
 
 -- This trace function uses haskell-src-exts to get nice formating.
 -- To avoid depending on this package, comment out this version and the imports above, and
