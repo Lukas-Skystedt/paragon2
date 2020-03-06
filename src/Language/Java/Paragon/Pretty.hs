@@ -11,7 +11,7 @@ import Data.Char (toLower)
 import Control.Arrow (first)
 import Prelude hiding ((<>))
 
-import Language.Java.Paragon.Syntax
+import Language.Java.Paragon.SyntaxTTG
 
 import qualified Data.ByteString.Char8 as B
 

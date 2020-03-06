@@ -4,7 +4,7 @@ module Language.Java.Paragon.NameResolution (resolveNames) where
 
 import Language.Java.Paragon.Error
 import Language.Java.Paragon.SyntaxTTG
--- import Language.Java.Paragon.Pretty
+import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos --(defaultPos)
@@ -22,9 +22,6 @@ import Prelude hiding (mapM)
 
 nameResModule :: String
 nameResModule = libraryBase ++ ".NameResolution"
-
-prettyPrint :: a -> String
-prettyPrint _ = "prettyPrint not yet implemented"
 
 ------------------------------------------
 -- Top level exported function
@@ -1009,7 +1006,7 @@ expandAll (ExpansionRecord typs mthds lcks exprs) = expansionUnion $
                   map (mkMExpansion . unIdent) mthds ++
                   map (mkTExpansion . unIdent) typs
 
--- Cleanup: This part is just copied from parser atm. 
+-- Cleanup: This part is just copied from parser atm.
 paMkName :: (XName Pa -> XName Pa -> XName Pa) -> NameType
        -> NameType -> [Ident Pa] -> Name Pa
 paMkName f nt ntPre ids = mkName' (reverse ids)
