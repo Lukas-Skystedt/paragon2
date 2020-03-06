@@ -4,10 +4,15 @@ module Language.Java.Paragon.PolicyLang.Locks where
 
 --import Data.List (intersect, union, (\\) )
 
-import Language.Java.Paragon.Syntax (Name(..), Ident(..), NameType(LName))
+-- import Language.Java.Paragon.Syntax (Name(..), Ident(..), NameType(LName))
+import Language.Java.Paragon.SyntaxTTG (Name(..), Ident(..), NameType(LName))
 import Language.Java.Paragon.Pretty
 --import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos
+
+-- TODO: Temporary usage of Pa type here. We should figure out a proper way of
+-- doing this.
+import Language.Java.Paragon.Decorations.PaDecoration (Pa)
 
 import Language.Java.Paragon.PolicyLang.Actors
 
@@ -34,8 +39,8 @@ noMods = ([],[])
 
 -- | In some places we allow a lock to be represented
 --   via a lock(-state) type parameter
-data LockSpec
-    = ConcreteLock (Lock (Name SourcePos) TypedActorIdSpec)
+data LockSpec a
+    = ConcreteLock (Lock (Name Pa) (TypedActorIdSpec a))
     -- ^ A concrete lock representation, parameterised
     --   over actors that may in turn be represented
     --   by type parameters
@@ -45,13 +50,13 @@ data LockSpec
 --data TcLock = TcLock (Name SourcePos) [ActorId] | TcLockVar B.ByteString
   deriving (Eq, Ord, Show, Data, Typeable)
 
-skolemizeLock :: LockSpec -> Lock (Name SourcePos) TypedActorIdSpec
+skolemizeLock :: (LockSpec a) -> Lock (Name Pa) (TypedActorIdSpec a)
 skolemizeLock (LockTypeParam bi) =
     Lock (Name defaultPos LName Nothing $
                Ident defaultPos bi) []
 skolemizeLock (ConcreteLock l) = l
 
-type LockMods = LockDelta (Name SourcePos) TypedActorIdSpec
+type LockMods a = LockDelta (Name Pa) (TypedActorIdSpec a)
 
 
 instance (Pretty name, Pretty aid) =>
@@ -59,7 +64,7 @@ instance (Pretty name, Pretty aid) =>
   pretty (Lock n aids) = pretty n <>
     opt (not $ null aids) (parens (hcat (punctuate (char ',') $ map pretty aids)))
 
-instance Pretty LockSpec where
+instance Pretty (LockSpec a) where
   pretty (ConcreteLock l)  = pretty l
   pretty (LockTypeParam i) = pretty i
 

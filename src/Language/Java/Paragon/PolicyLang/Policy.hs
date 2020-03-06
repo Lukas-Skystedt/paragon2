@@ -18,11 +18,11 @@ module Language.Java.Paragon.PolicyLang.Policy (
 
 --import Language.Java.Paragon.Syntax (Name)
 import Language.Java.Paragon.Pretty
-import Language.Java.Paragon.TypeCheck.Types
+-- import Language.Java.Paragon.TypeCheck.Types
 --import Language.Java.Paragon.Error()
 --import Language.Java.Paragon.SourcePos
 import Language.Java.Paragon.PolicyLang.Actors
-
+import Control.Monad.Fail as Fail
 
 import Security.InfoFlow.Policy.FlowLocks
 
@@ -41,6 +41,12 @@ import Data.Generics (Data(..),Typeable(..))
 #endif
 
 import Prelude hiding ((<>))
+
+
+-- TODO: This class was moved here from `Types.hs` in order to resolve circular
+-- dependecy. Review if this is appropriate.
+class (Functor m, Applicative m, Monad m, Fail.MonadFail m) => HasSubTyping m where
+  subTypeOf :: a -> a -> m Bool
 
 --flowAtomString :: String
 --flowAtomString = "$FLOW$"
@@ -91,20 +97,20 @@ data PolicyVarRep
   deriving (Data, Typeable, Eq, Ord, Show)
 
 
-data ActorSetRep
-    = TypedActor TcRefType B.ByteString
-    | SingletonActor TypedActorIdSpec
+data ActorSetRep a
+    = TypedActor a B.ByteString
+    | SingletonActor (TypedActorIdSpec a)
     | NoActor
   deriving (Ord, Show, Data, Typeable)
 
-instance Eq ActorSetRep where
+instance Eq a => Eq (ActorSetRep a) where
   TypedActor rt1 _ == TypedActor rt2 _ = rt1 == rt2
   SingletonActor aid1 == SingletonActor aid2 = aid1 == aid2
   NoActor == NoActor = True
   _ == _ = False
 
-instance HasSubTyping m =>
-          PartialOrder m ActorSetRep where
+instance (HasSubTyping m, Eq a) =>
+          PartialOrder m (ActorSetRep a) where
     TypedActor rt1 _ `leq` TypedActor rt2 _ = rt2 `subTypeOf` rt1 -- in Monad.hs
     TypedActor rt1 _ `leq` SingletonActor (TypedActorIdSpec rt2 _) =
         rt2 `subTypeOf` rt1
@@ -116,8 +122,8 @@ instance HasSubTyping m =>
 
 --subTypeOf = undefined
 
-instance HasSubTyping m =>
-          JoinSemiLattice m ActorSetRep where
+instance (HasSubTyping m, Eq a) =>
+          JoinSemiLattice m (ActorSetRep a) where
     topM = return NoActor
 
     NoActor `lub` _ = return NoActor
@@ -146,9 +152,14 @@ instance HasSubTyping m =>
                        | aid1 == aid2 = return $ SingletonActor aid1
                        | otherwise    = return NoActor
 
-instance HasSubTyping m =>
-          Lattice m ActorSetRep where
-    bottomM = return $ TypedActor (TcClsRefT objectT) $ B.pack "x"
+
+-- TODO: Remove temporary objectT
+objectT = error "objectT is a temporarily defined as error to make stuff type check."
+instance (HasSubTyping m, Eq a) =>
+          Lattice m (ActorSetRep a) where
+    -- TODO: We use undefined here to make the file type check. It is in no way
+    -- a working implementation.
+    bottomM = return $ TypedActor ({-TcClsRefT-} undefined objectT) $ B.pack "x"
 
     NoActor `glb` a = return a
     a `glb` NoActor = return a
@@ -176,8 +187,8 @@ instance HasSubTyping m =>
                        | otherwise    = bottomM
 
 
-instance HasSubTyping m =>
-          ActorSet m ActorSetRep TypedActorIdSpec where
+instance (HasSubTyping m, Eq a, Show a) =>
+          ActorSet m (ActorSetRep a) (TypedActorIdSpec a) where
 
   inSet aid1 (SingletonActor aid2) = return $ aid1 == aid2
   inSet (TypedActorIdSpec rt1 _) (TypedActor rt2 _) =
@@ -230,13 +241,13 @@ specialConstraintAtom = TcAtom (mkSimpleName LName (mkIdent_ "-")) []
 ---------------------------------------------
 -- Pretty printing
 
-instance (Pretty name) =>
-    Pretty (Policy name ActorSetRep) where
+instance (Pretty name, Pretty a) =>
+    Pretty (Policy name (ActorSetRep a)) where
   pretty (Policy []) = braces $ char ':'
   pretty (Policy cs) = text "{ " <> (hcat (punctuate (text "; ") $ map pretty cs)) <> text "}"
 
-instance (Pretty var, Pretty name) =>
-    Pretty (VarPolicy var name ActorSetRep) where
+instance (Pretty var, Pretty name, Pretty a) =>
+    Pretty (VarPolicy var name (ActorSetRep a)) where
   pretty (ConcretePolicy p) = pretty p
   pretty (PolicyVar v) = pretty v
 --  pretty (TcThis)         = text "policyof" <> parens (text "this")
@@ -248,8 +259,8 @@ instance Pretty PolicyVarRep where
   pretty (PolicyOfVar bs) = text "policyof" <> parens (pretty bs)
   pretty (PolicyTypeParam n) = pretty n
 
-instance (Pretty mvar, Pretty var, Pretty name) =>
-    Pretty (MetaPolicy mvar var name ActorSetRep) where
+instance (Pretty mvar, Pretty var, Pretty name, Pretty a) =>
+    Pretty (MetaPolicy mvar var name (ActorSetRep a)) where
   pretty (VarPolicy p)    = pretty p
   pretty (MetaJoin p1 p2) = pretty p1 <+> char '*' <+> pretty p2
   pretty (MetaMeet p1 p2) = pretty p1 <+> char '+' <+> pretty p2
@@ -258,8 +269,8 @@ instance (Pretty mvar, Pretty var, Pretty name) =>
 instance Pretty MetaVarRep where
   pretty (MetaVarRep k i) = text "$$" <> pretty i <> text (show k)
 
-instance (Pretty name) =>
-    Pretty (Clause name ActorSetRep) where
+instance (Pretty name, Pretty a) =>
+    Pretty (Clause name (ActorSetRep a)) where
   pretty (Clause h es b) =
       let qs = [ ta | ta@TypedActor{} <- es ]
       in (if null qs
@@ -268,8 +279,8 @@ instance (Pretty name) =>
            pretty h <+> text ":" <+>
              hcat (punctuate (char ',') $ map (prettyAtom h es) b)
 
-prettyAtom :: (Pretty name) =>
-              ActorSetRep -> [ActorSetRep] -> Atom name -> Doc
+prettyAtom :: (Pretty name, Pretty a) =>
+              ActorSetRep a -> [ActorSetRep a] -> Atom name -> Doc
 prettyAtom hdom doms (Atom n reps) =
     pretty n <>
            opt (not $ null reps)
@@ -278,11 +289,11 @@ prettyAtom hdom doms (Atom n reps) =
   where prettyRep HeadActor = prettySetRep hdom
         prettyRep (QuantActor i) = prettySetRep $ doms!!i
 
-prettySetRep :: ActorSetRep -> Doc
+prettySetRep :: Pretty a => ActorSetRep a -> Doc
 prettySetRep (TypedActor _ bx) = pretty bx
 prettySetRep as = pretty as
 
-instance Pretty ActorSetRep where
+instance Pretty a => Pretty (ActorSetRep a) where
     pretty (TypedActor rty bx) = pretty rty <+> pretty bx
     pretty (SingletonActor aid) = pretty aid
     pretty NoActor = text "-"

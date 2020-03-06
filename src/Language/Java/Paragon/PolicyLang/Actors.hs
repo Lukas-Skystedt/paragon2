@@ -2,11 +2,12 @@
 module Language.Java.Paragon.PolicyLang.Actors where
 
 
-import Language.Java.Paragon.Syntax
+import Language.Java.Paragon.SyntaxTTG
 import Language.Java.Paragon.Pretty
 
 import Language.Java.Paragon.SourcePos
-import Language.Java.Paragon.TypeCheck.Types (TcRefType)
+-- import Language.Java.Paragon.TypeCheck.Types (TcRefType)
+-- import Language.Java.Paragon.TypesTTG (TcRefType)
 
 import Security.InfoFlow.Policy.FlowLocks.Actor
 
@@ -15,6 +16,11 @@ import Language.Java.Paragon.Monad.Base
 import Control.Applicative
 
 import qualified Data.ByteString.Char8 as B
+
+
+-- TODO: Temporary usage of Pa type here. We should figure out a proper way of
+-- doing this.
+import Language.Java.Paragon.Decorations.PaDecoration (Pa)
 
 #ifdef BASE4
 import Data.Data
@@ -31,7 +37,7 @@ import Prelude hiding ((<>))
 data ActorIdentity
     = Fresh Int String
     -- ^ Can be traced back to the actor initialization
-    | Instance (Name SourcePos) Int
+    | Instance (Name Pa) Int
     -- ^ The non-static fields - the first parameter is
     --   the point-separated address to the actor field
     | Unknown Int
@@ -50,9 +56,9 @@ data ActorIdSpec
     -- ^ Actor representing the current object
  deriving (Show, Eq, Ord, Data, Typeable)
 
-data TypedActorIdSpec
+data TypedActorIdSpec a
     = TypedActorIdSpec {
-        actorType :: TcRefType,
+        actorType :: a,
         actorSpec :: ActorIdSpec
       }
       deriving (Show, Eq, Ord, Data, Typeable)
@@ -82,11 +88,11 @@ instance Pretty ActorIdSpec where
   pretty (ActorTPVar i) = pretty i
   pretty ThisId = text "this"
 
-instance ActorId TypedActorIdSpec where
+instance (Show a, Eq a) => ActorId (TypedActorIdSpec a) where
   TypedActorIdSpec _ aid1 `mayEq` TypedActorIdSpec _ aid2
                    = aid1 `mayEq` aid2
 
-instance Pretty TypedActorIdSpec where
+instance Pretty (TypedActorIdSpec a) where
   pretty (TypedActorIdSpec _ aid) = pretty aid
 
 newUnknown :: MonadBase m => m ActorIdentity
@@ -95,5 +101,5 @@ newUnknown = liftBase $ Unknown <$> getFreshInt
 newFresh :: MonadBase m => String -> m ActorIdentity
 newFresh str = liftBase $ flip Fresh str <$> getFreshInt
 
-newInstance :: MonadBase m => Name SourcePos -> m ActorIdentity
+newInstance :: MonadBase m => Name Pa -> m ActorIdentity
 newInstance n = liftBase $ Instance n <$> getFreshInt

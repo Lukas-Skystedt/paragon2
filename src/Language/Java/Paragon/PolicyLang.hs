@@ -36,10 +36,14 @@ module Language.Java.Paragon.PolicyLang
 
 import Language.Java.Paragon.SourcePos
 import Language.Java.Paragon.Error (Error)
-import Language.Java.Paragon.Syntax (Name)
+import Language.Java.Paragon.SyntaxTTG (Name)
 import Language.Java.Paragon.Pretty
 
-import Language.Java.Paragon.TypeCheck.Types
+-- TODO: Temporary usage of Pa type here. We should figure out a proper way of
+-- doing this.
+import Language.Java.Paragon.Decorations.PaDecoration (Pa)
+
+-- import Language.Java.Paragon.TypeCheck.Types
 
 import Language.Java.Paragon.PolicyLang.Actors
 import Language.Java.Paragon.PolicyLang.Locks
@@ -58,25 +62,25 @@ import Data.Generics (Data(..),Typeable(..))
 
 import Prelude hiding ((<>))
 
-type ActorPolicy
+type ActorPolicy a
     = MetaPolicy
         MetaVarRep
         PolicyVarRep
-        (Name SourcePos)
-        ActorSetRep
+        (Name Pa)
+        (ActorSetRep a)
 
-type PrgPolicy
+type PrgPolicy a
     = VarPolicy
         PolicyVarRep
-        (Name SourcePos)
-        ActorSetRep
+        (Name Pa)
+        (ActorSetRep a)
 
-type BasePolicy = Policy (Name SourcePos) ActorSetRep
+type BasePolicy a = Policy (Name Pa) (ActorSetRep a)
 
-thisP :: PrgPolicy
+thisP :: PrgPolicy a
 thisP = PolicyVar ThisVar
 
-includesThis :: ActorPolicy -> Bool
+includesThis :: ActorPolicy a -> Bool
 includesThis mpol =
     case mpol of
       VarPolicy vp -> includesThisVP vp
@@ -84,7 +88,7 @@ includesThis mpol =
       MetaMeet p1 p2 -> any includesThis [p1,p2]
       _ -> False
 
-includesThisVP :: PrgPolicy -> Bool
+includesThisVP :: PrgPolicy a -> Bool
 includesThisVP vpol =
     case vpol of
       PolicyVar ThisVar -> True
@@ -93,45 +97,45 @@ includesThisVP vpol =
       _ -> False
 
 
-substThis :: BasePolicy
-          -> PrgPolicy
-          -> PrgPolicy
+substThis :: BasePolicy a
+          -> PrgPolicy a
+          -> PrgPolicy a
 substThis x = substVarPolicy ThisVar x
 
 type TcLock = LockSpec -- Lock (Name SourcePos) ActorIdSpec
-type TcLockSet = LockSet (Name SourcePos) TypedActorIdSpec
-type TcLockDelta = LockDelta (Name SourcePos) TypedActorIdSpec
+type TcLockSet a = LockSet (Name Pa) (TypedActorIdSpec a)
+type TcLockDelta a = LockDelta (Name Pa) (TypedActorIdSpec a)
 
-type TcClause = Clause (Name SourcePos) ActorSetRep
+type TcClause a = Clause (Name Pa) (ActorSetRep a)
 
-type LockProp = DatalogClause (Name SourcePos) ActorSetRep
+type LockProp a = DatalogClause (Name Pa) (ActorSetRep a)
 
-type TcActor = ActorSetRep
+type TcActor a = (ActorSetRep a)
 
-type TcAtom = Atom (Name SourcePos)
+type TcAtom = Atom (Name Pa)
 
-type GlobalPol = GlobalPolicy (Name SourcePos) ActorSetRep
+type GlobalPol a = GlobalPolicy (Name Pa) (ActorSetRep a)
 
-type TcConstraint =
-    Constraint MetaVarRep PolicyVarRep (Name SourcePos) ActorSetRep TypedActorIdSpec
+type TcConstraint a =
+    Constraint MetaVarRep PolicyVarRep (Name Pa) (ActorSetRep a) (TypedActorIdSpec a)
 
-type ConstraintWMsg = (TcConstraint, Error)
+type ConstraintWMsg a = (TcConstraint a, Error)
 
-data ActorPolicyBounds
-    = KnownPolicy ActorPolicy
+data ActorPolicyBounds a
+    = KnownPolicy (ActorPolicy a)
     -- | Invariant: For 'PolicyBounds p q', p <= q
-    | PolicyBounds ActorPolicy ActorPolicy
+    | PolicyBounds (ActorPolicy a) (ActorPolicy a)
   deriving (Eq, Show, Data, Typeable)
 
-instance HasSubTyping m =>
-    PartialOrder m ActorPolicyBounds where
+instance (HasSubTyping m, Eq a) =>
+    PartialOrder m (ActorPolicyBounds a) where
   leq (KnownPolicy p1) (KnownPolicy p2) = leq p1 p2
   leq (KnownPolicy p1) (PolicyBounds lb _ub) = leq p1 lb
   leq (PolicyBounds _lb ub) (KnownPolicy p2) = leq ub p2
   leq (PolicyBounds _lb1 ub1) (PolicyBounds lb2 _ub2) = leq ub1 lb2
 
-instance HasSubTyping m =>
-    JoinSemiLattice m ActorPolicyBounds where
+instance (HasSubTyping m, Eq a) =>
+    JoinSemiLattice m (ActorPolicyBounds a) where
   KnownPolicy p1 `lub` KnownPolicy p2 = KnownPolicy <$> p1 `lub` p2
   KnownPolicy p1 `lub` PolicyBounds lb ub =
       PolicyBounds <$> p1 `lub` lb <*> p1 `lub` ub
@@ -142,8 +146,8 @@ instance HasSubTyping m =>
 
   topM = return $ KnownPolicy $ VarPolicy $ ConcretePolicy $ Policy []
 
-instance HasSubTyping m =>
-    Lattice m ActorPolicyBounds where
+instance (HasSubTyping m, Eq a) =>
+    Lattice m (ActorPolicyBounds a) where
   KnownPolicy p1 `glb` KnownPolicy p2 = KnownPolicy <$> p1 `glb` p2
   KnownPolicy p1 `glb` PolicyBounds lb ub =
       PolicyBounds <$> p1 `glb` lb <*> p1 `glb` ub
@@ -153,10 +157,12 @@ instance HasSubTyping m =>
       PolicyBounds <$> lb1 `glb` lb2 <*> ub1 `glb` ub2
 
   bottomM = return $ KnownPolicy $ VarPolicy $ ConcretePolicy $
-                     Policy [Clause (TypedActor (TcClsRefT objectT) $ B.pack "x") [] []]
+    -- TODO: We use undefined here to make the file type check. It is in no way
+    -- a working implementation.
+                     Policy [Clause (TypedActor ({-TcClsRefT-}undefined objectT) $ B.pack "x") [] []]
 
 
-instance Pretty ActorPolicyBounds where
+instance Pretty a => Pretty (ActorPolicyBounds a) where
   pretty (KnownPolicy p) = pretty p
   pretty (PolicyBounds p q) = pretty p <> char '/' <> pretty q
 
