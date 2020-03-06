@@ -1621,9 +1621,9 @@ checkConstrs :: ClassDecl Pa -> P ()
 checkConstrs (ClassDecl _ _ i _ _ _ cb) = do
     let errs = [ ci | ConstructorDecl _ _ _ ci _ _ _ <- universeBi cb, ci /= i ]
     if null errs then return ()
-     else fail $ "Declaration of class " -- ++ prettyPrint i
+     else fail $ "Declaration of class " ++ prettyPrint i
                   ++ " cannot contain constructor with name "
-                --  ++ prettyPrint (head errs)
+                  ++ prettyPrint (head errs)
 checkConstrs _ = panic (parserModule ++ ".checkConstrs")
                  "Checking constructors of Enum decl"
 

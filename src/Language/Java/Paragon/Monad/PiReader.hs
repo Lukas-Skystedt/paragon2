@@ -16,7 +16,7 @@ module Language.Java.Paragon.Monad.PiReader
 
 import Language.Java.Paragon.SyntaxTTG (Name(..), NameType(..), CompilationUnit, Ident(..))
 import Language.Java.Paragon.Decorations.PaDecoration (Pa)
--- import Language.Java.Paragon.Pretty (prettyPrint)
+import Language.Java.Paragon.Pretty (prettyPrint)
 import Language.Java.Paragon.Parser (parser, compilationUnit)
 import Language.Java.Paragon.SourcePos (SourcePos)
 import Language.Java.Paragon.Interaction
@@ -34,9 +34,6 @@ import qualified Control.Monad.Fail as Fail
 
 piReaderModule :: String
 piReaderModule = libraryBase ++ ".Monad.PiReader"
-
--- TODO remove this temporary prettyPrint placeholder
-prettyPrint = error "prettyPrint placeholder evaluated."
 
 type PiPath = [FilePath] -- Should be a choice of many different
 
