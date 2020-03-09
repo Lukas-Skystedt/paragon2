@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeOperators, PatternSynonyms #-}
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Language.Java.Paragon.SyntaxTTG where
   -- (
   --   module Language.Java.Paragon.SyntaxTTG,
@@ -1201,3 +1202,7 @@ instance Show (Name a) where
     where
       showInner Nothing = ""
       showInner (Just (Name _ _ next (Ident _ i))) =  showInner next ++ B.unpack i ++ "."
+
+allFamilies = [
+ ''XCompilationUnit, ''XPackageDecl, ''XImportDecl, ''XTypeDecl, ''XClassDecl, ''XClassBody, ''XEnumBody, ''XEnumConstant, ''XInterfaceDecl, ''XInterfaceBody, ''XDecl, ''XMemberDecl, ''XVarDecl, ''XVarDeclId, ''XVarInit, ''XFormalParam, ''XMethodBody, ''XConstructorBody, ''XExplConstrInv, ''XMod, ''XBlock, ''XBlockStm, ''XStm, ''XCatch, ''XSwitchBlock, ''XSwitchLabel, ''XForInit, ''XExceptionSpec, ''XExp, ''XLiteral, ''XOp, ''XAssignOp, ''XLhs, ''XArrayIndex, ''XFieldAccess, ''XMethodInvocation, ''XArrayInit, ''XReturnType, ''XType, ''XRefType, ''XClassType, ''XTypeArgument, ''XNonWildTypeArgument, ''XWildcardBound, ''XPrimType, ''XTypeParam, ''XPolicyExp, ''XLockProperties, ''XClause, ''XClauseVarDecl, ''XClauseHead, ''XLClause, ''XActor, ''XActorName, ''XAtom, ''XLock, ''XIdent, ''XName
+              ]
