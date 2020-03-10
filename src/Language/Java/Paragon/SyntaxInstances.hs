@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE StandaloneDeriving #-}
 -- | This module contains template Haskell definitions used by
--- `Language.Java.Paragon.Syntax`. They have their own module since template
+-- 'Language.Java.Paragon.Syntax'. They have their own module since template
 -- Haskell disallows them from being defined and used in the same module.
 module Language.Java.Paragon.SyntaxInstances where
 
@@ -9,7 +9,7 @@ import Language.Haskell.TH
 import Control.Monad (join)
 
 -- | Generate a standalone instance derivations for the provided classes, types
--- and constraints using `deriveInstance`. The same constraint is used in all
+-- and constraints using 'deriveInstance'. The same constraint is used in all
 -- instances.
 deriveInstances :: Name -> [Name] -> [Name] -> DecsQ
 deriveInstances constraint clazzes types
@@ -23,7 +23,7 @@ deriveInstances constraint clazzes types
 --
 -- The resulting instance derivation has the form.
 --
--- `deriving instance constraint clazz x => clazz (typ x)`
+-- > deriving instance constraint clazz x => clazz (typ x)
 deriveInstance :: Name -> Name -> Name -> DecsQ
 deriveInstance constraint clazz typ =
   [d| deriving instance $con $c x => $c ($t x) |]

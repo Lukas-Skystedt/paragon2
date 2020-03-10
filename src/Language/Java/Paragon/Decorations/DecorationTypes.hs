@@ -12,6 +12,11 @@ type NoFieldExt = ()
 type NoConExt = Void
 
 
+-- -| TODO:
+-- > [d| type instance $family $i = $t |]
+-- > where
+-- >   i = conT index
+-- >   t = conT typ
 makeTypeInst :: Name -> Name -> Name -> DecsQ
 makeTypeInst ind typ fam = return [ TySynInstD fam $
                                     TySynEqn
@@ -19,5 +24,6 @@ makeTypeInst ind typ fam = return [ TySynInstD fam $
                                     (ConT typ)
                                   ]
 
+
 makeTypeInsts ::  Name -> Name -> [Name] -> DecsQ
-makeTypeInsts ind typ fams = fmap join $ sequence $ map (makeTypeInst ind typ) fams
+makeTypeInsts ind typ fams = join <$> mapM (makeTypeInst ind typ) fams

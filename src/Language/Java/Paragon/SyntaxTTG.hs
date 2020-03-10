@@ -850,7 +850,7 @@ type ForallIncData (f :: * -> Constraint) x = (ForallXFamilies f x, Data x, Type
 
 
 -- | List of every type family used for the extension field of the TTG AST.
--- | The names of these families all begin with 'X'.
+-- | The names of these families all begin with \'X\'.
 allFamilies :: [TH.Name]
 allFamilies =
   [''XCompilationUnit, ''XPackageDecl, ''XImportDecl, ''XTypeDecl, ''XClassDecl
@@ -870,10 +870,10 @@ allFamilies =
 -- Automatically generate various instances for the syntax tree types. The
 -- generated code consist of standalone instance derivations such as
 --
--- `deriving instance ForallXFamilies Show x => Show (CompilationUnit x)`.
+-- > deriving instance ForallXFamilies Show x => Show (CompilationUnit x)
 --
 -- The list of types and classes cannot be separated into their own declarations
--- (eg. `allSyntaxTypes = [''PackageDecl, ...]`) due to a limitation of template
+-- (eg. @allSyntaxTypes = [''PackageDecl, ...]@) due to a limitation of template
 -- Haskell that would require them to be in a separate module.
 $(deriveInstances
   ''ForallXFamilies
@@ -892,12 +892,12 @@ $(deriveInstances
   ]
  )
 
--- The `Show` instance for `Name` has a custom implementation. Thus `Name`
+-- The 'Show' instance for 'Name' has a custom implementation. Thus 'Name'
 -- cannot be included with the other types in the instance derivation splice
 -- above.
 $(deriveInstances ''ForallXFamilies [''Eq, ''Ord] [''Name])
 
--- TODO: Maybe the derivation of classes `Data` and `Typeable` can be fused with
+-- TODO: Maybe the derivation of classes 'Data' and 'Typeable' can be fused with
 -- the other class derivations?
 $(deriveInstances
   ''ForallIncData
