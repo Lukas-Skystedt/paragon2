@@ -888,7 +888,7 @@ $(deriveInstances
   , ''RefType, ''ClassType , ''TypeArgument, ''NonWildTypeArgument
   , ''WildcardBound, ''PrimType, ''TypeParam , ''PolicyExp, ''LockProperties
   , ''Clause, ''ClauseVarDecl, ''ClauseHead, ''LClause, ''Actor , ''ActorName
-  , ''Atom, ''Lock, ''Ident
+  , ''Atom, ''Lock, ''Ident, ''CompilationUnit
   ]
  )
 
