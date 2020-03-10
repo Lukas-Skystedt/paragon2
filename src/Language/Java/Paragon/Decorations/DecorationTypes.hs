@@ -12,7 +12,8 @@ type NoFieldExt = ()
 type NoConExt = Void
 
 
--- -| TODO:
+-- -| TODO: It would be nice to have something like this. However, \$family does
+-- not work.
 -- > [d| type instance $family $i = $t |]
 -- > where
 -- >   i = conT index

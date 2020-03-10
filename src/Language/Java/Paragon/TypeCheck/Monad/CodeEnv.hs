@@ -25,7 +25,7 @@ data CodeEnv = CodeEnv  {
       returnI   :: Maybe (TcType, ActorPolicy),
       exnsE     :: Map TcType (ActorPolicy, ActorPolicy),
       branchPCE :: (Map Entity [(ActorPolicy, String)], [(ActorPolicy, String)]),
-      parBounds :: [(B.ByteString, ActorPolicy)],
+      parBounds :: [(B.ByteString, ActorPolicy)], -- TODO: maybe convert to `Map`?
       compileTime :: Bool,
       staticContext :: Bool
     }
