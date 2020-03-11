@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeOperators, PatternSynonyms #-}
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Language.Java.Paragon.SyntaxTTG where
   -- (
   --   module Language.Java.Paragon.SyntaxTTG,
@@ -18,12 +19,13 @@ module Language.Java.Paragon.SyntaxTTG where
 
 import Data.Data
 
-
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos
 import GHC.Types (Constraint)
 import qualified Data.ByteString.Char8 as B
 
+import qualified Language.Haskell.TH as TH (Name)
+import Language.Java.Paragon.SyntaxInstances
 
 syntaxModule :: String
 syntaxModule = libraryBase ++ ".Syntax"
@@ -813,385 +815,6 @@ temp = error "The temp variable used for the old Name type was evaluated."
 ----------------------------------
 -- INSTANCES
 
-type ForallXFamilies (f :: * -> Constraint) x =
-  (
-    f x, f(XCompilationUnit x), f(XPackageDecl x), f(XImportDecl x),
-    f(XImportDecl x), f(XTypeDecl x), f(XClassDecl x), f(XClassBody x),
-        f(XEnumBody x), f(XEnumConstant x), f(XInterfaceDecl x),
-        f(XInterfaceBody x), f(XDecl x), f(XMemberDecl x), f(XVarDecl x),
-        f(XVarDeclId x), f(XFormalParam x), f(XMethodBody x),
-        f(XConstructorBody x), f(XExplConstrInv x), f(XMod x), f(XBlock x),
-        f(XBlockStm x), f(XStm x), f(XCatch x), f(XSwitchBlock x),
-        f(XSwitchBlock x), f(XSwitchLabel x), f(XForInit x),
-        f(XExceptionSpec x), f(XExp x), f(XLiteral x), f(XOp x),
-    f(XAssignOp x), f(XLhs x), f(XArrayIndex x), f(XFieldAccess x),
-        f(XMethodInvocation x), f(XArrayInit x), f(XReturnType x), f(XType x),
-        f(XRefType x), f(XClassType x), f(XTypeArgument x),
-        f(XNonWildTypeArgument x), f(XWildcardBound x), f(XPrimType x),
-        f(XTypeParam x), f(XPolicyExp x), f(XLockProperties x), f(XClause x),
-        f(XClauseVarDecl x), f(XClauseHead x), f(XLClause x), f(XActor x),
-    f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XVarDecl x),
-        f(XVarInit x), f (XName x)
-  )
-type ForallIncData (f :: * -> Constraint) x = (ForallXFamilies f x, Data x, Typeable x)
-
-deriving instance ForallXFamilies Show x => Show (CompilationUnit x)
-deriving instance ForallXFamilies Show x => Show (PackageDecl x)
-deriving instance ForallXFamilies Show x => Show (ImportDecl x)
-deriving instance ForallXFamilies Show x => Show (TypeDecl x)
-deriving instance ForallXFamilies Show x => Show (ClassDecl x)
-deriving instance ForallXFamilies Show x => Show (ClassBody x)
-deriving instance ForallXFamilies Show x => Show (EnumBody x)
-deriving instance ForallXFamilies Show x => Show (EnumConstant x)
-deriving instance ForallXFamilies Show x => Show (InterfaceDecl x)
-deriving instance ForallXFamilies Show x => Show (InterfaceBody x)
-deriving instance ForallXFamilies Show x => Show (Decl x)
-deriving instance ForallXFamilies Show x => Show (MemberDecl x)
-deriving instance ForallXFamilies Show x => Show (VarDecl x)
-deriving instance ForallXFamilies Show x => Show (VarDeclId x)
-deriving instance ForallXFamilies Show x => Show (VarInit x)
-deriving instance ForallXFamilies Show x => Show (FormalParam x)
-deriving instance ForallXFamilies Show x => Show (MethodBody x)
-deriving instance ForallXFamilies Show x => Show (ConstructorBody x)
-deriving instance ForallXFamilies Show x => Show (ExplConstrInv x)
-deriving instance ForallXFamilies Show x => Show (Modifier x)
-deriving instance ForallXFamilies Show x => Show (Block x)
-deriving instance ForallXFamilies Show x => Show (BlockStmt x)
-deriving instance ForallXFamilies Show x => Show (Stmt x)
-deriving instance ForallXFamilies Show x => Show (Catch x)
-deriving instance ForallXFamilies Show x => Show (SwitchBlock x)
-deriving instance ForallXFamilies Show x => Show (SwitchLabel x)
-deriving instance ForallXFamilies Show x => Show (ForInit x)
-deriving instance ForallXFamilies Show x => Show (ExceptionSpec x)
-deriving instance ForallXFamilies Show x => Show (Exp x)
-deriving instance ForallXFamilies Show x => Show (Literal x)
-deriving instance ForallXFamilies Show x => Show (Op x)
-deriving instance ForallXFamilies Show x => Show (AssignOp x)
-deriving instance ForallXFamilies Show x => Show (Lhs x)
-deriving instance ForallXFamilies Show x => Show (ArrayIndex x)
-deriving instance ForallXFamilies Show x => Show (FieldAccess x)
-deriving instance ForallXFamilies Show x => Show (MethodInvocation x)
-deriving instance ForallXFamilies Show x => Show (ArrayInit x)
-deriving instance ForallXFamilies Show x => Show (ReturnType x)
-deriving instance ForallXFamilies Show x => Show (Type x)
-deriving instance ForallXFamilies Show x => Show (RefType x)
-deriving instance ForallXFamilies Show x => Show (ClassType x)
-deriving instance ForallXFamilies Show x => Show (TypeArgument x)
-deriving instance ForallXFamilies Show x => Show (NonWildTypeArgument x)
-deriving instance ForallXFamilies Show x => Show (WildcardBound x)
-deriving instance ForallXFamilies Show x => Show (PrimType x)
-deriving instance ForallXFamilies Show x => Show (TypeParam x)
-deriving instance ForallXFamilies Show x => Show (PolicyExp x)
-deriving instance ForallXFamilies Show x => Show (LockProperties x)
-deriving instance ForallXFamilies Show x => Show (Clause x)
-deriving instance ForallXFamilies Show x => Show (ClauseVarDecl x)
-deriving instance ForallXFamilies Show x => Show (ClauseHead x)
-deriving instance ForallXFamilies Show x => Show (LClause x)
-deriving instance ForallXFamilies Show x => Show (Actor x)
-deriving instance ForallXFamilies Show x => Show (ActorName x)
-deriving instance ForallXFamilies Show x => Show (Atom x)
-deriving instance ForallXFamilies Show x => Show (Lock x)
-deriving instance ForallXFamilies Show x => Show (Ident x)
-
-
-
-deriving instance ForallXFamilies Eq x => Eq (CompilationUnit x)
-deriving instance ForallXFamilies Eq x => Eq (PackageDecl x)
-deriving instance ForallXFamilies Eq x => Eq (ImportDecl x)
-deriving instance ForallXFamilies Eq x => Eq (TypeDecl x)
-deriving instance ForallXFamilies Eq x => Eq (ClassDecl x)
-deriving instance ForallXFamilies Eq x => Eq (ClassBody x)
-deriving instance ForallXFamilies Eq x => Eq (EnumBody x)
-deriving instance ForallXFamilies Eq x => Eq (EnumConstant x)
-deriving instance ForallXFamilies Eq x => Eq (InterfaceDecl x)
-deriving instance ForallXFamilies Eq x => Eq (InterfaceBody x)
-deriving instance ForallXFamilies Eq x => Eq (Decl x)
-deriving instance ForallXFamilies Eq x => Eq (MemberDecl x)
-deriving instance ForallXFamilies Eq x => Eq (VarDecl x)
-deriving instance ForallXFamilies Eq x => Eq (VarDeclId x)
-deriving instance ForallXFamilies Eq x => Eq (VarInit x)
-deriving instance ForallXFamilies Eq x => Eq (FormalParam x)
-deriving instance ForallXFamilies Eq x => Eq (MethodBody x)
-deriving instance ForallXFamilies Eq x => Eq (ConstructorBody x)
-deriving instance ForallXFamilies Eq x => Eq (ExplConstrInv x)
-deriving instance ForallXFamilies Eq x => Eq (Modifier x)
-deriving instance ForallXFamilies Eq x => Eq (Block x)
-deriving instance ForallXFamilies Eq x => Eq (BlockStmt x)
-deriving instance ForallXFamilies Eq x => Eq (Stmt x)
-deriving instance ForallXFamilies Eq x => Eq (Catch x)
-deriving instance ForallXFamilies Eq x => Eq (SwitchBlock x)
-deriving instance ForallXFamilies Eq x => Eq (SwitchLabel x)
-deriving instance ForallXFamilies Eq x => Eq (ForInit x)
-deriving instance ForallXFamilies Eq x => Eq (ExceptionSpec x)
-deriving instance ForallXFamilies Eq x => Eq (Exp x)
-deriving instance ForallXFamilies Eq x => Eq (Literal x)
-deriving instance ForallXFamilies Eq x => Eq (Op x)
-deriving instance ForallXFamilies Eq x => Eq (AssignOp x)
-deriving instance ForallXFamilies Eq x => Eq (Lhs x)
-deriving instance ForallXFamilies Eq x => Eq (ArrayIndex x)
-deriving instance ForallXFamilies Eq x => Eq (FieldAccess x)
-deriving instance ForallXFamilies Eq x => Eq (MethodInvocation x)
-deriving instance ForallXFamilies Eq x => Eq (ArrayInit x)
-deriving instance ForallXFamilies Eq x => Eq (ReturnType x)
-deriving instance ForallXFamilies Eq x => Eq (Type x)
-deriving instance ForallXFamilies Eq x => Eq (RefType x)
-deriving instance ForallXFamilies Eq x => Eq (ClassType x)
-deriving instance ForallXFamilies Eq x => Eq (TypeArgument x)
-deriving instance ForallXFamilies Eq x => Eq (NonWildTypeArgument x)
-deriving instance ForallXFamilies Eq x => Eq (WildcardBound x)
-deriving instance ForallXFamilies Eq x => Eq (PrimType x)
-deriving instance ForallXFamilies Eq x => Eq (TypeParam x)
-deriving instance ForallXFamilies Eq x => Eq (PolicyExp x)
-deriving instance ForallXFamilies Eq x => Eq (LockProperties x)
-deriving instance ForallXFamilies Eq x => Eq (Clause x)
-deriving instance ForallXFamilies Eq x => Eq (ClauseVarDecl x)
-deriving instance ForallXFamilies Eq x => Eq (ClauseHead x)
-deriving instance ForallXFamilies Eq x => Eq (LClause x)
-deriving instance ForallXFamilies Eq x => Eq (Actor x)
-deriving instance ForallXFamilies Eq x => Eq (ActorName x)
-deriving instance ForallXFamilies Eq x => Eq (Atom x)
-deriving instance ForallXFamilies Eq x => Eq (Lock x)
-deriving instance ForallXFamilies Eq x => Eq (Ident x)
-deriving instance ForallXFamilies Eq x => Eq (Name x)
-
-deriving instance ForallXFamilies Ord x => Ord (CompilationUnit x)
-deriving instance ForallXFamilies Ord x => Ord (PackageDecl x)
-deriving instance ForallXFamilies Ord x => Ord (ImportDecl x)
-deriving instance ForallXFamilies Ord x => Ord (TypeDecl x)
-deriving instance ForallXFamilies Ord x => Ord (ClassDecl x)
-deriving instance ForallXFamilies Ord x => Ord (ClassBody x)
-deriving instance ForallXFamilies Ord x => Ord (EnumBody x)
-deriving instance ForallXFamilies Ord x => Ord (EnumConstant x)
-deriving instance ForallXFamilies Ord x => Ord (InterfaceDecl x)
-deriving instance ForallXFamilies Ord x => Ord (InterfaceBody x)
-deriving instance ForallXFamilies Ord x => Ord (Decl x)
-deriving instance ForallXFamilies Ord x => Ord (MemberDecl x)
-deriving instance ForallXFamilies Ord x => Ord (VarDecl x)
-deriving instance ForallXFamilies Ord x => Ord (VarDeclId x)
-deriving instance ForallXFamilies Ord x => Ord (VarInit x)
-deriving instance ForallXFamilies Ord x => Ord (FormalParam x)
-deriving instance ForallXFamilies Ord x => Ord (MethodBody x)
-deriving instance ForallXFamilies Ord x => Ord (ConstructorBody x)
-deriving instance ForallXFamilies Ord x => Ord (ExplConstrInv x)
-deriving instance ForallXFamilies Ord x => Ord (Modifier x)
-deriving instance ForallXFamilies Ord x => Ord (Block x)
-deriving instance ForallXFamilies Ord x => Ord (BlockStmt x)
-deriving instance ForallXFamilies Ord x => Ord (Stmt x)
-deriving instance ForallXFamilies Ord x => Ord (Catch x)
-deriving instance ForallXFamilies Ord x => Ord (SwitchBlock x)
-deriving instance ForallXFamilies Ord x => Ord (SwitchLabel x)
-deriving instance ForallXFamilies Ord x => Ord (ForInit x)
-deriving instance ForallXFamilies Ord x => Ord (ExceptionSpec x)
-deriving instance ForallXFamilies Ord x => Ord (Exp x)
-deriving instance ForallXFamilies Ord x => Ord (Literal x)
-deriving instance ForallXFamilies Ord x => Ord (Op x)
-deriving instance ForallXFamilies Ord x => Ord (AssignOp x)
-deriving instance ForallXFamilies Ord x => Ord (Lhs x)
-deriving instance ForallXFamilies Ord x => Ord (ArrayIndex x)
-deriving instance ForallXFamilies Ord x => Ord (FieldAccess x)
-deriving instance ForallXFamilies Ord x => Ord (MethodInvocation x)
-deriving instance ForallXFamilies Ord x => Ord (ArrayInit x)
-deriving instance ForallXFamilies Ord x => Ord (ReturnType x)
-deriving instance ForallXFamilies Ord x => Ord (Type x)
-deriving instance ForallXFamilies Ord x => Ord (RefType x)
-deriving instance ForallXFamilies Ord x => Ord (ClassType x)
-deriving instance ForallXFamilies Ord x => Ord (TypeArgument x)
-deriving instance ForallXFamilies Ord x => Ord (NonWildTypeArgument x)
-deriving instance ForallXFamilies Ord x => Ord (WildcardBound x)
-deriving instance ForallXFamilies Ord x => Ord (PrimType x)
-deriving instance ForallXFamilies Ord x => Ord (TypeParam x)
-deriving instance ForallXFamilies Ord x => Ord (PolicyExp x)
-deriving instance ForallXFamilies Ord x => Ord (LockProperties x)
-deriving instance ForallXFamilies Ord x => Ord (Clause x)
-deriving instance ForallXFamilies Ord x => Ord (ClauseVarDecl x)
-deriving instance ForallXFamilies Ord x => Ord (ClauseHead x)
-deriving instance ForallXFamilies Ord x => Ord (LClause x)
-deriving instance ForallXFamilies Ord x => Ord (Actor x)
-deriving instance ForallXFamilies Ord x => Ord (ActorName x)
-deriving instance ForallXFamilies Ord x => Ord (Atom x)
-deriving instance ForallXFamilies Ord x => Ord (Lock x)
-deriving instance ForallXFamilies Ord x => Ord (Ident x)
-deriving instance ForallXFamilies Ord x => Ord (Name x)
-
-deriving instance ForallIncData Data x => Data (CompilationUnit x)
-deriving instance ForallIncData Data x => Data (PackageDecl x)
-deriving instance ForallIncData Data x => Data (ImportDecl x)
-deriving instance ForallIncData Data x => Data (TypeDecl x)
-deriving instance ForallIncData Data x => Data (ClassDecl x)
-deriving instance ForallIncData Data x => Data (ClassBody x)
-deriving instance ForallIncData Data x => Data (EnumBody x)
-deriving instance ForallIncData Data x => Data (EnumConstant x)
-deriving instance ForallIncData Data x => Data (InterfaceDecl x)
-deriving instance ForallIncData Data x => Data (InterfaceBody x)
-deriving instance ForallIncData Data x => Data (Decl x)
-deriving instance ForallIncData Data x => Data (MemberDecl x)
-deriving instance ForallIncData Data x => Data (VarDecl x)
-deriving instance ForallIncData Data x => Data (VarDeclId x)
-deriving instance ForallIncData Data x => Data (VarInit x)
-deriving instance ForallIncData Data x => Data (FormalParam x)
-deriving instance ForallIncData Data x => Data (MethodBody x)
-deriving instance ForallIncData Data x => Data (ConstructorBody x)
-deriving instance ForallIncData Data x => Data (ExplConstrInv x)
-deriving instance ForallIncData Data x => Data (Modifier x)
-deriving instance ForallIncData Data x => Data (Block x)
-deriving instance ForallIncData Data x => Data (BlockStmt x)
-deriving instance ForallIncData Data x => Data (Stmt x)
-deriving instance ForallIncData Data x => Data (Catch x)
-deriving instance ForallIncData Data x => Data (SwitchBlock x)
-deriving instance ForallIncData Data x => Data (SwitchLabel x)
-deriving instance ForallIncData Data x => Data (ForInit x)
-deriving instance ForallIncData Data x => Data (ExceptionSpec x)
-deriving instance ForallIncData Data x => Data (Exp x)
-deriving instance ForallIncData Data x => Data (Literal x)
-deriving instance ForallIncData Data x => Data (Op x)
-deriving instance ForallIncData Data x => Data (AssignOp x)
-deriving instance ForallIncData Data x => Data (Lhs x)
-deriving instance ForallIncData Data x => Data (ArrayIndex x)
-deriving instance ForallIncData Data x => Data (FieldAccess x)
-deriving instance ForallIncData Data x => Data (MethodInvocation x)
-deriving instance ForallIncData Data x => Data (ArrayInit x)
-deriving instance ForallIncData Data x => Data (ReturnType x)
-deriving instance ForallIncData Data x => Data (Type x)
-deriving instance ForallIncData Data x => Data (RefType x)
-deriving instance ForallIncData Data x => Data (ClassType x)
-deriving instance ForallIncData Data x => Data (TypeArgument x)
-deriving instance ForallIncData Data x => Data (NonWildTypeArgument x)
-deriving instance ForallIncData Data x => Data (WildcardBound x)
-deriving instance ForallIncData Data x => Data (PrimType x)
-deriving instance ForallIncData Data x => Data (TypeParam x)
-deriving instance ForallIncData Data x => Data (PolicyExp x)
-deriving instance ForallIncData Data x => Data (LockProperties x)
-deriving instance ForallIncData Data x => Data (Clause x)
-deriving instance ForallIncData Data x => Data (ClauseVarDecl x)
-deriving instance ForallIncData Data x => Data (ClauseHead x)
-deriving instance ForallIncData Data x => Data (LClause x)
-deriving instance ForallIncData Data x => Data (Actor x)
-deriving instance ForallIncData Data x => Data (ActorName x)
-deriving instance ForallIncData Data x => Data (Atom x)
-deriving instance ForallIncData Data x => Data (Lock x)
-deriving instance ForallIncData Data x => Data (Ident x)
-deriving instance ForallIncData Data x => Data (Name x)
-
-
-deriving instance ForallIncData Typeable x => Typeable (CompilationUnit x)
-deriving instance ForallIncData Typeable x => Typeable (PackageDecl x)
-deriving instance ForallIncData Typeable x => Typeable (ImportDecl x)
-deriving instance ForallIncData Typeable x => Typeable (TypeDecl x)
-deriving instance ForallIncData Typeable x => Typeable (ClassDecl x)
-deriving instance ForallIncData Typeable x => Typeable (ClassBody x)
-deriving instance ForallIncData Typeable x => Typeable (EnumBody x)
-deriving instance ForallIncData Typeable x => Typeable (EnumConstant x)
-deriving instance ForallIncData Typeable x => Typeable (InterfaceDecl x)
-deriving instance ForallIncData Typeable x => Typeable (InterfaceBody x)
-deriving instance ForallIncData Typeable x => Typeable (Decl x)
-deriving instance ForallIncData Typeable x => Typeable (MemberDecl x)
-deriving instance ForallIncData Typeable x => Typeable (VarDecl x)
-deriving instance ForallIncData Typeable x => Typeable (VarDeclId x)
-deriving instance ForallIncData Typeable x => Typeable (VarInit x)
-deriving instance ForallIncData Typeable x => Typeable (FormalParam x)
-deriving instance ForallIncData Typeable x => Typeable (MethodBody x)
-deriving instance ForallIncData Typeable x => Typeable (ConstructorBody x)
-deriving instance ForallIncData Typeable x => Typeable (ExplConstrInv x)
-deriving instance ForallIncData Typeable x => Typeable (Modifier x)
-deriving instance ForallIncData Typeable x => Typeable (Block x)
-deriving instance ForallIncData Typeable x => Typeable (BlockStmt x)
-deriving instance ForallIncData Typeable x => Typeable (Stmt x)
-deriving instance ForallIncData Typeable x => Typeable (Catch x)
-deriving instance ForallIncData Typeable x => Typeable (SwitchBlock x)
-deriving instance ForallIncData Typeable x => Typeable (SwitchLabel x)
-deriving instance ForallIncData Typeable x => Typeable (ForInit x)
-deriving instance ForallIncData Typeable x => Typeable (ExceptionSpec x)
-deriving instance ForallIncData Typeable x => Typeable (Exp x)
-deriving instance ForallIncData Typeable x => Typeable (Literal x)
-deriving instance ForallIncData Typeable x => Typeable (Op x)
-deriving instance ForallIncData Typeable x => Typeable (AssignOp x)
-deriving instance ForallIncData Typeable x => Typeable (Lhs x)
-deriving instance ForallIncData Typeable x => Typeable (ArrayIndex x)
-deriving instance ForallIncData Typeable x => Typeable (FieldAccess x)
-deriving instance ForallIncData Typeable x => Typeable (MethodInvocation x)
-deriving instance ForallIncData Typeable x => Typeable (ArrayInit x)
-deriving instance ForallIncData Typeable x => Typeable (ReturnType x)
-deriving instance ForallIncData Typeable x => Typeable (Type x)
-deriving instance ForallIncData Typeable x => Typeable (RefType x)
-deriving instance ForallIncData Typeable x => Typeable (ClassType x)
-deriving instance ForallIncData Typeable x => Typeable (TypeArgument x)
-deriving instance ForallIncData Typeable x => Typeable (NonWildTypeArgument x)
-deriving instance ForallIncData Typeable x => Typeable (WildcardBound x)
-deriving instance ForallIncData Typeable x => Typeable (PrimType x)
-deriving instance ForallIncData Typeable x => Typeable (TypeParam x)
-deriving instance ForallIncData Typeable x => Typeable (PolicyExp x)
-deriving instance ForallIncData Typeable x => Typeable (LockProperties x)
-deriving instance ForallIncData Typeable x => Typeable (Clause x)
-deriving instance ForallIncData Typeable x => Typeable (ClauseVarDecl x)
-deriving instance ForallIncData Typeable x => Typeable (ClauseHead x)
-deriving instance ForallIncData Typeable x => Typeable (LClause x)
-deriving instance ForallIncData Typeable x => Typeable (Actor x)
-deriving instance ForallIncData Typeable x => Typeable (ActorName x)
-deriving instance ForallIncData Typeable x => Typeable (Atom x)
-deriving instance ForallIncData Typeable x => Typeable (Lock x)
-deriving instance ForallIncData Typeable x => Typeable (Ident x)
-deriving instance ForallIncData Typeable x => Typeable (Name x)
-
-
--- deriving instance Functor CompilationUnit
--- deriving instance Functor PackageDecl
--- deriving instance Functor ImportDecl
--- deriving instance Functor TypeDecl
--- deriving instance Functor ClassDecl
--- deriving instance Functor ClassBody
--- deriving instance Functor EnumBody
--- deriving instance Functor EnumConstant
--- deriving instance Functor InterfaceDecl
--- deriving instance Functor InterfaceBody
--- deriving instance Functor Decl
--- deriving instance Functor MemberDecl
--- deriving instance Functor VarDecl
--- deriving instance Functor VarDeclId
--- deriving instance Functor VarInit
--- deriving instance Functor FormalParam
--- deriving instance Functor MethodBody
--- deriving instance Functor ConstructorBody
--- deriving instance Functor ExplConstrInv
--- deriving instance Functor Modifier
--- deriving instance Functor Block
--- deriving instance Functor BlockStmt
--- deriving instance Functor Stmt
--- deriving instance Functor Catch
--- deriving instance Functor SwitchBlock
--- deriving instance Functor SwitchLabel
--- deriving instance Functor ForInit
--- deriving instance Functor ExceptionSpec
--- deriving instance Functor Exp
--- deriving instance Functor Literal
--- deriving instance Functor Op
--- deriving instance Functor AssignOp
--- deriving instance Functor Lhs
--- deriving instance Functor ArrayIndex
--- deriving instance Functor FieldAccess
--- deriving instance Functor MethodInvocation
--- deriving instance Functor ArrayInit
--- deriving instance Functor ReturnType
--- deriving instance Functor Type
--- deriving instance Functor RefType
--- deriving instance Functor ClassType
--- deriving instance Functor TypeArgument
--- deriving instance Functor NonWildTypeArgument
--- deriving instance Functor WildcardBound
--- deriving instance Functor PrimType
--- deriving instance Functor TypeParam
--- deriving instance Functor PolicyExp
--- deriving instance Functor LockProperties
--- deriving instance Functor Clause
--- deriving instance Functor ClauseVarDecl
--- deriving instance Functor ClauseHead
--- deriving instance Functor LClause
--- deriving instance Functor Actor
--- deriving instance Functor ActorName
--- deriving instance Functor Atom
--- deriving instance Functor Lock
--- deriving instance Functor Ident
--- deriving instance Functor Name
-
 --  Prints name as a simple string to be easier to read.
 -- To get printout of the whole recursive name structure, comment this out and put
 -- Show in the deriving clause.
@@ -1201,3 +824,94 @@ instance Show (Name a) where
     where
       showInner Nothing = ""
       showInner (Just (Name _ _ next (Ident _ i))) =  showInner next ++ B.unpack i ++ "."
+
+type ForallXFamilies (f :: * -> Constraint) x =
+  (
+    f(XCompilationUnit x), f(XPackageDecl x), f(XImportDecl x),
+    f(XImportDecl x), f(XTypeDecl x), f(XClassDecl x), f(XClassBody x),
+    f(XEnumBody x), f(XEnumConstant x), f(XInterfaceDecl x),
+    f(XInterfaceBody x), f(XDecl x), f(XMemberDecl x), f(XVarDecl x),
+    f(XVarDeclId x), f(XFormalParam x), f(XMethodBody x),
+    f(XConstructorBody x), f(XExplConstrInv x), f(XMod x), f(XBlock x),
+    f(XBlockStm x), f(XStm x), f(XCatch x), f(XSwitchBlock x),
+    f(XSwitchBlock x), f(XSwitchLabel x), f(XForInit x),
+    f(XExceptionSpec x), f(XExp x), f(XLiteral x), f(XOp x),
+    f(XAssignOp x), f(XLhs x), f(XArrayIndex x), f(XFieldAccess x),
+    f(XMethodInvocation x), f(XArrayInit x), f(XReturnType x), f(XType x),
+    f(XRefType x), f(XClassType x), f(XTypeArgument x),
+    f(XNonWildTypeArgument x), f(XWildcardBound x), f(XPrimType x),
+    f(XTypeParam x), f(XPolicyExp x), f(XLockProperties x), f(XClause x),
+    f(XClauseVarDecl x), f(XClauseHead x), f(XLClause x), f(XActor x),
+    f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XVarDecl x),
+    f(XVarInit x), f (XName x)
+  )
+
+type ForallIncData (f :: * -> Constraint) x = (ForallXFamilies f x, Data x, Typeable x)
+
+
+-- | List of every type family used for the extension field of the TTG AST.
+-- | The names of these families all begin with \'X\'.
+allFamilies :: [TH.Name]
+allFamilies =
+  [''XCompilationUnit, ''XPackageDecl, ''XImportDecl, ''XTypeDecl, ''XClassDecl
+  , ''XClassBody, ''XEnumBody, ''XEnumConstant, ''XInterfaceDecl
+  , ''XInterfaceBody, ''XDecl, ''XMemberDecl, ''XVarDecl, ''XVarDeclId
+  , ''XVarInit, ''XFormalParam, ''XMethodBody, ''XConstructorBody
+  , ''XExplConstrInv, ''XMod, ''XBlock, ''XBlockStm, ''XStm, ''XCatch
+  , ''XSwitchBlock, ''XSwitchLabel, ''XForInit, ''XExceptionSpec, ''XExp
+  , ''XLiteral, ''XOp, ''XAssignOp, ''XLhs, ''XArrayIndex, ''XFieldAccess
+  , ''XMethodInvocation, ''XArrayInit, ''XReturnType, ''XType, ''XRefType
+  , ''XClassType, ''XTypeArgument, ''XNonWildTypeArgument, ''XWildcardBound
+  , ''XPrimType, ''XTypeParam, ''XPolicyExp, ''XLockProperties, ''XClause
+  , ''XClauseVarDecl, ''XClauseHead, ''XLClause, ''XActor, ''XActorName
+  , ''XAtom, ''XLock, ''XIdent, ''XName
+  ]
+
+-- Automatically generate various instances for the syntax tree types. The
+-- generated code consist of standalone instance derivations such as
+--
+-- > deriving instance ForallXFamilies Show x => Show (CompilationUnit x)
+--
+-- The list of types and classes cannot be separated into their own declarations
+-- (eg. @allSyntaxTypes = [''PackageDecl, ...]@) due to a limitation of template
+-- Haskell that would require them to be in a separate module.
+$(deriveInstances
+  ''ForallXFamilies
+  [ ''Show, ''Eq, ''Ord ]
+  [ ''PackageDecl, ''ImportDecl, ''TypeDecl, ''ClassDecl, ''ClassBody
+  , ''EnumBody , ''EnumConstant, ''InterfaceDecl, ''InterfaceBody, ''Decl
+  , ''MemberDecl , ''VarDecl , ''VarDeclId, ''VarInit, ''FormalParam
+  , ''MethodBody, ''ConstructorBody, ''ExplConstrInv , ''Modifier, ''Block
+  , ''BlockStmt, ''Stmt, ''Catch, ''SwitchBlock, ''SwitchLabel, ''ForInit
+  , ''ExceptionSpec, ''Exp, ''Literal, ''Op, ''AssignOp, ''Lhs, ''ArrayIndex
+  , ''FieldAccess , ''MethodInvocation, ''ArrayInit, ''ReturnType, ''Type
+  , ''RefType, ''ClassType , ''TypeArgument, ''NonWildTypeArgument
+  , ''WildcardBound, ''PrimType, ''TypeParam , ''PolicyExp, ''LockProperties
+  , ''Clause, ''ClauseVarDecl, ''ClauseHead, ''LClause, ''Actor , ''ActorName
+  , ''Atom, ''Lock, ''Ident, ''CompilationUnit
+  ]
+ )
+
+-- The 'Show' instance for 'Name' has a custom implementation. Thus 'Name'
+-- cannot be included with the other types in the instance derivation splice
+-- above.
+$(deriveInstances ''ForallXFamilies [''Eq, ''Ord] [''Name])
+
+-- TODO: Maybe the derivation of classes 'Data' and 'Typeable' can be fused with
+-- the other class derivations?
+$(deriveInstances
+  ''ForallIncData
+  [ ''Data, ''Typeable ]
+  [ ''PackageDecl, ''ImportDecl, ''TypeDecl, ''ClassDecl, ''ClassBody
+  , ''EnumBody , ''EnumConstant, ''InterfaceDecl, ''InterfaceBody, ''Decl
+  , ''MemberDecl , ''VarDecl , ''VarDeclId, ''VarInit, ''FormalParam
+  , ''MethodBody, ''ConstructorBody, ''ExplConstrInv , ''Modifier, ''Block
+  , ''BlockStmt, ''Stmt, ''Catch, ''SwitchBlock, ''SwitchLabel, ''ForInit
+  , ''ExceptionSpec, ''Exp, ''Literal, ''Op, ''AssignOp, ''Lhs, ''ArrayIndex
+  , ''FieldAccess , ''MethodInvocation, ''ArrayInit, ''ReturnType, ''Type
+  , ''RefType, ''ClassType , ''TypeArgument, ''NonWildTypeArgument
+  , ''WildcardBound, ''PrimType, ''TypeParam , ''PolicyExp, ''LockProperties
+  , ''Clause, ''ClauseVarDecl, ''ClauseHead, ''LClause, ''Actor , ''ActorName
+  , ''Atom, ''Lock, ''Ident, ''Name
+  ]
+ )
