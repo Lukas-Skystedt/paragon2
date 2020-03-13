@@ -3,20 +3,17 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
-
 module Language.Java.Paragon.Decorations.PaDecoration where
+
 import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.SourcePos
-import Language.Java.Paragon.TypesTTG
 import Language.Java.Paragon.SyntaxTTG
-import Data.Void
-import Data.Data
-import Language.Haskell.TH
-import Language.Haskell.TH.Syntax
 
-data Pa deriving (Data, Eq, Show)
+import Data.Data (Data)
+
+data PA deriving Data
 
 -- Derive type instances on the form
--- > type instance XCompilationUnit Pa = SourcePos
+-- > type instance XCompilationUnit PA = SourcePos
 -- for all extension fields.
-$(makeTypeInsts ''Pa ''SourcePos allFamilies)
+$(makeTypeInsts ''PA ''SourcePos allFamilies)

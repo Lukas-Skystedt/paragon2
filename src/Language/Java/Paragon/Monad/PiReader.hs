@@ -15,7 +15,7 @@ module Language.Java.Paragon.Monad.PiReader
     ) where
 
 import Language.Java.Paragon.SyntaxTTG (Name(..), NameType(..), CompilationUnit, Ident(..))
-import Language.Java.Paragon.Decorations.PaDecoration (Pa)
+import Language.Java.Paragon.Decorations.PaDecoration (PA)
 import Language.Java.Paragon.Pretty (prettyPrint)
 import Language.Java.Paragon.Parser (parser, compilationUnit)
 import Language.Java.Paragon.SourcePos (SourcePos)
@@ -166,13 +166,13 @@ getPiPathContents = do
 
 -- |Find and parse .pi file for given AST name
 -- Note: If more than 1 corresponding file in path, the first is selected
-getTypeContents :: MonadPR m => Name a -> m (CompilationUnit Pa)
+getTypeContents :: MonadPR m => Name a -> m (CompilationUnit PA)
 getTypeContents n = liftPR $ do
   let path = tNameToFile n
   piPath <- getPiPath
   findFirstPi path piPath
 
-      where findFirstPi :: FilePath -> [FilePath] -> PiReader (CompilationUnit Pa)
+      where findFirstPi :: FilePath -> [FilePath] -> PiReader (CompilationUnit PA)
             findFirstPi _ [] = panic (piReaderModule ++ ".getTypeContents")
                                ("No such type exists - doesTypeExist not called successfully: "
                                 ++ show n)
