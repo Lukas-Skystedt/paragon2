@@ -22,7 +22,6 @@ deriveInstances constraint clazzes types
 -- syntax tree.
 --
 -- The resulting instance derivation has the form.
---
 -- > deriving instance constraint clazz x => clazz (typ x)
 deriveInstance :: Name -> Name -> Name -> DecsQ
 deriveInstance constraint clazz typ =

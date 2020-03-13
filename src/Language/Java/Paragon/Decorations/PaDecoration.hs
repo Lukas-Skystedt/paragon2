@@ -16,10 +16,7 @@ import Language.Haskell.TH.Syntax
 
 data Pa deriving (Data, Eq, Show)
 
--- This is a hack.
-type instance XOp () = ()
-
 -- Derive type instances on the form
--- > type instance XCompilationUnit     Pa = SourcePos
+-- > type instance XCompilationUnit Pa = SourcePos
 -- for all extension fields.
 $(makeTypeInsts ''Pa ''SourcePos allFamilies)

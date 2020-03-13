@@ -8,11 +8,22 @@ import Control.Monad (join)
 
 -- | Data type for when an extension field is not used. (As in Trees That Grow)
 type NoFieldExt = ()
+
 -- | Data type for when a extension constructor is not used. (As in Trees That Grow)
 type NoConExt = Void
 
 
--- -| TODO: It would be nice to have something like this. However, \$family does
+-- | Create type instances for each of the families given, all with the same
+-- index and result type. See 'makeTypeInst'.
+makeTypeInsts ::  Name -> Name -> [Name] -> DecsQ
+makeTypeInsts ind typ fams = join <$> mapM (makeTypeInst ind typ) fams
+
+
+-- | Given a type index, a type and a type family, creates a corresponding type
+-- instance on the form
+-- > type instance fam ind = typ
+--
+-- TODO: It would be nice to have something like this. However, \$family does
 -- not work.
 -- > [d| type instance $family $i = $t |]
 -- > where
@@ -26,11 +37,8 @@ makeTypeInst ind typ fam = return [ TySynInstD fam $
                                   ]
 
 
-makeTypeInsts ::  Name -> Name -> [Name] -> DecsQ
-makeTypeInsts ind typ fams = join <$> mapM (makeTypeInst ind typ) fams
-
-
-
+-- | Split a qualified name to an unqualified name and the prefix. Eg.
+-- "GHC.Maybe.Just" should return ("GHC.Maybe.Just", "Just").
 takeUnqualified :: String -> (String, String)
 takeUnqualified name = let (suffR, preR) = break (=='.') $ reverse name
                        in (reverse preR, reverse suffR)
@@ -40,6 +48,21 @@ makePatternSyns :: String -> [Name] -> Q Pat -> DecsQ
 makePatternSyns prefix conNames rhPatQ = join <$>
   mapM (\conName -> makePatternSyn prefix conName rhPatQ) conNames
 
+-- | Creates a pattern synonym for a given constructor (by 'Name'). It is
+-- intended to be used for creating patterns for the extension field in data
+-- constructors under the TTG paradigm.
+--
+-- The new pattern will be named the same as the given one, but prefixed with
+-- the provided 'String'.
+--
+-- The provided pattern will be used for the /first/ argument of the constructor
+-- (the extension field). Every name bound in this pattern will be prepended to
+-- the LHS pattern.
+--
+-- For example,
+-- > $(makePatternSyn "MyPre" 'SwitchBlock [p| (a, (b, c)) |])
+-- will generate the pattern (with somewhat other names)
+-- > pattern MyPreSwitchBlock a b c d e = SwitchBlock (a, (b, c)) d e
 makePatternSyn :: String -> Name -> Q Pat -> DecsQ
 makePatternSyn prefix conName rhPatQ = do
           rhPat <- rhPatQ
@@ -74,6 +97,8 @@ makePatternSyn prefix conName rhPatQ = do
 
           return [ PatSynD newConName lhsPattern ImplBidir rhsPattern ]
 
+-- | Given a pattern, find all 'VarP' recursively and extract their names. That
+-- is, find all variable bindings in a pattern.
 patternNames :: Pat -> [Name]
 patternNames (LitP _) = []
 patternNames (VarP name) = [name]
