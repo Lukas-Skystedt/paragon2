@@ -2,7 +2,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE CPP, PatternGuards, TupleSections #-}
-{-# LANGUAGE StandaloneDeriving, FlexibleInstances #-}
 module Language.Java.Paragon.Parser (
     parser,
 
@@ -48,7 +47,6 @@ module Language.Java.Paragon.Parser (
 import Language.Java.Paragon.Lexer (L(..), Token(..), lexer)
 import Language.Java.Paragon.SyntaxTTG as AST
 import Language.Java.Paragon.Decorations.PaDecoration as D
-import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.Decorations.NoDecoration
 
 -- import Language.Java.Paragon.Syntax

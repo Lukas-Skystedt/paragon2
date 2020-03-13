@@ -173,7 +173,7 @@ Executable parac
                         -- Remove for production build:
                       , haskell-src-exts
   cpp-options:          -DBASE4
-  GHC-options:          -Wall -O2 -rtsopts
+  GHC-options:          -Wall -rtsopts
 
 test-suite bad
   Default-Language:    Haskell2010

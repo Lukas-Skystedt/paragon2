@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 -- | Types and functions related to AST decorations.
 --
 -- Decoration-related types and functions that are not specific to any phase

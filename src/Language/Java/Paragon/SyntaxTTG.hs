@@ -1,16 +1,9 @@
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE CPP, DeriveDataTypeable, DeriveFunctor, TemplateHaskell,
-             FlexibleContexts, MultiParamTypeClasses, FlexibleInstances #-}
-
-{-# LANGUAGE TypeFamilies, DataKinds, ConstraintKinds #-}
-{-# LANGUAGE GADTs, EmptyCase, StandaloneDeriving #-}
-{-# LANGUAGE TypeOperators, PatternSynonyms #-}
-{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE TypeFamilies#-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- | Representation of the syntax tree (AST).
 --
 -- This module contains types that are used to represent the AST as well as some
@@ -795,8 +788,6 @@ flattenName n = reverse $ flName n
 
           flName AntiQName{} = panic (syntaxModule ++ ".flattenName")
                                      "Cannot flatten name anti-quote"
-
-temp = error "The temp variable used for the old Name type was evaluated."
 
 
 -- These will probably not be used anymore, commented out for now

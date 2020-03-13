@@ -2,7 +2,9 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
-
+-- Hide errors due to our template Haskell pattern synonyms not having type
+-- signatures.
+{-# OPTIONS_GHC -Wno-missing-pattern-synonym-signatures #-} 
 module Language.Java.Paragon.Decorations.NoDecoration where
 
 import Language.Java.Paragon.Decorations.DecorationTypes
