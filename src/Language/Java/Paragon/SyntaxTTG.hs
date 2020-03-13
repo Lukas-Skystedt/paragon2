@@ -825,6 +825,10 @@ instance Show (Name a) where
       showInner Nothing = ""
       showInner (Just (Name _ _ next (Ident _ i))) =  showInner next ++ B.unpack i ++ "."
 
+-- | For expression constraints on all extension field when deriving class
+-- instances. Example, let 'f' be the type class 'Eq', then we get
+-- > Eq (XCompilationUnit x), Eq(XPackageDecl x), ...
+-- where 'x' is some type index.
 type ForallXFamilies (f :: * -> Constraint) x =
   (
     f(XCompilationUnit x), f(XPackageDecl x), f(XImportDecl x),
@@ -846,11 +850,16 @@ type ForallXFamilies (f :: * -> Constraint) x =
     f(XVarInit x), f (XName x)
   )
 
+-- | Extension of 'ForallXFamilies' that includes 'Data', 'Typeable' and the
+-- type index itself.
+--
+-- TODO It might be possible to fuse this with 'ForallXFamilies'.
 type ForallIncData (f :: * -> Constraint) x = (ForallXFamilies f x, Data x, Typeable x)
 
 
 -- | List of every type family used for the extension field of the TTG AST.
--- | The names of these families all begin with \'X\'.
+-- | The names of these families all begin with \'X\'. It is used to generate
+-- type instances using template Haskell.
 allFamilies :: [TH.Name]
 allFamilies =
   [''XCompilationUnit, ''XPackageDecl, ''XImportDecl, ''XTypeDecl, ''XClassDecl
@@ -865,6 +874,49 @@ allFamilies =
   , ''XPrimType, ''XTypeParam, ''XPolicyExp, ''XLockProperties, ''XClause
   , ''XClauseVarDecl, ''XClauseHead, ''XLClause, ''XActor, ''XActorName
   , ''XAtom, ''XLock, ''XIdent, ''XName
+  ]
+
+-- | List of all data constructors of the AST. It is used to generate pattern
+-- synonyms using template Haskell.
+allDataConstructors :: [TH.Name]
+allDataConstructors =
+  [ 'TypeParam, 'CompilationUnit, 'PackageDecl, 'SingleTypeImport
+  , 'TypeImportOnDemand , 'SingleStaticImport, 'StaticImportOnDemand
+  , 'ClassTypeDecl, 'InterfaceTypeDecl , 'ClassDecl, 'EnumDecl, 'ClassBody
+  , 'EnumBody, 'EnumConstant, 'InterfaceDecl , 'InterfaceBody, 'MemberDecl
+  , 'InitDecl, 'FieldDecl, 'MethodDecl, 'ConstructorDecl , 'MemberClassDecl
+  , 'MemberInterfaceDecl, 'LockDecl, 'VarDecl, 'VarId , 'VarDeclArray, 'InitExp
+  , 'InitArray, 'FormalParam, 'MethodBody, 'ConstructorBody , 'ThisInvoke
+  , 'SuperInvoke, 'PrimarySuperInvoke, 'Public, 'Private, 'Protected
+  , 'Abstract, 'Final, 'Static, 'StrictFP, 'Transient, 'Volatile, 'Native
+  , 'Typemethod , 'Reflexive, 'Transitive, 'Symmetric, 'Readonly, 'Notnull
+  , 'Reads, 'Writes, 'Opens , 'Closes, 'Expects, 'Block, 'BlockStmt
+  , 'LocalClass, 'LocalVars, 'LocalLock , 'StmtBlock, 'IfThen, 'IfThenElse
+  , 'While, 'BasicFor, 'EnhancedFor, 'Empty, 'ExpStmt , 'Assert, 'Switch, 'Do
+  , 'Break, 'Continue, 'Return, 'Synchronized, 'Throw, 'Try , 'Labeled, 'Open
+  , 'Close, 'OpenBlock, 'CloseBlock, 'Catch, 'SwitchBlock, 'SwitchCase
+  , 'Default, 'ForLocalVars, 'ForInitExps, 'ExceptionSpec, 'Lit, 'ClassLit
+  , 'This , 'ThisClass, 'Paren, 'InstanceCreation, 'QualInstanceCreation
+  , 'ArrayCreate , 'ArrayCreateInit, 'FieldAccess, 'MethodInv, 'ArrayAccess
+  , 'ExpName , 'PostIncrement, 'PostDecrement, 'PreIncrement, 'PreDecrement
+  , 'PrePlus, 'PreMinus , 'PreBitCompl, 'PreNot, 'Cast, 'BinOp, 'InstanceOf
+  , 'Cond, 'Assign, 'PolicyExp , 'LockExp, 'Int, 'Word, 'Float, 'Double
+  , 'Boolean, 'Char, 'String, 'Null, 'Mult, 'Div , 'Rem, 'Add, 'Sub, 'LShift
+  , 'RShift, 'RRShift, 'LThan, 'GThan, 'LThanE, 'GThanE, 'Equal , 'NotEq, 'And
+  , 'Or, 'Xor, 'CAnd, 'COr, 'EqualA, 'MultA, 'DivA, 'RemA, 'AddA, 'SubA
+  , 'LShiftA, 'RShiftA, 'RRShiftA, 'AndA, 'XorA, 'OrA, 'NameLhs, 'FieldLhs
+  , 'ArrayLhs , 'ArrayIndex, 'PrimaryFieldAccess, 'SuperFieldAccess
+  , 'ClassFieldAccess , 'MethodCallOrLockQuery, 'PrimaryMethodCall
+  , 'SuperMethodCall, 'ClassMethodCall , 'TypeMethodCall, 'ArrayInit, 'VoidType
+  , 'LockType, 'Type, 'PrimType, 'RefType , 'ClassRefType, 'TypeVariable
+  , 'ArrayType, 'ClassType, 'Wildcard, 'ActualArg , 'ActualName, 'ActualType
+  , 'ActualExp, 'ActualLockState, 'ExtendsBound , 'SuperBound, 'BooleanT
+  , 'ByteT, 'ShortT, 'IntT, 'LongT, 'CharT, 'FloatT, 'DoubleT , 'ActorT
+  , 'PolicyT, 'ActorParam, 'PolicyParam, 'LockStateParam, 'PolicyLit
+  , 'PolicyOf, 'PolicyThis, 'PolicyTypeVar, 'LockProperties, 'Clause
+  , 'ClauseVarDecl , 'ClauseDeclHead, 'ClauseVarHead, 'LClause
+  , 'ConstraintClause, 'Actor, 'Var , 'ActorName, 'ActorTypeVar, 'Atom, 'Lock
+  , 'LockVar, 'Ident
   ]
 
 -- Automatically generate various instances for the syntax tree types. The
