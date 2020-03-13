@@ -1,4 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
+-- | Types and functions related to AST decorations.
+--
+-- Decoration-related types and functions that are not specific to any phase
+-- lives in this module. Notably, it contains template Haskell functions for
+-- deriving type instances and pattern synonyms for the AST.
 module Language.Java.Paragon.Decorations.DecorationTypes where
 
 import Data.Void
@@ -43,10 +48,12 @@ takeUnqualified :: String -> (String, String)
 takeUnqualified name = let (suffR, preR) = break (=='.') $ reverse name
                        in (reverse preR, reverse suffR)
 
+
 -- | Simply run 'makePatternSyn' for every data constructor in the list.
 makePatternSyns :: String -> [Name] -> Q Pat -> DecsQ
 makePatternSyns prefix conNames rhPatQ = join <$>
   mapM (\conName -> makePatternSyn prefix conName rhPatQ) conNames
+
 
 -- | Creates a pattern synonym for a given constructor (by 'Name'). It is
 -- intended to be used for creating patterns for the extension field in data
@@ -96,6 +103,7 @@ makePatternSyn prefix conName rhPatQ = do
           let rhsPattern = ConP conName $ rhPat : map VarP bindingNames
 
           return [ PatSynD newConName lhsPattern ImplBidir rhsPattern ]
+
 
 -- | Given a pattern, find all 'VarP' recursively and extract their names. That
 -- is, find all variable bindings in a pattern.

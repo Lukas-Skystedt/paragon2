@@ -6,6 +6,8 @@ module Language.Java.Paragon.Decorations.LseDecoration where
 import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.SyntaxTTG
 
+-- | Lock State Evaluation. AST type index for the result of the lock state
+-- evaluation phase.
 data LSE
 
 -- Derive type instances on the form

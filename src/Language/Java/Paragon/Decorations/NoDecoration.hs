@@ -9,6 +9,7 @@ import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.TypesTTG
 import Language.Java.Paragon.SyntaxTTG
 
+-- | Undecorated. AST type index for when no extension fields are used.
 data UD
 
 -- Derive type instances on the form

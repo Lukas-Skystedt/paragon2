@@ -6,8 +6,8 @@ module Language.Java.Paragon.Decorations.PteDecoration where
 import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.SyntaxTTG
 
-import Data.Void
-
+-- | Policy Type Evaluation. AST type index for the result of the policy type
+-- evaluation phase.
 data PTE
 
 -- Derive type instances on the form

@@ -7,8 +7,11 @@ import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.SyntaxTTG
 
 
+-- | Type checking. AST type index for the result of the type checking phase.
 data TC
 
+-- | Placeholder type that will be replaced by the actual type for Paragon types
+-- (AST decoration).
 type TcPlaceHolder = ()
 
 -- Derive type instances on the form

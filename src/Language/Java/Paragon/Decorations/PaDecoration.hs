@@ -11,6 +11,7 @@ import Language.Java.Paragon.SyntaxTTG
 
 import Data.Data (Data)
 
+-- | Parser. AST type index for the result of the name resolution phase.
 data PA deriving Data
 
 -- Derive type instances on the form

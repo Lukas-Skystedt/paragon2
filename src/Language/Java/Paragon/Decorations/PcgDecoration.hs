@@ -6,9 +6,8 @@ module Language.Java.Paragon.Decorations.PcgDecoration where
 import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.SyntaxTTG
 
-import Data.Void
-
-
+-- | Policy Constraint Generation. AST type index for the result of the policy
+-- constraint generation phase.
 data PCG
 
 -- Derive type instances on the form
