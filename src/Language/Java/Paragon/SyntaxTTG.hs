@@ -743,35 +743,44 @@ setNameType nt (Name a _ mPre i) = Name a nt mPre i
 setNameType _ n = n
 
 -- Changed, see Syntax.hs for old impl.
-mkSimpleName :: NameType -> Ident a -> Name a
+mkSimpleName :: XName x ~ XIdent x => NameType -> Ident x -> Name x
 mkSimpleName nt i =  Name (ann i) nt Nothing i
 
-mkUniformName :: (XName a -> XName a -> XName a)
-              -> NameType -> [Ident a] -> Name a
-mkUniformName f nt ids = mkName' (reverse ids)
-    where mkName' [] = panic (syntaxModule ++ ".mkUniformName")
-                             "Empty list of idents"
-          mkName' [i] = Name (ann i) nt Nothing i
-          mkName' (i:is) =
-              let pre = mkName' is
-                  a = f (ann pre) (ann i)
-              in Name a nt (Just pre) i
 -- Changed, see Syntax.hs for old impl.
-mkUniformName_ :: NameType -> [Ident a] -> Name a
+mkUniformName_ :: XName x ~ XIdent x => NameType -> [Ident x] -> Name x
 mkUniformName_ = mkUniformName const
 
-mkName :: (XName a -> XName a -> XName a) -> NameType
-       -> NameType -> [Ident a] -> Name a
+mkName :: XName x ~ XIdent x => (XName x -> XName x -> XName x) -> NameType
+  -> NameType -> [Ident x] -> Name x
 mkName f nt ntPre ids = mkName' (reverse ids)
     where mkName' [] = panic (syntaxModule ++ ".mkName")
                              "Empty list of idents"
-          mkName' [i] = Name (ann i) nt Nothing i
+          mkName' [i] = Name (annId i) nt Nothing i
           mkName' (i:is) =
               let pre = mkUniformName f ntPre (reverse is)
-                  a = f (ann pre) (ann i)
+                  a = f (annName pre) (annId i)
               in Name a nt (Just pre) i
 
-mkName_ :: NameType -> NameType -> [Ident a] -> Name a
+mkUniformName :: XName x ~ XIdent x => (XName x -> XName x -> XName x)
+              -> NameType -> [Ident x] -> Name x
+mkUniformName f nt ids = mkName' (reverse ids)
+    where mkName' [] = panic (syntaxModule ++ ".mkUniformName")
+                             "Empty list of idents"
+          mkName' [i] = Name (annId i) nt Nothing i
+          mkName' (i:is) =
+              let pre = mkName' is
+                  a = f (annName pre) (annId i)
+              in Name a nt (Just pre) i
+
+annId :: Ident x -> XIdent x
+annId (Ident sp _)    = sp
+annId _ = error "pattern match paAnnId in parser"
+
+annName :: Name x -> XName x
+annName (Name sp _ _ _) = sp
+annName _ = error "pattern match paAnn in parser"
+
+mkName_ :: XName x ~ XIdent x => NameType -> NameType -> [Ident x] -> Name x
 mkName_ = mkName const
 
 flattenName :: Name a -> [Ident a]
