@@ -4,7 +4,8 @@ module Main where
 
 -- Note: for the time being I converted most of this to explicit exports
 -- to get a better overview what is where /jens
-import Language.Java.Paragon.Syntax (CompilationUnit)
+import Language.Java.Paragon.SyntaxTTG (CompilationUnit)
+-- import Language.Java.Paragon.Decorations.PaDecoration (PA)
 import Language.Java.Paragon.Parser (compilationUnit, parser, ParseError)
 import Language.Java.Paragon.Pretty (prettyPrint)
 import Language.Java.Paragon.NameResolution (resolveNames)
@@ -182,12 +183,12 @@ compile flags filePath = do
            detailPrint "Name resolution complete!"
 
            -- Placeholder for the new 5-phase pipeline
-           ast2 <- NTc.typeCheck ast1
-           ast3 <- evalPolicyTypes ast2
-           ast4 <- evalLockState ast3
-           solvePolicyConstraints undefined
+           -- ast2 <- NTc.typeCheck ast1
+           -- ast3 <- evalPolicyTypes ast2
+           -- ast4 <- evalLockState ast3
+           -- solvePolicyConstraints undefined
 
-          --  debugPrint $ prettyPrint ast1
+           -- debugPrint $ prettyPrint ast1
 
            -- OLD Type check
           --  ast2 <- typeCheck pDirs (takeBaseName filePath) ast1
@@ -195,8 +196,8 @@ compile flags filePath = do
           --  detailPrint "Type checking complete!"
 
            -- Generate .java and .pi files
-          --  liftIO $ genFiles flags filePath  ast2
-          --  detailPrint "File generation complete!"
+           liftIO $ genFiles flags filePath ast1
+           detailPrint "File generation complete!"
 
 convertParseToErr :: Either ParseError a -> Either Error a
 convertParseToErr (Left x)  = Left $
@@ -216,15 +217,13 @@ getPIPATH = do
   -- argument, i.e. the exception is ignored).
   return $ splitSearchPath $ either (const []) id ePpStr
 
--- TODO: Remove, this is a hack
-data T
-
 -- | Generate .pi and .java files
-genFiles :: [Flag] -> FilePath -> CompilationUnit T -> IO ()
+genFiles :: [Flag] -> FilePath -> CompilationUnit x -> IO ()
 genFiles flags filePath ast  = let -- create .java ast
-                             astC      = compileTransform ast
+                             -- astC      = compileTransform ast
+                             astC = ast -- TODO: temporarily skip compilation stage
                              -- create .pi ast
-                            --  astPi     = piTransform (void ast)
+                             -- astPi     = piTransform (void ast)
                              -- output to right files
                              baseName  = takeBaseName filePath
                              directory = takeDirectory filePath
@@ -232,11 +231,11 @@ genFiles flags filePath ast  = let -- create .java ast
                              javaPath  = outdir </> baseName <.> "java"
                              piPath    = outdir </> baseName <.> "pi"
                             --  java,pifile :: String
-                            --  java      = prettyPrint astC
-                            --  pifile    = prettyPrint astPi
+                             java      = prettyPrint astC
+                             -- pifile    = prettyPrint astPi
                          in do createDirectoryIfMissing True outdir
-                              --  writeFile javaPath java
-                              --  >> writeFile piPath pifile
+                               writeFile javaPath java
+                               -- >> writeFile piPath pifile
   where getOutdir []               = "."
         getOutdir (OutputPath p:_) = p
         getOutdir (_:xs)           = getOutdir xs
