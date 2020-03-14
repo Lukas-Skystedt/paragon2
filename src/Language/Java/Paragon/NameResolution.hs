@@ -37,7 +37,7 @@ resolveNames piPath (CompilationUnit pos pkg imps [td])
 
   -- 1. Expand definitions from java.lang
   (_, javaLangExpnMap) <- buildMapFromImportName $
-       TypeImportOnDemand defaultPos (paMkName const PName PName $
+       TypeImportOnDemand defaultPos (mkName const PName PName $
            map (Ident defaultPos . B.pack) ["java", "lang"])
   -- 2. Expand definitions from imports
   (imps', impExpnMap) <- buildMapFromImports imps
@@ -1005,34 +1005,3 @@ expandAll (ExpansionRecord typs mthds lcks exprs) = expansionUnion $
                   map (mkLExpansion . unIdent) lcks ++
                   map (mkMExpansion . unIdent) mthds ++
                   map (mkTExpansion . unIdent) typs
-
--- Cleanup: This part is just copied from parser atm.
-paMkName :: (XName PA -> XName PA -> XName PA) -> NameType
-       -> NameType -> [Ident PA] -> Name PA
-paMkName f nt ntPre ids = mkName' (reverse ids)
-    where mkName' [] = panic (syntaxModule ++ ".mkName")
-                             "Empty list of idents"
-          mkName' [i] = Name (paAnnId i) nt Nothing i
-          mkName' (i:is) =
-              let pre = paMkUniformName f ntPre (reverse is)
-                  a = f (paAnn pre) (paAnnId i)
-              in Name a nt (Just pre) i
-
-paMkUniformName :: (XName PA -> XName PA -> XName PA)
-              -> NameType -> [Ident PA] -> Name PA
-paMkUniformName f nt ids = mkName' (reverse ids)
-    where mkName' [] = panic (syntaxModule ++ ".mkUniformName")
-                             "Empty list of idents"
-          mkName' [i] = Name (paAnnId i) nt Nothing i
-          mkName' (i:is) =
-              let pre = mkName' is
-                  a = f (paAnn pre) (paAnnId i)
-              in Name a nt (Just pre) i
-
-paAnnId :: Ident PA -> SourcePos
-paAnnId (Ident sp _)    = sp
-paAnnId _ = error "pattern match paAnnId in parser"
-
-paAnn :: Name PA -> SourcePos
-paAnn (Name sp _ _ _) = sp
-paAnn _ = error "pattern match paAnn in parser"
