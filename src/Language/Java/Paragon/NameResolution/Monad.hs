@@ -21,18 +21,22 @@ module Language.Java.Paragon.NameResolution.Monad
 
     ) where
 
-import Language.Java.Paragon.Syntax
+import Language.Java.Paragon.SyntaxTTG
 import Language.Java.Paragon.Monad.PiReader
-import Language.Java.Paragon.SourcePos
+import Language.Java.Paragon.Decorations.PaDecoration
 
 import Control.Monad
+import qualified Control.Monad.Fail as Fail
 import qualified Data.Map as Map
 import qualified Data.ByteString.Char8 as B
 
 -- | This monad layer adds access to the fully qualified name of the entity
 -- that is currently being resolved and access to an expansion map that
 -- contains the list of resolved names in scope
-newtype NameRes a = NameRes { runNameRes :: Name SourcePos -> Expansion -> PiReader a }
+newtype NameRes a = NameRes { runNameRes :: Name PA -> Expansion -> PiReader a }
+
+instance Fail.MonadFail NameRes where
+  fail = liftPR . fail
 
 instance Monad NameRes where
   return = liftPR . return
@@ -41,7 +45,6 @@ instance Monad NameRes where
                          let NameRes g = k a
                           in g n e
 
-  fail = liftPR . fail
 
 instance MonadPR NameRes where
   liftPR pr = NameRes $ \_ _ -> pr
@@ -68,7 +71,7 @@ getExpansion :: NameRes Expansion
 getExpansion = NameRes $ const return
 
 -- | Access name of currently handled syntactical unit
-getCurrentName :: NameRes (Name SourcePos)
+getCurrentName :: NameRes (Name PA)
 getCurrentName = NameRes $ \n _ -> return n
 
 -- | Set expansion map for given NameRes computation
@@ -88,7 +91,7 @@ type Map = Map.Map
 
 type Expansion =
     Map (B.ByteString,                   NameType)   -- NameType may be (partially) unresolved
-        (Either String (Maybe (Name SourcePos), NameType))  -- NameType is now fully resolved
+        (Either String (Maybe (Name PA), NameType))  -- NameType is now fully resolved
 -- Note that the source pos does not play any role in the expansion but is only there for type correctness
 
 -- |Expand package / type / expression / method / lock
@@ -117,7 +120,7 @@ dropDataId (Ident _ s) = Ident () s
 dropDataId (AntiQIdent _ s) = AntiQIdent () s-}
 
 mkPExpansionWithPrefix, mkTExpansionWithPrefix, mkEExpansionWithPrefix, mkMExpansionWithPrefix, mkLExpansionWithPrefix ::
-    Maybe (Name SourcePos) -> B.ByteString -> Expansion
+    Maybe (Name PA) -> B.ByteString -> Expansion
 
 mkPExpansionWithPrefix n i = --n' i = let n = fmap dropData n' in
   Map.fromList [((i, PName   ), return (n, PName)),

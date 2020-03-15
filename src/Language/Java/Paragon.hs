@@ -4,13 +4,14 @@ module Main where
 
 -- Note: for the time being I converted most of this to explicit exports
 -- to get a better overview what is where /jens
-import Language.Java.Paragon.Syntax (CompilationUnit)
+import Language.Java.Paragon.SyntaxTTG (CompilationUnit)
+-- import Language.Java.Paragon.Decorations.PaDecoration (PA)
 import Language.Java.Paragon.Parser (compilationUnit, parser, ParseError)
 import Language.Java.Paragon.Pretty (prettyPrint)
 import Language.Java.Paragon.NameResolution (resolveNames)
-import Language.Java.Paragon.TypeCheck (T, typeCheck)
+-- import Language.Java.Paragon.TypeCheck (T, typeCheck)
 import Language.Java.Paragon.Compile (compileTransform)
-import Language.Java.Paragon.PiGeneration (piTransform)
+-- import Language.Java.Paragon.PiGeneration (piTransform)
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos (parSecToSourcePos)
 import Language.Java.Paragon.Error
@@ -29,6 +30,12 @@ import Control.Monad.Trans.State ()
 import Text.ParserCombinators.Parsec as PS (errorPos)
 import Text.ParserCombinators.Parsec.Error (messageString, errorMessages)
 import System.Console.GetOpt
+
+import Language.Java.Paragon.NewTypeCheck as NTc
+import Language.Java.Paragon.PolicyTypeEval
+import Language.Java.Paragon.LockStateEval
+import Language.Java.Paragon.PolicyConstraintGen
+import Language.Java.Paragon.PolicyConstraintSolver
 
 -- | Main method, invokes the compiler
 main :: IO ()
@@ -168,18 +175,28 @@ compile flags filePath = do
            ast <- liftEitherMB . convertParseToErr $ parser compilationUnit fc
            raiseErrors
            detailPrint "Parsing complete!"
+           detailPrint $ show ast
+
            -- Name resolution
            ast1 <- resolveNames pDirs ast
            raiseErrors
            detailPrint "Name resolution complete!"
 
-           debugPrint $ prettyPrint ast1
-           -- Type check
-           ast2 <- typeCheck pDirs (takeBaseName filePath) ast1
-           raiseErrors
-           detailPrint "Type checking complete!"
+           -- Placeholder for the new 5-phase pipeline
+           -- ast2 <- NTc.typeCheck ast1
+           -- ast3 <- evalPolicyTypes ast2
+           -- ast4 <- evalLockState ast3
+           -- solvePolicyConstraints undefined
+
+           -- debugPrint $ prettyPrint ast1
+
+           -- OLD Type check
+          --  ast2 <- typeCheck pDirs (takeBaseName filePath) ast1
+          --  raiseErrors
+          --  detailPrint "Type checking complete!"
+
            -- Generate .java and .pi files
-           liftIO $ genFiles flags filePath  ast2
+           liftIO $ genFiles flags filePath ast1
            detailPrint "File generation complete!"
 
 convertParseToErr :: Either ParseError a -> Either Error a
@@ -201,23 +218,24 @@ getPIPATH = do
   return $ splitSearchPath $ either (const []) id ePpStr
 
 -- | Generate .pi and .java files
-genFiles :: [Flag] -> FilePath -> CompilationUnit T -> IO ()
+genFiles :: [Flag] -> FilePath -> CompilationUnit x -> IO ()
 genFiles flags filePath ast  = let -- create .java ast
-                             astC      = compileTransform ast
+                             -- astC      = compileTransform ast
+                             astC = ast -- TODO: temporarily skip compilation stage
                              -- create .pi ast
-                             astPi     = piTransform (void ast)
+                             -- astPi     = piTransform (void ast)
                              -- output to right files
                              baseName  = takeBaseName filePath
                              directory = takeDirectory filePath
                              outdir    = getOutdir flags </> makeRelative (getIndir flags) directory
                              javaPath  = outdir </> baseName <.> "java"
                              piPath    = outdir </> baseName <.> "pi"
-                             java,pifile :: String
+                            --  java,pifile :: String
                              java      = prettyPrint astC
-                             pifile    = prettyPrint astPi
+                             -- pifile    = prettyPrint astPi
                          in do createDirectoryIfMissing True outdir
                                writeFile javaPath java
-                               >> writeFile piPath pifile
+                               -- >> writeFile piPath pifile
   where getOutdir []               = "."
         getOutdir (OutputPath p:_) = p
         getOutdir (_:xs)           = getOutdir xs

@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE CPP, PatternGuards, TupleSections #-}
 module Language.Java.Paragon.Parser (
     parser,
@@ -42,7 +45,11 @@ module Language.Java.Paragon.Parser (
     ) where
 
 import Language.Java.Paragon.Lexer (L(..), Token(..), lexer)
-import Language.Java.Paragon.Syntax
+import Language.Java.Paragon.SyntaxTTG as AST
+import Language.Java.Paragon.Decorations.PaDecoration as D
+import Language.Java.Paragon.Decorations.NoDecoration
+
+-- import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Pretty (prettyPrint)
 import Language.Java.Paragon.Interaction
 import Text.ParserCombinators.Parsec hiding (SourcePos)
@@ -84,6 +91,7 @@ infixr 2 >>, >>=
 setPos :: (SourcePos -> b) -> P b
 setPos x = getPosition >>= \pos -> return $ x (parSecToSourcePos pos)
 
+-- ArrayInit :: SourcePos -> ArrayInit PA -> VarInit PA
 ----------------------------------------------------------------------------
 -- Top-level parsing
 
@@ -98,13 +106,13 @@ getParaPosition = do pos <- getPosition
 ----------------------------------------------------------------------------
 -- Packages and compilation units
 
-compilationUnit :: P (CompilationUnit SourcePos)
+compilationUnit :: P (CompilationUnit PA)
 compilationUnit = setPos CompilationUnit
     <*> opt packageDecl
     <*> list importDecl
     <*> fmap catMaybes (list typeDecl)
 
-packageDecl :: P (PackageDecl SourcePos)
+packageDecl :: P (PackageDecl PA)
 packageDecl = do
     pos <- getParaPosition
     tok KW_Package
@@ -112,7 +120,7 @@ packageDecl = do
     semiColon
     return $ PackageDecl pos n
 
-importDecl :: P (ImportDecl SourcePos)
+importDecl :: P (ImportDecl PA)
 importDecl = do
     pos <- getParaPosition
     tok KW_Import
@@ -142,7 +150,7 @@ importDecl = do
         flattenRealName rebuild n@Name{} = rebuild $ flattenName n
         flattenRealName _ n = n
 
-typeDecl :: P (Maybe (TypeDecl SourcePos))
+typeDecl :: P (Maybe (TypeDecl PA))
 typeDecl = Just <$> classOrInterfaceDecl <|>
             const Nothing <$> semiColon
 
@@ -151,7 +159,7 @@ typeDecl = Just <$> classOrInterfaceDecl <|>
 
 -- Class declarations
 
-classOrInterfaceDecl :: P (TypeDecl SourcePos)
+classOrInterfaceDecl :: P (TypeDecl PA)
 classOrInterfaceDecl = unMod $
     (do pos <- getParaPosition
         cdecl <- classDeclM
@@ -161,12 +169,12 @@ classOrInterfaceDecl = unMod $
         idecl <- interfaceDeclM
         return $ \ms -> InterfaceTypeDecl pos (idecl ms))
 
-classDeclM :: P (Mod (ClassDecl SourcePos))
+classDeclM :: P (Mod (ClassDecl PA))
 classDeclM = normalClassDeclM <|> enumClassDeclM
 
 -- Not called internally:
 -- | Top-level parser for class declarations
-classDecl :: P (ClassDecl SourcePos)
+classDecl :: P (ClassDecl PA)
 classDecl = unMod classDeclM
 
 unMod :: P (Mod a) -> P a
@@ -175,7 +183,7 @@ unMod pma = do
   pa <- pma
   return $ pa ms
 
-normalClassDeclM :: P (Mod (ClassDecl SourcePos))
+normalClassDeclM :: P (Mod (ClassDecl PA))
 normalClassDeclM = do
     pos <- getParaPosition
     tok KW_Class
@@ -187,13 +195,13 @@ normalClassDeclM = do
     return $ \ms ->
         generalize tps $ ClassDecl pos ms i tps (fmap head mex) imp bod
 
-extends :: P [ClassType SourcePos]
+extends :: P [ClassType PA]
 extends = tok KW_Extends >> classTypeList
 
-implements :: P [ClassType SourcePos]
+implements :: P [ClassType PA]
 implements = tok KW_Implements >> classTypeList
 
-enumClassDeclM :: P (Mod (ClassDecl SourcePos))
+enumClassDeclM :: P (Mod (ClassDecl PA))
 enumClassDeclM = do
     pos <- getParaPosition
     tok KW_Enum
@@ -202,10 +210,10 @@ enumClassDeclM = do
     bod <- enumBody
     return $ \ms -> EnumDecl pos ms i imp bod
 
-classBody :: P (ClassBody SourcePos)
+classBody :: P (ClassBody PA)
 classBody = setPos ClassBody <*> braces classBodyDecls
 
-enumBody :: P (EnumBody SourcePos)
+enumBody :: P (EnumBody PA)
 enumBody = braces $ do
     pos <- getParaPosition
     ecs <- seplist enumConst comma
@@ -213,26 +221,26 @@ enumBody = braces $ do
     eds <- lopt enumBodyDecls
     return $ EnumBody pos ecs eds
 
-enumConst :: P (EnumConstant SourcePos)
+enumConst :: P (EnumConstant PA)
 enumConst = setPos EnumConstant
     <*> ident
     <*> lopt args
     <*> opt classBody
 
-enumBodyDecls :: P [Decl SourcePos]
+enumBodyDecls :: P [Decl PA]
 enumBodyDecls = semiColon >> classBodyDecls
 
-classBodyDecls :: P [Decl SourcePos]
+classBodyDecls :: P [Decl PA]
 classBodyDecls = list classBodyDecl
 
 -- Interface declarations
 
 -- Not used internally:
 -- | Top-level parser for interface declarations
-interfaceDecl :: P (InterfaceDecl SourcePos)
+interfaceDecl :: P (InterfaceDecl PA)
 interfaceDecl = unMod interfaceDeclM
 
-interfaceDeclM :: P (Mod (InterfaceDecl SourcePos))
+interfaceDeclM :: P (Mod (InterfaceDecl PA))
 interfaceDeclM = {- trace "interfaceDeclM" $ -} do
     pos <- getParaPosition
     tok KW_Interface
@@ -243,14 +251,14 @@ interfaceDeclM = {- trace "interfaceDeclM" $ -} do
     return $ \ms ->
         generalize tps $ InterfaceDecl pos ms i tps exs bod
 
-interfaceBody :: P (InterfaceBody SourcePos)
+interfaceBody :: P (InterfaceBody PA)
 interfaceBody = do pos <- getParaPosition
                    InterfaceBody pos . catMaybes <$>
                       braces (list interfaceBodyDecl)
 
 -- Declarations
 
-classBodyDecl :: P (Decl SourcePos)
+classBodyDecl :: P (Decl PA)
 classBodyDecl =
     (try $ setPos InitDecl
                 <*> bopt (tok KW_Static)
@@ -262,10 +270,10 @@ classBodyDecl =
 
 -- Not used internally:
 -- | Top-level parser for member declarations
-memberDecl :: P (MemberDecl SourcePos)
+memberDecl :: P (MemberDecl PA)
 memberDecl = unMod memberDeclM
 
-memberDeclM :: P (Mod (MemberDecl SourcePos))
+memberDeclM :: P (Mod (MemberDecl PA))
 memberDeclM = {- trace "memberDeclM" $ -}
     (try $ do
         pos <- getParaPosition
@@ -283,25 +291,25 @@ memberDeclM = {- trace "memberDeclM" $ -}
 
 -- Not used internally:
 -- | Top-level parser for field declarations
-fieldDecl :: P (MemberDecl SourcePos)
+fieldDecl :: P (MemberDecl PA)
 fieldDecl = unMod (fieldDeclM varDecl)
 
-fieldDeclM :: P (VarDecl SourcePos) -> P (Mod (MemberDecl SourcePos))
+fieldDeclM :: P (VarDecl PA) -> P (Mod (MemberDecl PA))
 fieldDeclM varDeclFun = endSemi $ do
     pos <- getParaPosition
     typ <- ttype
     vds <- varDecls varDeclFun
     return $ \ms -> FieldDecl pos ms typ vds
 
-interfaceFieldDeclM :: P (Mod (MemberDecl SourcePos))
+interfaceFieldDeclM :: P (Mod (MemberDecl PA))
 interfaceFieldDeclM = fieldDeclM interfaceVarDecl
 
 -- Not used internally:
 -- | Top-level parser for method declarations
-methodDecl :: P (MemberDecl SourcePos)
+methodDecl :: P (MemberDecl PA)
 methodDecl = unMod methodDeclM
 
-methodDeclM :: P (Mod (MemberDecl SourcePos))
+methodDeclM :: P (Mod (MemberDecl PA))
 methodDeclM = do
     pos <- getParaPosition
     tps <- lopt typeParams
@@ -313,16 +321,16 @@ methodDeclM = do
     return $ \ms ->
         generalize tps $ MethodDecl pos ms tps rt i fps thr bod
 
-methodBody :: P (MethodBody SourcePos)
+methodBody :: P (MethodBody PA)
 methodBody = setPos MethodBody <*>
     (const Nothing <$> semiColon <|> Just <$> block)
 
 -- Not used internally:
 -- | Top-level parser for constructor declarations
-constrDecl :: P (MemberDecl SourcePos)
+constrDecl :: P (MemberDecl PA)
 constrDecl = unMod constrDeclM
 
-constrDeclM :: P (Mod (MemberDecl SourcePos))
+constrDeclM :: P (Mod (MemberDecl PA))
 constrDeclM = do
     pos <- getParaPosition
     tps <- lopt typeParams
@@ -335,10 +343,10 @@ constrDeclM = do
 
 -- Not used internally:
 -- | Top-level parser for lock declarations
-lockDecl :: P (MemberDecl SourcePos)
+lockDecl :: P (MemberDecl PA)
 lockDecl = unMod lockDeclM
 
-lockDeclM :: P (Mod (MemberDecl SourcePos))
+lockDeclM :: P (Mod (MemberDecl PA))
 lockDeclM = endSemi $ do
     pos <- getParaPosition
     tok KW_P_Lock
@@ -347,7 +355,7 @@ lockDeclM = endSemi $ do
     lp  <- opt lockProperties
     return $ \ms -> LockDecl pos ms lc ar lp
 
-arity :: P [RefType SourcePos]
+arity :: P [RefType PA]
 arity = parens $ seplist refType comma
 
 {-
@@ -360,12 +368,12 @@ policyDeclM = endSemi $ do
     return $ \ms -> PolicyDecl ms pn pol
 -}
 
-constrBody :: P (ConstructorBody SourcePos)
+constrBody :: P (ConstructorBody PA)
 constrBody = braces $ do setPos ConstructorBody <*>
                            opt (try explConstrInv) <*>
                            list blockStmt
 
-explConstrInv :: P (ExplConstrInv SourcePos)
+explConstrInv :: P (ExplConstrInv PA)
 explConstrInv = endSemi $
     (try $ do
         pos <- getParaPosition
@@ -389,7 +397,7 @@ explConstrInv = endSemi $
 
 -- TODO: This should be parsed like class bodies, and post-checked.
 --       That would give far better error messages.
-interfaceBodyDecl :: P (Maybe (MemberDecl SourcePos))
+interfaceBodyDecl :: P (Maybe (MemberDecl PA))
 interfaceBodyDecl = semiColon >> return Nothing <|>
     do ms  <- list modifier
        imd <- interfaceMemberDeclM
@@ -397,10 +405,10 @@ interfaceBodyDecl = semiColon >> return Nothing <|>
 
 -- Not used internally:
 -- | Top-level parser for interface member declarations
-interfaceMemberDecl :: P (MemberDecl SourcePos)
+interfaceMemberDecl :: P (MemberDecl PA)
 interfaceMemberDecl = unMod interfaceMemberDeclM
 
-interfaceMemberDeclM :: P (Mod (MemberDecl SourcePos))
+interfaceMemberDeclM :: P (Mod (MemberDecl PA))
 interfaceMemberDeclM =
     (do pos <- getParaPosition
         cd  <- classDeclM
@@ -414,10 +422,10 @@ interfaceMemberDeclM =
 
 -- Not used internally:
 -- | Top-level parser for abstract method declarations
-absMethodDecl :: P (MemberDecl SourcePos)
+absMethodDecl :: P (MemberDecl PA)
 absMethodDecl = unMod absMethodDeclM
 
-absMethodDeclM :: P (Mod (MemberDecl SourcePos))
+absMethodDeclM :: P (Mod (MemberDecl PA))
 absMethodDeclM = do
     pos <- getParaPosition
     tps <- lopt typeParams
@@ -429,27 +437,27 @@ absMethodDeclM = do
     return $ \ms ->
         generalize tps $ MethodDecl pos ms tps rt i fps thr (MethodBody pos Nothing)
 
-throws :: P [ExceptionSpec SourcePos]
+throws :: P [ExceptionSpec PA]
 throws = tok KW_Throws >> seplist1 exceptionSpec comma
 
-exceptionSpec :: P (ExceptionSpec SourcePos)
+exceptionSpec :: P (ExceptionSpec PA)
 exceptionSpec = setPos ExceptionSpec <*> list modifier <*> refType
 
 -- Formal parameters
 
-formalParams :: P [FormalParam SourcePos]
+formalParams :: P [FormalParam PA]
 formalParams = parens $ do
     fps <- seplist formalParam comma
     if validateFPs fps
      then return fps
      else fail "Only the last formal parameter may be of variable arity"
 
-  where validateFPs :: [FormalParam SourcePos] -> Bool
+  where validateFPs :: [FormalParam PA] -> Bool
         validateFPs [] = True
         validateFPs [_] = True
         validateFPs (FormalParam _ _ _ b _ :xs) = not b && validateFPs xs
 
-formalParam :: P (FormalParam SourcePos)
+formalParam :: P (FormalParam PA)
 formalParam = setPos FormalParam <*>
       list modifier <*>
       ttype <*>
@@ -461,7 +469,7 @@ ellipsis = period >> period >> period
 
 -- Modifiers
 
-modifier :: P (Modifier SourcePos)
+modifier :: P (Modifier PA)
 modifier =
         tok KW_Public      >> setPos Public
     <|> tok KW_Protected   >> setPos Protected
@@ -489,16 +497,16 @@ modifier =
 ----------------------------------------------------------------------------
 -- Variable declarations
 
-varDecls :: P (VarDecl SourcePos) -> P [VarDecl SourcePos]
+varDecls :: P (VarDecl PA) -> P [VarDecl PA]
 varDecls varDeclFun = seplist1 varDeclFun comma
 
-varDecl :: P (VarDecl SourcePos)
+varDecl :: P (VarDecl PA)
 varDecl = setPos VarDecl <*> varDeclId <*> opt (tok Op_Equal >> varInit)
 
-interfaceVarDecl :: P (VarDecl SourcePos)
+interfaceVarDecl :: P (VarDecl PA)
 interfaceVarDecl = setPos VarDecl <*> varDeclId <*> (Just <$> (tok Op_Equal >> varInit))
 
-varDeclId :: P (VarDeclId SourcePos)
+varDeclId :: P (VarDeclId PA)
 varDeclId = do
     pos <- getParaPosition
     i  <- ident
@@ -508,19 +516,25 @@ varDeclId = do
 arrBrackets :: P SourcePos
 arrBrackets = brackets getParaPosition
 
-localVarDecl :: P ([Modifier SourcePos], Type SourcePos, [VarDecl SourcePos])
+localVarDecl :: P ([Modifier PA], Type PA, [VarDecl PA])
 localVarDecl = do
     ms  <- list modifier
     typ <- ttype
     vds <- varDecls varDecl
     return (ms, typ, vds)
 
-varInit :: P (VarInit SourcePos)
+-- setPos :: (SourcePos -> (ArrayInit PA -> VarInit PA))
+--          ->  P (ArrayInit PA -> VarInit PA) <*> P (ArrayInit PA)
+-- setPos :: (SourcePos -> b) -> P b
+-- setPos x = getPosition >>= \pos -> return $ x (parSecToSourcePos pos)
+
+-- InitArray :: SourcePos -> ArrayInit PA -> VarInit PA
+varInit :: P (VarInit PA)
 varInit =
     try (setPos InitArray <*> arrayInit) <|>
     setPos InitExp <*> exp
 
-arrayInit :: P (ArrayInit SourcePos)
+arrayInit :: P (ArrayInit PA)
 arrayInit = braces $ do
     pos <- getParaPosition
     vis <- seplist varInit comma
@@ -530,10 +544,10 @@ arrayInit = braces $ do
 ----------------------------------------------------------------------------
 -- Statements
 
-block :: P (Block SourcePos)
+block :: P (Block PA)
 block = braces $ setPos Block <*> list blockStmt
 
-blockStmt :: P (BlockStmt SourcePos)
+blockStmt :: P (BlockStmt PA)
 blockStmt =
     (try $ do
         pos <- getParaPosition
@@ -561,7 +575,7 @@ blockStmt =
         return $ LocalPolicy ms ln pol) <|> -}
     setPos BlockStmt <*> stmt
 
-stmt :: P (Stmt SourcePos)
+stmt :: P (Stmt PA)
 stmt =
     -- ifThen and ifThenElse, with a common prefix
     (do pos <- getParaPosition
@@ -609,7 +623,7 @@ stmt =
     -- the rest
     stmtNoTrail
 
-stmtNSI :: P (Stmt SourcePos)
+stmtNSI :: P (Stmt PA)
 stmtNSI =
     -- if statements - only full ifThenElse
     (do pos <- getParaPosition
@@ -656,7 +670,7 @@ stmtNSI =
     stmtNoTrail
 
 
-stmtNoTrail :: P (Stmt SourcePos)
+stmtNoTrail :: P (Stmt PA)
 stmtNoTrail =
     -- empty statement
     setPos (const . Empty) <*> semiColon <|>
@@ -741,25 +755,25 @@ stmtNoTrail =
 
 -- For loops
 
-forInit :: P (ForInit SourcePos)
+forInit :: P (ForInit PA)
 forInit = (try $ do
     pos <- getParaPosition
     (m,t,vds) <- localVarDecl
     return $ ForLocalVars pos m t vds) <|>
     setPos ForInitExps <*> seplist1 stmtExp comma
 
-forUp :: P [Exp SourcePos]
+forUp :: P [Exp PA]
 forUp = seplist1 stmtExp comma
 
 -- Switches
 
-switchBlock :: P [SwitchBlock SourcePos]
+switchBlock :: P [SwitchBlock PA]
 switchBlock = braces $ list switchStmt
 
-switchStmt :: P (SwitchBlock SourcePos)
+switchStmt :: P (SwitchBlock PA)
 switchStmt = setPos SwitchBlock <*> switchLabel <*> list blockStmt
 
-switchLabel :: P (SwitchLabel SourcePos)
+switchLabel :: P (SwitchLabel PA)
 switchLabel = tok KW_Default >> colon >> setPos Default <|>
     (do pos <- getParaPosition
         tok KW_Case
@@ -769,7 +783,7 @@ switchLabel = tok KW_Default >> colon >> setPos Default <|>
 
 -- Try-catch clauses
 
-catch :: P (Catch SourcePos)
+catch :: P (Catch PA)
 catch = do
     pos <- getParaPosition
     tok KW_Catch
@@ -780,7 +794,7 @@ catch = do
 ----------------------------------------------------------------------------
 -- Expressions
 
-stmtExp :: P (Exp SourcePos)
+stmtExp :: P (Exp PA)
 stmtExp = try preIncDec
     <|> try postIncDec
     <|> try assignment
@@ -788,39 +802,40 @@ stmtExp = try preIncDec
     <|> try instanceCreation
     <|> methodInvocationExp
 
-preIncDec :: P (Exp SourcePos)
+preIncDec :: P (Exp PA)
 preIncDec = do
     op <- preIncDecOp
     e <- unaryExp
     return $ op e
 
-postIncDec :: P (Exp SourcePos)
+postIncDec :: P (Exp PA)
 postIncDec = do
     e <- postfixExpNES
     ops <- list1 postfixOp
     return $ foldl (\a s -> s a) e ops
 
-assignment :: P (Exp SourcePos)
+assignment :: P (Exp PA)
 assignment = setPos Assign <*> lhs <*> assignOp <*> assignExp
 
-lhs :: P (Lhs SourcePos)
+lhs :: P (Lhs PA)
 lhs = try (setPos FieldLhs <*> fieldAccess)
   <|> try (setPos ArrayLhs <*> arrayAccess)
   <|> setPos NameLhs <*> nameRaw eName
 
-exp :: P (Exp SourcePos)
+exp :: P (Exp PA)
 exp = assignExp
 
-assignExp :: P (Exp SourcePos)
+assignExp :: P (Exp PA)
 assignExp = try assignment <|> condExp
 
-condExp :: P (Exp SourcePos)
+condExp :: P (Exp PA)
+-- condExp = error "phasing out condExp"-- do
 condExp = do
     ie <- fixPrecs <$> infixExp -- TODO: precedence resolution
     ces <- list condExpSuffix
     return $ foldl (\a s -> s a) ie ces
 
-condExpSuffix :: P (Exp SourcePos -> Exp SourcePos)
+condExpSuffix :: P (Exp PA -> Exp PA)
 condExpSuffix = do
     pos <- getParaPosition
     tok Op_Query
@@ -829,13 +844,13 @@ condExpSuffix = do
     el <- condExp
     return $ \ce -> Cond pos ce th el
 
-infixExp :: P (Exp SourcePos)
+infixExp :: P (Exp PA)
 infixExp = do
     ue <- unaryExp
     ies <- list infixExpSuffix
     return $ foldl (\a s -> s a) ue ies
 
-infixExpSuffix :: P (Exp SourcePos -> Exp SourcePos)
+infixExpSuffix :: P (Exp PA -> Exp PA)
 infixExpSuffix =
     (do pos <- getParaPosition
         op <- infixOp
@@ -846,7 +861,7 @@ infixExpSuffix =
         t  <- refType
         return $ \e1 -> InstanceOf pos e1 t)
 
-unaryExp :: P (Exp SourcePos)
+unaryExp :: P (Exp PA)
 unaryExp = try preIncDec <|>
     try (do
         op <- prefixOp
@@ -855,28 +870,28 @@ unaryExp = try preIncDec <|>
     try (setPos Cast <*> parens ttype <*> unaryExp) <|>
     postfixExp
 
-postfixExpNES :: P (Exp SourcePos)
+postfixExpNES :: P (Exp PA)
 postfixExpNES = -- try postIncDec <|>
     try primary <|>
     setPos ExpName <*> nameRaw eOrLName
 
-postfixExp :: P (Exp SourcePos)
+postfixExp :: P (Exp PA)
 postfixExp = do
     pe <- postfixExpNES
     ops <- list postfixOp
     return $ foldl (\a s -> s a) pe ops
 
 
-primary :: P (Exp SourcePos)
+primary :: P (Exp PA)
 primary = primaryNPS |>> primarySuffix
 
-primaryNPS :: P (Exp SourcePos)
+primaryNPS :: P (Exp PA)
 primaryNPS = try arrayCreation <|> primaryNoNewArrayNPS
 
---primaryNoNewArray :: P (Exp SourcePos)
+--primaryNoNewArray :: P (Exp PA)
 --primaryNoNewArray = startSuff primaryNoNewArrayNPS primarySuffix
 
-primaryNoNewArrayNPS :: P (Exp SourcePos)
+primaryNoNewArrayNPS :: P (Exp PA)
 primaryNoNewArrayNPS =
     setPos Lit <*> literal <|>
     setPos (const.This) <*> tok KW_This <|>
@@ -905,20 +920,20 @@ primaryNoNewArrayNPS =
             AntiQExpTok s -> Just s
             _ -> Nothing)
 
-checkClassLit :: ReturnType SourcePos -> P (Maybe (Type SourcePos))
+checkClassLit :: ReturnType PA -> P (Maybe (Type PA))
 checkClassLit (LockType _) = fail "Lock is not a class type!"
 checkClassLit (VoidType _) = return Nothing
 checkClassLit (Type _ t)    = return $ Just t
 
 
-primarySuffix :: P (Exp SourcePos -> Exp SourcePos)
+primarySuffix :: P (Exp PA -> Exp PA)
 primarySuffix = try instanceCreationSuffix <|>
   (do pos <- getParaPosition
       try ((ArrayAccess pos .) <$> arrayAccessSuffix) <|>
         try ((MethodInv pos .) <$> methodInvocationSuffix) <|>
         (FieldAccess pos .) <$> fieldAccessSuffix)
 
-instanceCreationNPS :: P (Exp SourcePos)
+instanceCreationNPS :: P (Exp PA)
 instanceCreationNPS =
     do tok KW_New
        pos <- getParaPosition
@@ -928,7 +943,7 @@ instanceCreationNPS =
        mcb <- opt classBody
        return $ InstanceCreation pos tas ct as mcb
 
-instanceCreationSuffix :: P (Exp SourcePos -> Exp SourcePos)
+instanceCreationSuffix :: P (Exp PA -> Exp PA)
 instanceCreationSuffix =
      do period >> tok KW_New
         pos <- getParaPosition
@@ -938,7 +953,7 @@ instanceCreationSuffix =
         mcb <- opt classBody
         return $ \p -> QualInstanceCreation pos p tas i as mcb
 
-instanceCreation :: P (Exp SourcePos)
+instanceCreation :: P (Exp PA)
 instanceCreation = {- try instanceCreationNPS <|> -} do
     p <- primaryNPS
     ss <- list primarySuffix
@@ -965,7 +980,7 @@ instanceCreation =
         return $ QualInstanceCreation p tas i as mcb)
 -}
 
-fieldAccessNPS :: P (FieldAccess SourcePos)
+fieldAccessNPS :: P (FieldAccess PA)
 fieldAccessNPS =
     (do tok KW_Super >> period
         setPos SuperFieldAccess <*> ident) <|>
@@ -975,14 +990,14 @@ fieldAccessNPS =
         i <- ident
         return $ ClassFieldAccess pos n i)
 
-fieldAccessSuffix :: P (Exp SourcePos -> FieldAccess SourcePos)
+fieldAccessSuffix :: P (Exp PA -> FieldAccess PA)
 fieldAccessSuffix = do
     period
     pos <- getParaPosition
     i <- ident
     return $ \p -> PrimaryFieldAccess pos p i
 
-fieldAccess :: P (FieldAccess SourcePos)
+fieldAccess :: P (FieldAccess PA)
 fieldAccess = {- try fieldAccessNPS <|> -} do
     p <- primaryNPS
     ss <- list primarySuffix
@@ -991,7 +1006,7 @@ fieldAccess = {- try fieldAccessNPS <|> -} do
      FieldAccess _ fa -> return fa
      _ -> fail ""
 
-fieldAccessExp :: P (Exp SourcePos)
+fieldAccessExp :: P (Exp PA)
 fieldAccessExp = setPos FieldAccess <*> fieldAccess
 
 {-
@@ -1019,7 +1034,7 @@ fieldAccess =
         return $ PrimaryFieldAccess p i)
 -}
 
-methodInvocationNPS :: P (MethodInvocation SourcePos)
+methodInvocationNPS :: P (MethodInvocation PA)
 methodInvocationNPS =
     (do tok KW_Super >> period
         setPos SuperMethodCall <*> lopt nonWildTypeArgs <*> ident <*> args) <|>
@@ -1037,7 +1052,7 @@ methodInvocationNPS =
                 return $ \na -> mc (tName $ flattenName na) rts i as)
         return $ f n)
 
-methodInvocationSuffix :: P (Exp SourcePos -> MethodInvocation SourcePos)
+methodInvocationSuffix :: P (Exp PA -> MethodInvocation PA)
 methodInvocationSuffix = do
         period
         pos <- getParaPosition
@@ -1046,7 +1061,7 @@ methodInvocationSuffix = do
         as  <- args
         return $ \p -> PrimaryMethodCall pos p rts i as
 
-methodInvocationExp :: P (Exp SourcePos)
+methodInvocationExp :: P (Exp PA)
 methodInvocationExp = {- try (MethodInv () <$> methodInvocationNPS) <|> -} do
     p <- primaryNPS
     ss <- list primarySuffix
@@ -1082,24 +1097,24 @@ methodInvocation =
         return $ f n)
 -}
 
-args :: P [Argument SourcePos]
+args :: P [Argument PA]
 args = parens $ seplist exp comma
 
 -- Arrays
 
-arrayAccessNPS :: P (ArrayIndex SourcePos)
+arrayAccessNPS :: P (ArrayIndex PA)
 arrayAccessNPS = do
     n <- nameRaw eName
     e <- brackets exp
     setPos ArrayIndex <*> (setPos ExpName <*> pure n) <*> pure e
 
-arrayAccessSuffix :: P (Exp SourcePos -> ArrayIndex SourcePos)
+arrayAccessSuffix :: P (Exp PA -> ArrayIndex PA)
 arrayAccessSuffix = do
     e <- brackets exp
     pos <- getParaPosition
     return $ \ref -> ArrayIndex pos ref e
 
-arrayAccess :: P (ArrayIndex SourcePos)
+arrayAccess :: P (ArrayIndex PA)
 arrayAccess = {- try arrayAccessNPS <|> -} do
     p <- primaryNoNewArrayNPS
     ss <- list primarySuffix
@@ -1119,7 +1134,7 @@ arrayRef :: P Exp
 arrayRef = ExpName <$> name <|> primaryNoNewArray
 -}
 
-arrayCreation :: P (Exp SourcePos)
+arrayCreation :: P (Exp PA)
 arrayCreation = do
     tok KW_New
     t <- nonArrayType
@@ -1137,7 +1152,7 @@ arrayCreation = do
              return $ \ty -> ArrayCreate pos ty des ds)
     return $ f t
 
-literal :: P (Literal SourcePos)
+literal :: P (Literal PA)
 literal =
     javaTokenPos $ \t p ->
       let sp = pos2sourcePos p in
@@ -1154,7 +1169,7 @@ literal =
 
 -- Operators
 
-preIncDecOp, prefixOp, postfixOp :: P (Exp SourcePos -> Exp SourcePos)
+preIncDecOp, prefixOp, postfixOp :: P (Exp PA -> Exp PA)
 preIncDecOp =
     (tok Op_PPlus  >> setPos PreIncrement ) <|>
     (tok Op_MMinus >> setPos PreDecrement )
@@ -1167,7 +1182,7 @@ postfixOp =
     (tok Op_PPlus  >> setPos PostIncrement ) <|>
     (tok Op_MMinus >> setPos PostDecrement )
 
-assignOp :: P (AssignOp SourcePos)
+assignOp :: P (AssignOp PA)
 assignOp =
     (tok Op_Equal    >> setPos EqualA   ) <|>
     (tok Op_StarE    >> setPos MultA    ) <|>
@@ -1182,7 +1197,7 @@ assignOp =
     (tok Op_CaretE   >> setPos XorA     ) <|>
     (tok Op_OrE      >> setPos OrA      )
 
-infixOp :: P (Op SourcePos)
+infixOp :: P (Op PA)
 infixOp =
     (tok Op_Star    >> setPos Mult      ) <|>
     (tok Op_Slash   >> setPos Div       ) <|>
@@ -1204,7 +1219,7 @@ infixOp =
     (tok Op_AAnd    >> setPos CAnd      ) <|>
     (tok Op_OOr     >> setPos COr       )
 
-typeArgInfixOp :: P (Op SourcePos)
+typeArgInfixOp :: P (Op PA)
 typeArgInfixOp =
     (tok Op_Star >> setPos Mult ) <|>
     (tok Op_Plus >> setPos Add  )
@@ -1213,7 +1228,7 @@ typeArgInfixOp =
 ----------------------------------------------------------------------------
 -- Types
 
-ttype :: P (Type SourcePos)
+ttype :: P (Type PA)
 ttype = try (setPos RefType <*> refType) <|> setPos PrimType <*> primType
          <|> setPos AntiQType <*>
                javaToken (\t ->
@@ -1221,7 +1236,7 @@ ttype = try (setPos RefType <*> refType) <|> setPos PrimType <*> primType
                      AntiQTypeTok s -> Just  s
                      _              -> Nothing)
 
-primType :: P (PrimType SourcePos)
+primType :: P (PrimType PA)
 primType =
     tok KW_Boolean >> setPos BooleanT  <|>
     tok KW_Byte    >> setPos ByteT     <|>
@@ -1236,10 +1251,10 @@ primType =
      <|> tok KW_P_Policy >> setPos PolicyT
 
 
-refType :: P (RefType SourcePos)
+refType :: P (RefType PA)
 refType = checkNoExtraEnd refTypeE
 
-refTypeE :: P (RefType SourcePos, Int)
+refTypeE :: P (RefType PA, Int)
 refTypeE = {- trace "refTypeE" -} (
     (do typ <- setPos ArrayType <*>
                (setPos PrimType <*> primType) <*>
@@ -1260,22 +1275,22 @@ refTypeE = {- trace "refTypeE" -} (
          else return (baseType, e)
     ) <?> "refType")
 
-arrPols :: P (Maybe (Policy SourcePos))
+arrPols :: P (Maybe (Policy PA))
 arrPols = do
   _ <- arrBrackets
   opt $ angles argExp
 --  ExpName () <$> angles (nameRaw eName)
 --      <|> PolicyExp () <$> policyExp
 
-nonArrayType :: P (Type SourcePos)
+nonArrayType :: P (Type PA)
 nonArrayType = setPos PrimType <*> primType <|>
     setPos RefType <*> (setPos ClassRefType <*> classType)
 
 
-classType :: P (ClassType SourcePos)
+classType :: P (ClassType PA)
 classType = checkNoExtraEnd classTypeE
 
-classTypeE :: P (ClassType SourcePos, Int)
+classTypeE :: P (ClassType PA, Int)
 classTypeE = {- trace "classTypeE" $ -} do
   n <- nameRaw tName
   mtase <- opt typeArgsE
@@ -1285,28 +1300,28 @@ classTypeE = {- trace "classTypeE" $ -} do
     Just (tas, e) -> return (clt n tas, e)
     Nothing       -> return (clt n [] , 0)
 
-returnType :: P (ReturnType SourcePos)
+returnType :: P (ReturnType PA)
 returnType = tok KW_Void   >> setPos VoidType <|>
              tok KW_P_Lock >> setPos LockType <|>
              setPos Type <*> ttype <?> "returnType"
 
-classTypeList :: P [ClassType SourcePos]
+classTypeList :: P [ClassType PA]
 classTypeList = seplist1 classType comma
 
 ----------------------------------------------------------------------------
 -- Type parameters and arguments
 
-typeParams :: P [TypeParam SourcePos]
+typeParams :: P [TypeParam PA]
 typeParams = angles $ seplist1 typeParam comma
 
-typeParam :: P (TypeParam SourcePos)
+typeParam :: P (TypeParam PA)
 typeParam =
   (do tok KW_P_Actor >> setPos ActorParam <*> refType <*> ident) <|>
   (do tok KW_P_Policy >> setPos PolicyParam <*> ident) <|>
   (do tok KW_P_Lock >> arrBrackets >> setPos LockStateParam <*> ident) <|>
   (do setPos TypeParam <*> ident <*> lopt bounds)
 
-bounds :: P [RefType SourcePos]
+bounds :: P [RefType PA]
 bounds = tok KW_Extends >> seplist1 refType (tok Op_And)
 
 checkNoExtraEnd :: P (a, Int) -> P a
@@ -1315,16 +1330,16 @@ checkNoExtraEnd pai = do
   unless (e == 0) $ fail "unexpected >"
   return a
 
-typeArgs :: P [TypeArgument SourcePos]
+typeArgs :: P [TypeArgument PA]
 typeArgs = {- trace "typeArgs" $ -} checkNoExtraEnd typeArgsE
 
-typeArgsE :: P ([TypeArgument SourcePos], Int)
+typeArgsE :: P ([TypeArgument PA], Int)
 typeArgsE = {- trace "typeArgsE" $ -}
     do tok Op_LThan {- < -}
        (as, extra) <- typeArgsSuffix
        return (as, extra-1)
 
-typeArgsSuffix :: P ([TypeArgument SourcePos], Int)
+typeArgsSuffix :: P ([TypeArgument PA], Int)
 typeArgsSuffix = {- trace "typeArgsSuffix" $ -}
   (do tok Op_Query
       wcArg <- setPos Wildcard <*> opt wildcardBound
@@ -1347,12 +1362,12 @@ typeArgsSuffix = {- trace "typeArgsSuffix" $ -}
       (rest, e) <- typeArgsEnd 0
       return (eArg:rest, e))
 
-      where nameOfRefType :: RefType SourcePos -> Maybe (Name SourcePos)
+      where nameOfRefType :: RefType PA -> Maybe (Name PA)
             nameOfRefType (ClassRefType _ (ClassType _ n tas)) =
                 if null tas then Just n else Nothing
             nameOfRefType _ = Nothing
 
-typeArgsEnd :: Int -> P ([TypeArgument SourcePos], Int) -- Int for the number of "extra" >
+typeArgsEnd :: Int -> P ([TypeArgument PA], Int) -- Int for the number of "extra" >
 typeArgsEnd n | n > 0 = {- trace ("typeArgsEnd-1: " ++ show n) $ -} return ([], n)
 typeArgsEnd _ = {- trace ("typeArgsEnd-2: ") $ -}
     (tok Op_GThan   {- >   -} >> return ([], 1)) <|>
@@ -1360,13 +1375,13 @@ typeArgsEnd _ = {- trace ("typeArgsEnd-2: ") $ -}
     (tok Op_RRShift {- >>> -} >> return ([], 3)) <|>
     (tok Comma >> typeArgsSuffix)
 
-argExp :: P (Exp SourcePos)
+argExp :: P (Exp PA)
 argExp = do
   e1 <- argExp1
   fe <- argExpSuffix
   return $ fe e1
 
-argExp1 :: P (Exp SourcePos)
+argExp1 :: P (Exp PA)
 argExp1 = setPos PolicyExp <*> policyExp
           <|> try methodInvocationExp
           <|> try fieldAccessExp
@@ -1374,19 +1389,19 @@ argExp1 = setPos PolicyExp <*> policyExp
 
 -- ****************
 
-argExpSuffix :: P (Exp SourcePos -> Exp SourcePos)
+argExpSuffix :: P (Exp PA -> Exp PA)
 argExpSuffix =
     (do op <- typeArgInfixOp
         e2 <- argExp
         binop <- setPos BinOp -- TODO: Does this make sense?
         return $ \e1 -> binop e1 op e2) <|> return id
 
-wildcardBound :: P (WildcardBound SourcePos)
+wildcardBound :: P (WildcardBound PA)
 wildcardBound =
       tok KW_Extends >> setPos ExtendsBound <*> refType
   <|> tok KW_Super >> setPos SuperBound <*> refType
 
-nonWildTypeArgs :: P [NonWildTypeArgument SourcePos]
+nonWildTypeArgs :: P [NonWildTypeArgument PA]
 nonWildTypeArgs = typeArgs >>= mapM checkNonWild
   where checkNonWild (ActualArg _ arg) = return arg
         checkNonWild _ = fail "Use of wildcard in non-wild context"
@@ -1398,17 +1413,17 @@ nonWildTypeArgs = typeArgs >>= mapM checkNonWild
 ----------------------------------------------------------------------------
 -- Names
 
-nameRaw :: ([Ident SourcePos] -> Name SourcePos) -> P (Name SourcePos)
+nameRaw :: ([Ident PA] -> Name PA) -> P (Name PA)
 nameRaw nf =
     nf <$> seplist1 ident period <|>
         javaTokenPos (\t p -> case t of
           AntiQNameTok s -> Just $ AntiQName (pos2sourcePos p) s
           _ -> Nothing)
 
-name :: P (Name SourcePos)
+name :: P (Name PA)
 name = nameRaw ambName
 
-ident :: P (Ident SourcePos)
+ident :: P (Ident PA)
 ident = javaTokenPos $ \t p -> case t of
     IdentTok s -> Just $ Ident (pos2sourcePos p) (B.pack s)
     AntiQIdentTok s -> Just $ AntiQIdent (pos2sourcePos p) s
@@ -1417,10 +1432,10 @@ ident = javaTokenPos $ \t p -> case t of
 ----------------------------------------------------------------------------
 -- Policies
 
-policy :: P (Policy SourcePos)
+policy :: P (Policy PA)
 policy = postfixExpNES -- Policy <$> policyLit <|> PolicyRef <$> (tok Op_Tilde >> name)
 
-policyExp :: P (PolicyExp SourcePos)
+policyExp :: P (PolicyExp PA)
 policyExp =
   try (setPos PolicyLit <*> (braces $ seplist clause semiColon)) <|>
   setPos PolicyLit <*> (braces colon >> return []) <|>
@@ -1428,7 +1443,7 @@ policyExp =
                                (do pol <- setPos PolicyThis
                                    const pol <$> tok KW_This))
 
-clause :: P (Clause SourcePos)
+clause :: P (Clause PA)
 clause = do
     pos <- getParaPosition
     vs <- lopt $ parens $ seplist cvardecl comma
@@ -1443,14 +1458,14 @@ clause = do
     return $ Clause pos vs ch' ats'
 
 
-cvardecl :: P (ClauseVarDecl SourcePos)
+cvardecl :: P (ClauseVarDecl PA)
 cvardecl = setPos ClauseVarDecl <*> refType <*> ident
 
-chead :: P (ClauseHead SourcePos)
+chead :: P (ClauseHead PA)
 chead = try (setPos ClauseDeclHead <*> cvardecl) <|>
         setPos ClauseVarHead <*> actor
 
-lclause :: P (LClause SourcePos)
+lclause :: P (LClause PA)
 lclause = do
     pos <- getParaPosition
     qs <- lopt $ parens $ seplist cvardecl comma
@@ -1465,40 +1480,41 @@ lclause = do
               return $ LClause pos qs h' as'
       Nothing -> return $ ConstraintClause pos qs as'
 
-lclauseHead :: P (Maybe (Atom SourcePos))
+
+lclauseHead :: P (Maybe (Atom PA))
 lclauseHead =
   (tok Op_Minus >> return Nothing) <|>
    (Just <$> atom)
 
-atom :: P (Atom SourcePos)
+atom :: P (Atom PA)
 atom = do
     setPos Atom <*> nameRaw lName
                 <*> (lopt $ parens $ seplist actor comma)
 
 -- We parse everything as actorNames, and post-process
 -- them into Vars
-actor :: P (Actor SourcePos)
+actor :: P (Actor PA)
 actor = setPos Actor <*> actorName -- <|>
 --        setPos Var <*> actorVar -- (tok Op_Query >> ident)
 
-actorName :: P (ActorName SourcePos)
+actorName :: P (ActorName PA)
 actorName = setPos ActorName <*> nameRaw eName
 
---actorVar :: P (Ident SourcePos)
+--actorVar :: P (Ident PA)
 --actorVar = javaTokenPos $ \t p -> case t of
 --    VarActorTok s -> Just $ Ident (pos2sourcePos p) (B.pack s)
 --    _ -> Nothing
 
-lock :: P (Lock SourcePos)
+lock :: P (Lock PA)
 lock = do
     setPos Lock <*> nameRaw lName
                 <*> (lopt $ parens $ seplist actorName comma)
 
-lockProperties :: P (LockProperties SourcePos)
+lockProperties :: P (LockProperties PA)
 lockProperties = do braces $ setPos LockProperties
                              <*> optendseplist lclause semiColon
 
-lockExp :: P [Lock SourcePos]
+lockExp :: P [Lock PA]
 lockExp = parens (seplist1 lock comma)
       <|> return <$> lock
 
@@ -1580,7 +1596,7 @@ matchToken t = javaToken (\r -> if r == t then Just () else Nothing)
 pos2sourcePos :: (Int, Int) -> SourcePos
 pos2sourcePos (l,c) = newPos "" l c
 
-type Mod a = [Modifier SourcePos] -> a
+type Mod a = [Modifier PA] -> a
 
 parens, braces, brackets, angles :: P a -> P a
 parens   = between (tok OpenParen)  (tok CloseParen)
@@ -1599,7 +1615,7 @@ period    = tok Period
 
 ------------------------------------------------------------
 
-checkConstrs :: ClassDecl SourcePos -> P ()
+checkConstrs :: ClassDecl PA -> P ()
 checkConstrs (ClassDecl _ _ i _ _ _ cb) = do
     let errs = [ ci | ConstructorDecl _ _ _ ci _ _ _ <- universeBi cb, ci /= i ]
     if null errs then return ()
@@ -1612,28 +1628,27 @@ checkConstrs _ = panic (parserModule ++ ".checkConstrs")
 -----------------------------------------------------
 -- Making the meaning of a name explicit
 
-ambName :: [Ident a] -> Name a
-ambName = mkUniformName_ AmbName
+ambName :: [Ident PA] -> Name PA
+ambName = mkUniformName const AmbName
 
 -- A package name can only have a package name prefix
-pName :: [Ident a] -> Name a
-pName = mkUniformName_ PName
+pName :: [Ident PA] -> Name PA
+pName = mkUniformName const PName
 
 -- A package-or-type name has a package-or-type prefix
-pOrTName :: [Ident a] -> Name a
-pOrTName = mkUniformName_ POrTName
+pOrTName :: [Ident PA] -> Name PA
+pOrTName = mkUniformName const POrTName
 
 -- A type name has a package-or-type prefix
-tName :: [Ident a] -> Name a
-tName = mkName_ TName POrTName
+tName :: [Ident PA] -> Name PA
+tName = mkName const TName POrTName
 
 -- Names with ambiguous prefixes
-eName, lName, eOrLName, mOrLName :: [Ident a] -> Name a
-eName = mkName_ EName AmbName
-lName = mkName_ LName AmbName
-eOrLName = mkName_ EOrLName AmbName
-mOrLName = mkName_ MOrLName AmbName
-
+eName, lName, eOrLName, mOrLName :: [Ident PA] -> Name PA
+eName     = mkName const EName AmbName
+lName     = mkName const LName AmbName
+eOrLName  = mkName const EOrLName AmbName
+mOrLName  = mkName const MOrLName AmbName
 
 -----------------------------------------------------
 
@@ -1643,27 +1658,27 @@ mOrLName = mkName_ MOrLName AmbName
 -- special contructor TypeVariable.
 -- LockStateVar is handled by the parser, NO LONGER
 -- and actors and policies are parsed as ExpName.
-generalize :: Data a => [TypeParam SourcePos] -> a -> a
+generalize :: Data a => [TypeParam PA] -> a -> a
 generalize pars = transformBi gen
                   . transformBi genA
                   . transformBi genP
                   . transformBi genL
-    where gen :: RefType SourcePos -> RefType SourcePos
+    where gen :: RefType PA -> RefType PA
           gen (ClassRefType pos (ClassType _ (Name _ TName Nothing i) []))
               | i `elem` parIs = TypeVariable pos i
           gen rt = rt
 
-          genA :: ActorName SourcePos -> ActorName SourcePos
+          genA :: ActorName PA -> ActorName PA
           genA (ActorName pos (Name _ EName Nothing i))
                | Just rt <- lookup i actIs = ActorTypeVar pos rt i
           genA a = a
 
-          genP :: Exp SourcePos -> Exp SourcePos
+          genP :: Exp PA -> Exp PA
           genP (ExpName pos (Name _ EName Nothing i))
               | i `elem` polIs = PolicyExp pos (PolicyTypeVar pos i)
           genP e = e
 
-          genL :: Lock SourcePos -> Lock SourcePos
+          genL :: Lock PA -> Lock PA
           genL (Lock pos (Name _ LName Nothing i) [])
               | i `elem` locIs = LockVar pos i
           genL l = l
@@ -1675,24 +1690,24 @@ generalize pars = transformBi gen
 
 
 -- Generalization of variables in a policy literal
-genActorVars :: Data x => [Ident SourcePos] -> x -> x
+genActorVars :: Data x => [Ident PA] -> x -> x
 genActorVars is = transformBi gen
   where --gen :: Actor a -> Actor a
         gen (Actor _ (ActorName _ (Name _ _ Nothing i)))
-            | i `elem` is = Var (ann i) i
+            | i `elem` is = Var (annId i) i
         gen ac = ac
 
 --------------------------------------------------------------
 -- Resolving precedences
-
-builtInPrecs :: [(Op (), Int)]
+-- () instance created in decorations to fix this function
+builtInPrecs :: [(Op UD, Int)]
 builtInPrecs =
-    map (,9) [Mult   (), Div    (), Rem     ()           ] ++
-    map (,8) [Add    (), Sub    ()                       ] ++
-    map (,7) [LShift (), RShift (), RRShift ()           ] ++
+    map (,9) [Mult   (), Div    (), Rem     ()            ] ++
+    map (,8) [Add    (), Sub    ()                         ] ++
+    map (,7) [LShift (), RShift (), RRShift ()            ] ++
     map (,6) [LThan  (), GThan  (), LThanE  (), GThanE ()] ++
-    map (,5) [Equal  (), NotEq  ()                       ] ++
-    [(And  (), 4),
+    map (,5) [Equal  (), NotEq  ()                         ] ++
+    [(And  (), 4) ,
      (Or   (), 3),
      (Xor  (), 2),
      (CAnd (), 1),
@@ -1701,29 +1716,30 @@ builtInPrecs =
 instanceOfPrec :: Int
 instanceOfPrec = 6 -- same as comparison ops
 
-dropData :: Op a -> Op ()
-dropData (Mult _) = Mult ()
-dropData (Div _) = Div ()
-dropData (Rem _) = Rem ()
-dropData (Add _) = Add ()
-dropData (Sub _) = Sub ()
-dropData (LShift _) = LShift ()
-dropData (RShift _) = RShift ()
-dropData (RRShift _) = RRShift ()
-dropData (LThan _) = LThan ()
-dropData (GThan _) = GThan ()
-dropData (LThanE _) = LThanE ()
-dropData (GThanE _) = GThanE ()
-dropData (Equal _) = Equal ()
-dropData (NotEq _) = NotEq ()
-dropData (And _) = And ()
-dropData (Or _) = Or ()
-dropData (Xor _) = Xor ()
-dropData (CAnd _) = CAnd ()
-dropData (COr _) = COr ()
+dropData :: Op a -> Op UD
+dropData (Mult _)    = UdMult
+dropData (Div _)     = UdDiv
+dropData (Rem _)     = UdRem
+dropData (Add _)     = UdAdd
+dropData (Sub _)     = UdSub
+dropData (LShift _)  = UdLShift
+dropData (RShift _)  = UdRShift
+dropData (RRShift _) = UdRRShift
+dropData (LThan _)   = UdLThan
+dropData (GThan _)   = UdGThan
+dropData (LThanE _)  = UdLThanE
+dropData (GThanE _)  = UdGThanE
+dropData (Equal _)   = UdEqual
+dropData (NotEq _)   = UdNotEq
+dropData (And _)     = UdAnd
+dropData (Or _)      = UdOr
+dropData (Xor _)     = UdXor
+dropData (CAnd _)    = UdCAnd
+dropData (COr _)     = UdCOr
 
--- TODO: Fix positions?
-fixPrecs :: Exp SourcePos -> Exp SourcePos
+-- deriving instance Eq (Op ())
+-- -- TODO: Fix positions?
+fixPrecs :: Exp PA -> Exp PA
 fixPrecs (BinOp pos a op2 z) =
     let e = fixPrecs a -- recursively fix left subtree
         getPrec op = fromJust $ lookup op builtInPrecs

@@ -23,6 +23,7 @@ import Language.Java.Paragon.Error
 
 import Control.Monad
 import Control.Monad.Trans.State (StateT(..), runStateT, modify, get)
+import qualified Control.Monad.Fail as Fail
 
 import Data.Maybe
 
@@ -36,6 +37,13 @@ type ErrCtxt = Error -> Error
 -- value, but the list of errors is extended
 newtype BaseM a = BaseM (ErrCtxt -> Uniq -> StateT [Error] IO (Maybe a))
 
+instance Fail.MonadFail BaseM where
+  -- Provided for the sake of completeness;
+  -- failE and failEC should be used instead
+  fail err = BaseM $ \ec _ -> do
+               modify (\s -> ec (toUndef err) : s)
+               return Nothing
+
 instance Monad BaseM where
   return x = BaseM $ \_ _ -> return . Just $ x
 
@@ -47,12 +55,6 @@ instance Monad BaseM where
                Just a ->
                  let BaseM g = k a
                   in g ec u
-
-  -- Provided for the sake of completeness;
-  -- failE and failEC should be used instead
-  fail err = BaseM $ \ec _ -> do
-               modify (\s -> ec (toUndef err) : s)
-               return Nothing
 
 instance Applicative BaseM where
   pure = return
@@ -174,7 +176,7 @@ liftEitherMB eerra = case eerra of
 --------------------------------------------
 
 -- | Lift Either value into monad by mapping Left to fail and Right to return
-liftEither :: Monad m => Either String a -> m a
+liftEither :: Fail.MonadFail m => Either String a -> m a
 liftEither esa = case esa of
                    Left err -> fail err
                    Right x  -> return x
