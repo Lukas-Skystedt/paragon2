@@ -1,8 +1,11 @@
 {-# LANGUAGE CPP, DeriveDataTypeable, PatternGuards,
   MultiParamTypeClasses, FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 module Language.Java.Paragon.TypeCheck.Types where
 
-import Language.Java.Paragon.Syntax hiding (Clause(..))
+import Language.Java.Paragon.SyntaxTTG hiding (Clause(..))
+import Language.Java.Paragon.Decorations.NoDecoration
+import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.Error()
@@ -49,31 +52,31 @@ data TcStateType
     | TcPolicyPolT ActorPolicyBounds
     | TcLockT [TcLock]             -- ^ List of looks checked in the expression
     | TcType TcType NullType       -- ^ Simply the type with nullpointer information
-  deriving (Eq, Show, Data, Typeable)
+  -- deriving (Eq, Show, Data, Typeable)
 
 
 data TcType
-    = TcPrimT (PrimType SourcePos) | TcRefT TcRefType | TcVoidT --  TcLockRetT
+    = TcPrimT (PrimType UD) | TcRefT TcRefType | TcVoidT --  TcLockRetT
      -- --  TcActorIdT ActorId | TcPolicyPolT ActorPolicy | TcLockT [TcLock]
-  deriving (Eq, Ord, Show, Data, Typeable)
+  -- deriving (Eq, Ord, Show, Data, Typeable)
 
 data TcRefType
     = TcClsRefT TcClassType
     | TcArrayT TcType ActorPolicy
     | TcTypeVar B.ByteString
     | TcNullT
-  deriving (Eq, Ord, Show, Data, Typeable)
+  -- deriving (Eq, Ord, Show, Data, Typeable)
 
 data TcClassType
-    = TcClassT (Name SourcePos) [TcTypeArg] -- [ActorId] -- Ignore wildcards for now
-  deriving (Eq, Ord, Show, Data, Typeable)
+    = TcClassT (Name UD) [TcTypeArg] -- [ActorId] -- Ignore wildcards for now
+  -- deriving (Eq, Ord, Show, Data, Typeable)
 
 data TcTypeArg
     = TcActualType TcRefType
     | TcActualPolicy ActorPolicy
     | TcActualActor TypedActorIdSpec
     | TcActualLockState [TcLock]
-  deriving (Eq, Ord, Show, Data, Typeable)
+  -- deriving (Eq, Ord, Show, Data, Typeable)
 
 {-- The Ord instances are only ever used in order to have types
 -- as keys for Maps, specifically for method/constructor
@@ -112,16 +115,16 @@ instance Ord TcTypeArg where
 
 booleanT, byteT, shortT, intT, longT,
  charT, floatT, doubleT, {-actorT,-} policyT :: TcType
-booleanT = TcPrimT (BooleanT defaultPos)
-byteT    = TcPrimT (ByteT    defaultPos)
-shortT   = TcPrimT (ShortT   defaultPos)
-intT     = TcPrimT (IntT     defaultPos)
-longT    = TcPrimT (LongT    defaultPos)
-charT    = TcPrimT (CharT    defaultPos)
-floatT   = TcPrimT (FloatT   defaultPos)
-doubleT  = TcPrimT (DoubleT  defaultPos)
+booleanT = TcPrimT UdBooleanT
+byteT    = TcPrimT UdByteT
+shortT   = TcPrimT UdShortT
+intT     = TcPrimT UdIntT
+longT    = TcPrimT UdLongT
+charT    = TcPrimT UdCharT
+floatT   = TcPrimT UdFloatT
+doubleT  = TcPrimT UdDoubleT
 --actorT   = TcPrimT (ActorT   defaultPos)
-policyT  = TcPrimT (PolicyT  defaultPos)
+policyT  = TcPrimT PolicyT
 
 -- | Takes a regular type and converts it to a type with state.
 -- If the type is a null reference it's result will have state
@@ -178,10 +181,10 @@ clsTypeWArg :: Name () -> [TcTypeArg] -> TcType
 clsTypeWArg n = TcClassT n
 -}
 
-clsType :: Ident SourcePos -> TcClassType
+clsType :: Ident ud -> TcClassType
 clsType = qualClsType . return
 
-qualClsType :: [Ident SourcePos] -> TcClassType
+qualClsType :: [Ident UD] -> TcClassType
 qualClsType is = TcClassT (mkName_ TName PName is) []
 
 --nameToClsType :: Name () -> TcClassType
@@ -190,14 +193,14 @@ qualClsType is = TcClassT (mkName_ TName PName is) []
 --                  "AntiQName should never appear in an AST being type-checked"
 
 stringT, objectT :: TcClassType
-stringT = qualClsType $ map (Ident defaultPos . B.pack)
+stringT = qualClsType $ map (UdIdent . B.pack)
   ["java","lang","String"]
-objectT = qualClsType $ map (Ident defaultPos . B.pack)
+objectT = qualClsType $ map (UdIdent . B.pack)
   ["java","lang","Object"]
 
 nullExnT :: TcType
 nullExnT = TcRefT $ TcClsRefT (qualClsType $
-  map (Ident defaultPos . B.pack)
+  map (UdIdent . B.pack)
   ["java","lang","NullPointerException"])
 
 -- promoting
@@ -216,13 +219,13 @@ mkArrayType = foldr (flip arrayType)
 -- Destructors
 
 -- Invariant: First argument is a class type
-typeName :: TcType -> Maybe (Name SourcePos)
+typeName :: TcType -> Maybe (Name UD)
 typeName (TcRefT (TcClsRefT (TcClassT n tas))) =
 --         let (is, args) = unzip pn in
          if null tas then Just (mkUniformName_ AmbName $ flattenName n) else Nothing
 typeName _ = Nothing
 
-typeName_ :: TcType -> Name SourcePos
+typeName_ :: TcType -> Name UD
 typeName_ (TcRefT (TcClsRefT (TcClassT n _tas))) = mkUniformName_ AmbName $ flattenName n
 --    let (is, _) = unzip pn in mkUniformName_ AmbName is
 typeName_ t = error $ "typeName_: Not a class type: " ++ show t
@@ -248,7 +251,7 @@ mRefType _ = Nothing
 isPrimType (TcType (TcPrimT _) _) = True
 isPrimType _ = False
 
-mNameRefType :: TcRefType -> Maybe (Name SourcePos)
+mNameRefType :: TcRefType -> Maybe (Name UD)
 mNameRefType (TcClsRefT (TcClassT n as)) =
     if null as then Just (mkUniformName_ AmbName $ flattenName n) else Nothing
 mNameRefType _ = Nothing
@@ -303,7 +306,7 @@ mInstanceType _ = Nothing
 -------------------------------------------
 -- Type operations
 
-widenConvert :: PrimType SourcePos -> [PrimType SourcePos]
+widenConvert :: PrimType PA -> [PrimType PA]
 widenConvert pt = case pt of
    FloatT  pos -> map ($ pos) [DoubleT]
    LongT   pos -> map ($ pos) [DoubleT, FloatT]
@@ -313,7 +316,7 @@ widenConvert pt = case pt of
    ByteT   pos -> map ($ pos) [DoubleT, FloatT, LongT, IntT, ShortT]
    _           -> []
 
-narrowConvert :: PrimType SourcePos -> [PrimType SourcePos]
+narrowConvert :: PrimType PA -> [PrimType PA]
 narrowConvert pt = case pt of
    DoubleT pos -> map ($ pos) [ByteT, ShortT, CharT, IntT, LongT, FloatT]
    FloatT  pos -> map ($ pos) [ByteT, ShortT, CharT, IntT, LongT]
@@ -323,12 +326,12 @@ narrowConvert pt = case pt of
    ShortT  pos -> map ($ pos) [ByteT, CharT]
    _           -> []
 
-widenNarrowConvert :: PrimType SourcePos -> [PrimType SourcePos]
+widenNarrowConvert :: PrimType PA -> [PrimType PA]
 widenNarrowConvert (ByteT pos) = [CharT pos]
 widenNarrowConvert _           = []
 
 
-box :: PrimType SourcePos -> Maybe TcClassType
+box :: PrimType PA -> Maybe TcClassType
 box pt = let mkClassType str spos =
                  Just $ TcClassT
                           (mkName_ TName PName $
@@ -345,7 +348,7 @@ box pt = let mkClassType str spos =
               DoubleT  spos -> mkClassType "Double" spos
               _ -> Nothing
 
-unbox :: TcClassType -> Maybe (PrimType SourcePos)
+unbox :: TcClassType -> Maybe (PrimType PA)
 unbox (TcClassT n@(Name spos _ _ _) _) =
     case map (B.unpack . unIdent) $ flattenName n of
       ["java", "lang", "Boolean"  ] -> Just $ BooleanT spos
@@ -360,7 +363,7 @@ unbox (TcClassT n@(Name spos _ _ _) _) =
 --unbox TcNullT = Nothing
 
 
-unboxType :: TcStateType -> Maybe (PrimType SourcePos)
+unboxType :: TcStateType -> Maybe (PrimType PA)
 unboxType sty | TcRefT (TcClsRefT ct) <- unStateType sty = unbox ct
 unboxType _ = Nothing
 
@@ -387,16 +390,16 @@ isIntConvertible sty =
 
 isBoolConvertible :: TcStateType -> Bool
 isBoolConvertible t = unStateType t == booleanT -- includes lock types
-                      || unboxType t == Just (BooleanT defaultPos)
+                      || unboxType t == Just UdBooleanT
 
 
-unaryNumPromote :: TcStateType -> Maybe (PrimType SourcePos)
+unaryNumPromote :: TcStateType -> Maybe (PrimType PA)
 unaryNumPromote sty
     | TcPrimT pt <- unStateType sty  = numPromote pt
     | Just    pt <- unboxType   sty  = numPromote pt
     | otherwise = Nothing
 
-    where numPromote :: PrimType SourcePos -> Maybe (PrimType SourcePos)
+    where numPromote :: PrimType PA -> Maybe (PrimType PA)
           numPromote pt
               | pt `elem` map ($ aOfPrimType pt) [LongT, FloatT, DoubleT] = Just pt
               | pt `elem` map ($ aOfPrimType pt) [ByteT, ShortT, IntT, CharT] = Just $ IntT (aOfPrimType pt)
@@ -405,7 +408,7 @@ unaryNumPromote sty
 unaryNumPromote_ :: TcStateType -> TcStateType
 unaryNumPromote_ = stateType . TcPrimT . fromJust . unaryNumPromote
 
-binaryNumPromote :: TcStateType -> TcStateType -> Maybe (PrimType SourcePos)
+binaryNumPromote :: TcStateType -> TcStateType -> Maybe (PrimType PA)
 binaryNumPromote t1 t2 = do
     pt1 <- unaryNumPromote t1
     pt2 <- unaryNumPromote t2
@@ -473,5 +476,3 @@ ppTypeParams tps = char '<'
 
 ppArgs :: Pretty a => [a] -> Doc
 ppArgs = parens . hsep . punctuate comma . map pretty
-
-

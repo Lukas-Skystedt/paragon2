@@ -20,7 +20,7 @@ module Language.Java.Paragon.PolicyLang.Policy (
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.TypeCheck.Types
 --import Language.Java.Paragon.Error()
---import Language.Java.Paragon.SourcePos
+import Language.Java.Paragon.Decorations.NoDecoration
 import Language.Java.Paragon.PolicyLang.Actors
 
 
@@ -217,7 +217,7 @@ instance Show (TcMetaVar a) where
 data TcClause a = TcClause a [TcAtom]
   deriving (Eq,Ord,Show,Data,Typeable)
 
-data TcAtom = TcAtom (Name SourcePos) [TcActor]
+data TcAtom = TcAtom (Name UD) [TcActor]
   deriving (Eq,Ord,Show,Data,Typeable)
 
 data TcActor = TcActor ActorId
@@ -301,7 +301,7 @@ instance Pretty a => Pretty (PolicyBounds a) where
   pretty (PolicyBounds p q) = pretty p <> char '/' <> pretty q
 -}
 {-
-mkSimpleLName :: Ident SourcePos -> Name SourcePos
+mkSimpleLName :: Ident UD -> Name UD
 mkSimpleLName i@(Ident sp _) = Name sp LName Nothing i
 
 --------------------------------------
@@ -562,7 +562,7 @@ specClause ls (TcClause h atoms) =
         cartesian [] = [[]]
         cartesian (xs:xss) = [ y:ys | y <- xs, ys <- cartesian xss ]
 
-matchesActor :: TcActor -> ActorId -> Maybe [(Ident SourcePos, TcActor)]
+matchesActor :: TcActor -> ActorId -> Maybe [(Ident UD, TcActor)]
 matchesActor (TcActor aid1) aid2 | aid1 == aid2 = Just []
 matchesActor (TcVar i) aid = Just [(i, TcActor aid)]
 matchesActor _ _ = Nothing
@@ -571,7 +571,7 @@ toConsistent :: Subst -> Maybe Subst
 toConsistent sub =
     let bndrs = groupBy (\a b -> fst a == fst b) sub
     in  sequence $ map checkConsistent bndrs
-        where checkConsistent :: Subst -> Maybe (Ident SourcePos, TcActor)
+        where checkConsistent :: Subst -> Maybe (Ident UD, TcActor)
               checkConsistent s = case nub s of
                                     [x] -> Just x
                                     _   -> Nothing

@@ -55,7 +55,7 @@ Library
   -- This list is outdated
   Exposed-modules:      Language.Java.Paragon.Parser
                       , Language.Java.Paragon.Pretty
-                      , Language.Java.Paragon.Syntax
+                      -- , Language.Java.Paragon.Syntax
                       , Language.Java.Paragon.SyntaxInstances
                       , Language.Java.Paragon.SourcePos
                       , Language.Java.Paragon.Lexer
@@ -83,7 +83,7 @@ Library
                       -- , Language.Java.Paragon.TypeCheck.TcExp
                       -- , Language.Java.Paragon.TypeCheck.TcStmt
                       -- , Language.Java.Paragon.TypeCheck.TypeMap
-                      -- , Language.Java.Paragon.TypeCheck.Types
+                      -- -- , Language.Java.Paragon.TypeCheck.Types
                       , Language.Java.Paragon.Compile
                       , Language.Java.Paragon.PiGeneration
                       , Language.Java.Paragon.Interaction
@@ -106,7 +106,7 @@ Executable parac
   -- This list is outdated
   Other-modules:        Language.Java.Paragon.Parser
                       , Language.Java.Paragon.Pretty
-                      , Language.Java.Paragon.Syntax
+                      -- , Language.Java.Paragon.Syntax
                       , Language.Java.Paragon.SyntaxInstances
                       , Language.Java.Paragon.SourcePos
                       , Language.Java.Paragon.Lexer
@@ -116,7 +116,7 @@ Executable parac
                       , Language.Java.Paragon.PolicyConstraintSolver
                       , Language.Java.Paragon.PolicyTypeEval
                       , Language.Java.Paragon.SyntaxTTG
-                      , Language.Java.Paragon.TypesTTG
+                      -- , Language.Java.Paragon.TypesTTG
                       , Language.Java.Paragon.Monad.Base
                       , Language.Java.Paragon.Monad.PiReader
                       , Language.Java.Paragon.Monad.Uniq
@@ -141,7 +141,7 @@ Executable parac
                       -- , Language.Java.Paragon.TypeCheck.TcExp
                       -- , Language.Java.Paragon.TypeCheck.TcStmt
                       -- , Language.Java.Paragon.TypeCheck.TypeMap
-                      -- , Language.Java.Paragon.TypeCheck.Types
+                      , Language.Java.Paragon.TypeCheck.Types
                       , Language.Java.Paragon.Compile
                       , Language.Java.Paragon.PiGeneration
                       , Language.Java.Paragon.Interaction

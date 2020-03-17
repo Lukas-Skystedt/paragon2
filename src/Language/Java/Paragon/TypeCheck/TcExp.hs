@@ -2,7 +2,7 @@
 -- | Module for typechecking expressions.
 module Language.Java.Paragon.TypeCheck.TcExp where
 
-import Language.Java.Paragon.Syntax
+import Language.Java.Paragon.SyntaxTTG
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.Error

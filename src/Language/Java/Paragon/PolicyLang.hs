@@ -34,7 +34,6 @@ module Language.Java.Paragon.PolicyLang
      thisP, substThis, includesThis, includesThisVP
     ) where
 
-import Language.Java.Paragon.SourcePos
 import Language.Java.Paragon.Error (Error)
 import Language.Java.Paragon.Syntax (Name)
 import Language.Java.Paragon.Pretty
@@ -62,16 +61,16 @@ type ActorPolicy
     = MetaPolicy
         MetaVarRep
         PolicyVarRep
-        (Name SourcePos)
+        (Name x)
         ActorSetRep
 
 type PrgPolicy
     = VarPolicy
         PolicyVarRep
-        (Name SourcePos)
+        (Name x)
         ActorSetRep
 
-type BasePolicy = Policy (Name SourcePos) ActorSetRep
+type BasePolicy = Policy (Name x) ActorSetRep
 
 thisP :: PrgPolicy
 thisP = PolicyVar ThisVar
@@ -98,22 +97,22 @@ substThis :: BasePolicy
           -> PrgPolicy
 substThis x = substVarPolicy ThisVar x
 
-type TcLock = LockSpec -- Lock (Name SourcePos) ActorIdSpec
-type TcLockSet = LockSet (Name SourcePos) TypedActorIdSpec
-type TcLockDelta = LockDelta (Name SourcePos) TypedActorIdSpec
+type TcLock = LockSpec -- Lock (Name x) ActorIdSpec
+type TcLockSet = LockSet (Name x) TypedActorIdSpec
+type TcLockDelta = LockDelta (Name x) TypedActorIdSpec
 
-type TcClause = Clause (Name SourcePos) ActorSetRep
+type TcClause = Clause (Name x) ActorSetRep
 
-type LockProp = DatalogClause (Name SourcePos) ActorSetRep
+type LockProp = DatalogClause (Name x) ActorSetRep
 
 type TcActor = ActorSetRep
 
-type TcAtom = Atom (Name SourcePos)
+type TcAtom = Atom (Name x)
 
-type GlobalPol = GlobalPolicy (Name SourcePos) ActorSetRep
+type GlobalPol = GlobalPolicy (Name x) ActorSetRep
 
 type TcConstraint =
-    Constraint MetaVarRep PolicyVarRep (Name SourcePos) ActorSetRep TypedActorIdSpec
+    Constraint MetaVarRep PolicyVarRep (Name x) ActorSetRep TypedActorIdSpec
 
 type ConstraintWMsg = (TcConstraint, Error)
 
