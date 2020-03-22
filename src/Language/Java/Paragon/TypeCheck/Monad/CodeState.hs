@@ -8,6 +8,7 @@ module Language.Java.Paragon.TypeCheck.Monad.CodeState
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Interaction
 
+import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.PolicyLang
 import Language.Java.Paragon.TypeCheck.Types
 import Language.Java.Paragon.TypeCheck.NullAnalysis

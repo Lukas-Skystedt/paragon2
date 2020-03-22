@@ -1,6 +1,6 @@
 module Language.Java.Paragon.TypeCheck (typeCheck, T) where
 
-import Language.Java.Paragon.Syntax
+import Language.Java.Paragon.SyntaxTTG
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.Error
@@ -45,13 +45,13 @@ typeCheck _ _ _ =
 -------------------------------------------------------------------------------------
 -- Here goes TcTypeDecl.hs
 
-typeCheckTd :: String -> Maybe (Name SourcePos) -> TypeCheck TcDeclM TypeDecl
+typeCheckTd :: String -> Maybe (Name PA) -> TypeCheck TcDeclM TypeDecl
 typeCheckTd baseName mpkg (ClassTypeDecl     _ cdecl)
     = ClassTypeDecl Nothing <$> typeCheckCd baseName mpkg cdecl
 typeCheckTd baseName mpkg (InterfaceTypeDecl _ idecl)
     = InterfaceTypeDecl Nothing <$> typeCheckId baseName mpkg idecl
 
-typeCheckId :: String -> Maybe (Name SourcePos) -> TypeCheck TcDeclM InterfaceDecl
+typeCheckId :: String -> Maybe (Name PA) -> TypeCheck TcDeclM InterfaceDecl
 typeCheckId baseName mpkg (InterfaceDecl sp _ms i tps supers (InterfaceBody _ memberDecls)) = do
   --debug "typeCheckId"
   withErrCtxt (FallbackContext ("When checking interface " ++ prettyPrint i)) $ do
@@ -76,7 +76,7 @@ typeCheckId baseName mpkg (InterfaceDecl sp _ms i tps supers (InterfaceBody _ me
             InterfaceBody Nothing <$>
               typeCheckMemberDecls staticWPol constrWPol memberDecls
 
-typeCheckCd :: String -> Maybe (Name SourcePos) -> TypeCheck TcDeclM ClassDecl
+typeCheckCd :: String -> Maybe (Name PA) -> TypeCheck TcDeclM ClassDecl
 typeCheckCd baseName mpkg (ClassDecl sp ms i tps mSuper _impls (ClassBody _ decls)) = do
   --debug "typeCheckCd"
   withErrCtxt (ClassContext (prettyPrint i)) $ do
@@ -121,15 +121,15 @@ typeCheckCd baseName mpkg (ClassDecl sp ms i tps mSuper _impls (ClassBody _ decl
 typeCheckCd _ _ _ = panic (typeCheckerBase ++ ".typeCheckCd")
                   "Enum decls not yet supported"
 
-objectType :: ClassType SourcePos
+objectType :: ClassType PA
 objectType = ClassType defaultPos
               (mkName_ TName PName $
                map (Ident defaultPos . B.pack) ["java","lang","Object"]) []
 
-registerThisType :: Maybe (Name SourcePos)
-                 -> Ident SourcePos
-                 -> [TypeParam SourcePos]
-                 -> [ClassType SourcePos]
+registerThisType :: Maybe (Name PA)
+                 -> Ident PA
+                 -> [TypeParam PA]
+                 -> [ClassType PA]
                  -> TcDeclM ()
 registerThisType pkgPre i tps supers = do
     cTys   <- mapM (evalSrcClsType genBot) supers
@@ -154,8 +154,8 @@ registerThisType pkgPre i tps supers = do
          extendGlobalTypeMap (extendTypeMapT fullN tps [] thisSig)
 
 
-registerThisTypeSigs :: Maybe (Name SourcePos) -> Ident SourcePos
-                     -> [TypeParam SourcePos] -> [ClassType SourcePos] -> TcDeclM ()
+registerThisTypeSigs :: Maybe (Name PA) -> Ident PA
+                     -> [TypeParam PA] -> [ClassType PA] -> TcDeclM ()
 registerThisTypeSigs pkgPre i tps supers = do
   cTys   <- mapM (evalSrcClsType genBot) supers
   baseTm <- getTypeMap
@@ -186,7 +186,7 @@ registerThisTypeSigs pkgPre i tps supers = do
 -- TODO: We may have a problem with boot-strapping here.
 -- We can stay clear of the problem for now, using careful
 -- Paragon coding, but we need to think about it and fix it eventually.
-typeCheckActorFields :: [MemberDecl SourcePos] -> TcDeclM a -> TcDeclM a
+typeCheckActorFields :: [MemberDecl PA] -> TcDeclM a -> TcDeclM a
 typeCheckActorFields mDecls tcba = do
     --debug "fetchActors"
     let acts = [ (ms, rt, vd)
@@ -205,7 +205,7 @@ typeCheckActorFields mDecls tcba = do
         debugPrint "fetchActors complete"
         tcba
 
-            where evalActorVd :: ([Modifier SourcePos], RefType SourcePos, VarDecl SourcePos)
+            where evalActorVd :: ([Modifier PA], RefType PA, VarDecl PA)
                       -> TcDeclM a -> TcDeclM a
 
 {-                  -- All non-final OR non-static
@@ -262,10 +262,10 @@ typeCheckActorFields mDecls tcba = do
 ---------------------------------------------------------------
 -- Policies, typemethods and locks
 
-typeCheckTMPolLocks :: [MemberDecl SourcePos] -> TcDeclM a -> TcDeclM a
+typeCheckTMPolLocks :: [MemberDecl PA] -> TcDeclM a -> TcDeclM a
 typeCheckTMPolLocks = withFoldMap typeCheckTMPolLock
 
-typeCheckTMPolLock :: MemberDecl SourcePos -> TcDeclM a -> TcDeclM a
+typeCheckTMPolLock :: MemberDecl PA -> TcDeclM a -> TcDeclM a
 typeCheckTMPolLock md@LockDecl{} tcba = typeCheckLockDecl md tcba
 typeCheckTMPolLock md@(MethodDecl _ ms _ _ _ _ _ _) tcba
                    | Typemethod defaultPos `elem` ms = typeCheckTMSig md $ do
@@ -284,7 +284,7 @@ typeCheckLockDecls mds tcba = do
   let ls = [ ld | ld@ LockDecl {} <- mds ]
   withFoldMap typeCheckLockDecl ls $ tcba
 -}
-typeCheckLockDecl :: MemberDecl SourcePos -> TcDeclM a -> TcDeclM a
+typeCheckLockDecl :: MemberDecl PA -> TcDeclM a -> TcDeclM a
 typeCheckLockDecl (LockDecl _ ms i rts mProps) tcba = do
   lsig <- withErrCtxt (LockSignatureContext (prettyPrint i)) $ do
     let rPolExps = [ e | Reads _ e <- ms ]
@@ -318,7 +318,7 @@ typeCheckTypeMethods mds tcba = do
       tcba
 -}
 -- Precondition: only applied on actual typemethods
-typeCheckTMSig :: MemberDecl SourcePos -> TcDeclM a -> TcDeclM a
+typeCheckTMSig :: MemberDecl PA -> TcDeclM a -> TcDeclM a
 typeCheckTMSig (MethodDecl _ ms tps retT i ps exns _) tcba = do
   newMethMap <- withErrCtxt (FallbackContext ("When checking signature of typemethod "
                                ++ prettyPrint i)) $ do
@@ -363,7 +363,7 @@ typeCheckTMSig (MethodDecl _ ms tps retT i ps exns _) tcba = do
 typeCheckTMSig md _ = panic (typeCheckerBase ++ ".typeCheckTMSig") $
                       "Applied to non-method decl " ++ show md
 
-addTMBody :: MemberDecl SourcePos -> TcDeclM a -> TcDeclM a
+addTMBody :: MemberDecl PA -> TcDeclM a -> TcDeclM a
 addTMBody (MethodDecl _ _ _ _ i ps _ (MethodBody _ (Just bl))) =
     let pis = [ unIdent iP | FormalParam _ _ _ _ (VarId _ iP) <- ps ]
     in withCurrentTypeMap $ \tm -> return $ tm { typemethods = Map.insert (unIdent i) (pis,bl) (typemethods tm) }
@@ -383,7 +383,7 @@ typeCheckPolicyFields mds =
     withFoldMap typeCheckPolicyField pfs
 -}
 -- Precondition: only apply on policies
-typeCheckPolicyField :: MemberDecl SourcePos -> TcDeclM a -> TcDeclM a
+typeCheckPolicyField :: MemberDecl PA -> TcDeclM a -> TcDeclM a
 typeCheckPolicyField fd@(FieldDecl _ ms t vds) tcba = do
   --debug "typeCheckPolicyField"
   -- 0. Flatten
@@ -419,7 +419,7 @@ typeCheckPolicyField fd@(FieldDecl _ ms t vds) tcba = do
       tcba
 
           where
-            addField :: VarFieldSig -> Ident SourcePos -> TcDeclM a -> TcDeclM a
+            addField :: VarFieldSig -> Ident PA -> TcDeclM a -> TcDeclM a
             addField vti i =
                     withCurrentTypeMap $ \tm ->
                       let Ident sp iName = i
@@ -431,7 +431,7 @@ typeCheckPolicyField fd@(FieldDecl _ ms t vds) tcba = do
 typeCheckPolicyField fd _ = panic (typeCheckerBase ++ ".typeCheckPolicyField") $
                            "Applied to non-policy decl " ++ show fd
 
-evalAddPolicyInit :: CodeState -> (Ident SourcePos, VarInit SourcePos) -> TcDeclM a -> TcDeclM a
+evalAddPolicyInit :: CodeState -> (Ident PA, VarInit PA) -> TcDeclM a -> TcDeclM a
 evalAddPolicyInit st (i, InitExp _ eInit) tcba = do
   --debug $ "evalAddInit: " ++ show i
   tp <- PL.topM
@@ -450,7 +450,7 @@ evalAddPolicyInit _ (i, arrInit) _ =
 ------------------------------------------------------------------------------
 -- Signatures
 
-typeCheckSignatures :: [MemberDecl SourcePos] -> (ActorPolicy -> TcDeclM a) -> TcDeclM a
+typeCheckSignatures :: [MemberDecl PA] -> (ActorPolicy -> TcDeclM a) -> TcDeclM a
 typeCheckSignatures mds tcbaf = do
   debugPrint "Entering typeCheckSignatures..."
   st <- setupStartState
@@ -465,7 +465,7 @@ getConstrPol = do
   bt <- PL.bottomM
   foldM PL.lub bt wPols
 
-typeCheckSignature :: CodeState -> MemberDecl SourcePos -> TcDeclM a -> TcDeclM a
+typeCheckSignature :: CodeState -> MemberDecl PA -> TcDeclM a -> TcDeclM a
 -- Fields
 typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba
     | t /= PrimType defaultPos (PolicyT defaultPos) = do
@@ -503,7 +503,7 @@ typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba
   withFoldMap (addField vti) vds
     tcba
 
-        where addField :: VarFieldSig -> VarDecl SourcePos -> TcDeclM a -> TcDeclM a
+        where addField :: VarFieldSig -> VarDecl PA -> TcDeclM a -> TcDeclM a
               addField vti (VarDecl sp (VarId _ i) _) =
                   withCurrentTypeMap $ \tm ->
                     let iName = unIdent i
@@ -652,7 +652,7 @@ typeCheckSignature st (ConstructorDecl sp ms tps i ps exns _mb) tcba = do
 
 typeCheckSignature _ _ tcba = tcba
 
-withParam ::  (FormalParam SourcePos, TcType, PL.PrgPolicy) -> TcDeclM a -> TcDeclM a
+withParam ::  (FormalParam PA, TcType, PL.PrgPolicy) -> TcDeclM a -> TcDeclM a
 withParam (FormalParam _ ms _ _ (VarId _ i), ty, p) = do
     let vsig = VSig ty (PL.VarPolicy p) True (Static defaultPos `elem` ms) (Final defaultPos `elem` ms) (Notnull defaultPos `elem` ms)
     withCurrentTypeMap $ \tm -> return $ tm { fields = Map.insert (unIdent i) vsig (fields tm) }
@@ -661,7 +661,7 @@ withParam (FormalParam _ _ _ _ arvid, _, _) =
     fail $ "Deprecated array syntax not supported: " ++ prettyPrint arvid
 
 
-typeCheckExnSig :: CodeState -> ExceptionSpec SourcePos -> TcDeclM (TcType, ExnSig)
+typeCheckExnSig :: CodeState -> ExceptionSpec PA -> TcDeclM (TcType, ExnSig)
 typeCheckExnSig st (ExceptionSpec _ ms xT) = do
   withErrCtxt (FallbackContext ("When checking signature for declared exception " ++ prettyPrint xT)) $ do
     ty <- TcRefT <$> evalSrcRefType genBot xT
@@ -682,7 +682,7 @@ typeCheckExnSig st (ExceptionSpec _ ms xT) = do
              }
     return (ty, xSig)
 
-checkPolicyMods :: CodeState -> [Modifier SourcePos] -> String -> TcDeclM ()
+checkPolicyMods :: CodeState -> [Modifier PA] -> String -> TcDeclM ()
 checkPolicyMods st ms failStr = do
   --debug $ "checkPolicyMods: " ++ show ms
   let rPolExps = [ e | Reads  _ e <- ms ]
@@ -690,7 +690,7 @@ checkPolicyMods st ms failStr = do
   check (length rPolExps <= 1 && length wPolExps <= 1) $ toUndef failStr
   mapM_ (typeCheckPolicyMod st) $ rPolExps ++ wPolExps
 
-checkLMMods :: [Modifier SourcePos] -> TcDeclM PL.TcLockDelta
+checkLMMods :: [Modifier PA] -> TcDeclM PL.TcLockDelta
 checkLMMods ms = do
   let cs = concat [ l | Closes _ l <- ms ]
       os = concat [ l | Opens  _ l <- ms ]
@@ -698,12 +698,12 @@ checkLMMods ms = do
   tcOs <- map PL.skolemizeLock <$> mapM evalLock os
   return $ PL.LockDelta tcOs tcCs
 
-checkExpectsMods :: [Modifier SourcePos] -> TcDeclM [PL.TcLock]
+checkExpectsMods :: [Modifier PA] -> TcDeclM [PL.TcLock]
 checkExpectsMods ms = do
   let es = concat [ l | Expects _ l <- ms ]
   mapM evalLock es
 
-typeCheckParam :: CodeState -> FormalParam SourcePos -> TcDeclM (TcType, B.ByteString, PL.PrgPolicy, Maybe B.ByteString)
+typeCheckParam :: CodeState -> FormalParam PA -> TcDeclM (TcType, B.ByteString, PL.PrgPolicy, Maybe B.ByteString)
 typeCheckParam st (FormalParam _ ms t ell (VarId _ i)) = do
   withErrCtxt ( FallbackContext ("When checking signature of parameter " ++ prettyPrint i)) $ do
     -- 1. Check parameter type
@@ -718,7 +718,7 @@ typeCheckParam st (FormalParam _ ms t ell (VarId _ i)) = do
 typeCheckParam _ (FormalParam _ _ _ _ arvid) =
     fail $ "Deprecated array syntax not supported: " ++ prettyPrint arvid
 
-typeCheckPolicyMod :: CodeState -> Policy SourcePos -> TcDeclM (Policy T)
+typeCheckPolicyMod :: CodeState -> Policy PA -> TcDeclM (Policy T)
 typeCheckPolicyMod st polExp = do
   -- tm <- getTypeMap
   -- debug $ show tm
@@ -739,21 +739,21 @@ typeCheckPolicyMod st polExp = do
 -- Initializers
 
 -- Precondition: Only init decls
-typeCheckInitDecls :: ActorPolicy -> ActorPolicy -> [Decl SourcePos] -> TcDeclM [Decl T]
+typeCheckInitDecls :: ActorPolicy -> ActorPolicy -> [Decl PA] -> TcDeclM [Decl T]
 typeCheckInitDecls sLim cLim is = do
   stSt <- setupStartState
   (sIs, st) <- go (typeCheckInitDecl sLim) stSt [] [ bl | InitDecl _ True  bl <- is ]
   (iIs, _ ) <- go (typeCheckInitDecl cLim) st   [] [ bl | InitDecl _ False bl <- is ]
   return (map (InitDecl Nothing True) sIs ++ map (InitDecl Nothing False) iIs)
 
-      where go :: (CodeState -> Block SourcePos -> TcDeclM (CodeState, Block T))
-               -> CodeState -> [Block T] -> [Block SourcePos] -> TcDeclM ([Block T], CodeState)
+      where go :: (CodeState -> Block PA -> TcDeclM (CodeState, Block T))
+               -> CodeState -> [Block T] -> [Block PA] -> TcDeclM ([Block T], CodeState)
             go _ st acc [] = return (reverse acc, st)
             go f st acc (bl:bls) = do (st', blT) <- f st bl
                                       go f st' (blT:acc) bls
 
 
-typeCheckInitDecl :: ActorPolicy -> CodeState -> Block SourcePos -> TcDeclM (CodeState, Block T)
+typeCheckInitDecl :: ActorPolicy -> CodeState -> Block PA -> TcDeclM (CodeState, Block T)
 typeCheckInitDecl lim st bl = do
     tm <- getTypeMap
     (newSB,cs) <- runTcCodeM (simpleEnv lim False "initializer block" False) st $
@@ -769,7 +769,7 @@ typeCheckInitDecl lim st bl = do
 
 typeCheckMemberDecls :: ActorPolicy
                      -> ActorPolicy
-                     -> [MemberDecl SourcePos] -> TcDeclM [MemberDecl T]
+                     -> [MemberDecl PA] -> TcDeclM [MemberDecl T]
 typeCheckMemberDecls sLim cLim ms = do
   st <- setupStartState
   mapM (typeCheckMemberDecl sLim cLim st) ms
@@ -996,7 +996,7 @@ unknownIfActor (i, ty)
     | otherwise = return []
 -}
 {-
-ofPol :: Ident SourcePos -> ActorPolicy
+ofPol :: Ident PA -> ActorPolicy
 ofPol = PL.VarPolicy . TcRigidVar True . unIdent
 -}
 
@@ -1038,7 +1038,7 @@ tcConstrBody (ConstructorBody _ mEci stmts) = do
 {------------------------------------------
 -- The stuff down here should likely live somewhere else
 
-skolemTypeDecl :: TypeDecl SourcePos -> (TypeDecl SourcePos, TcClassType)
+skolemTypeDecl :: TypeDecl PA -> (TypeDecl PA, TcClassType)
 skolemTypeDecl td =
     case td of
       ClassTypeDecl sp (ClassDecl csp ms i tps sup impl cb) ->
@@ -1056,12 +1056,12 @@ skolemTypeDecl td =
 
 
 
-skolemType :: Ident SourcePos -> [TypeParam SourcePos] -> (TcClassType, [(TypeParam SourcePos, TcTypeArg)])
+skolemType :: Ident PA -> [TypeParam PA] -> (TcClassType, [(TypeParam PA, TcTypeArg)])
 skolemType i tps =
     let args = map skolemParam tps
     in (TcClassT (mkSimpleName TName i) args, zip tps args)
 
-skolemParam :: TypeParam SourcePos -> TcTypeArg
+skolemParam :: TypeParam PA -> TcTypeArg
 skolemParam tp = case tp of
                    TypeParam _ i _    ->
                        TcActualType (TcClsRefT (TcClassT (mkSimpleName TName i) []))
@@ -1071,7 +1071,7 @@ skolemParam tp = case tp of
 
 -}
 
-isPolicyMod, isLockStateMod :: Modifier SourcePos -> Bool
+isPolicyMod, isLockStateMod :: Modifier PA -> Bool
 isPolicyMod m =
     case m of
       Reads _ _ -> True
@@ -1095,7 +1095,7 @@ solve cs = do
   finePrint "... Done!"
 
 -- | Checks for redeclaration of parameters
-checkParams :: [FormalParam SourcePos] -> TcDeclM ()
+checkParams :: [FormalParam PA] -> TcDeclM ()
 checkParams ps = do
   (foldM_ (\argSet param ->
           let parIdStr = unIdent $ getFormalParamId param

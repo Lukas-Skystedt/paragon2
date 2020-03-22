@@ -74,6 +74,7 @@ import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos
 
+import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.TypeCheck.Monad.TcDeclM
 import Language.Java.Paragon.TypeCheck.Monad.TcCodeM
 
@@ -147,7 +148,7 @@ extendVarEnv i vti = withEnv $ \env -> do
     then return $ env { vars = Map.insert i vti oldVmap : oldVmaps }
     else failE $ mkErrorFromInfo $ VariableAlreadyDefined (B.unpack i)
 
-lookupActorName :: ActorName SourcePos -> TcCodeM (TcStateType, ActorPolicy)
+lookupActorName :: ActorName PA -> TcCodeM (TcStateType, ActorPolicy)
 lookupActorName (ActorName _ nam@(Name _ nt mPre i))
     | nt == EName =
         do (ty, pol, _, _) <- lookupVar mPre i
@@ -161,7 +162,7 @@ lookupActorName (ActorTypeVar _ _rt i) = do
 lookupActorName n = panic (monadModule ++ ".lookupActorName")
                     $ "Unexpected AntiQName: " ++ show n
 
-type Sig = ([TypeParam SourcePos], [B.ByteString], [TcType], Bool)
+type Sig = ([TypeParam PA], [B.ByteString], [TcType], Bool)
 type APPairs = [(ActorPolicy, ActorPolicy)]
 
 instance Pretty Sig where
@@ -169,7 +170,7 @@ instance Pretty Sig where
 
 
 findBestMethod
-    :: [TypeArgument SourcePos]
+    :: [TypeArgument PA]
     -> [TcType]
     -> [ActorPolicy]
     -> [Sig]  -- Works for both methods and constrs
@@ -202,13 +203,13 @@ findBestMethod tArgs argTys argPs candidates = do
                   return ps
            else return Nothing
 
-        checkArgs :: [TypeParam SourcePos] -> [TypeArgument SourcePos] -> TcCodeM Bool
+        checkArgs :: [TypeParam PA] -> [TypeArgument PA] -> TcCodeM Bool
         checkArgs [] [] = return True
         checkArgs (tp:tps) (ta:tas) = (&&) <$> checkArg tp ta <*> checkArgs tps tas
         checkArgs _ _ = return False
 
         -- this needs to be done in TcCodeM, to account for local variables.
-        checkArg :: TypeParam SourcePos -> TypeArgument SourcePos -> TcCodeM Bool
+        checkArg :: TypeParam PA -> TypeArgument PA -> TcCodeM Bool
         checkArg tp ta = isRight <$> tryM (evalSrcTypeArg genBot tp ta)
 
         checkTys :: Bool -> [TcType] -> [TcType] -> TcCodeM (Maybe APPairs)
@@ -261,12 +262,12 @@ findBestMethod tArgs argTys argPs candidates = do
         isRight _ = False
 
 -- | Lookup the signature of a method, and the policy of its access path.
-lookupMethod :: Maybe (Name SourcePos)    -- Access path
-             -> Ident SourcePos           -- Method name
-             -> [TypeArgument SourcePos]  -- Type arguments
+lookupMethod :: Maybe (Name PA)    -- Access path
+             -> Ident PA           -- Method name
+             -> [TypeArgument PA]  -- Type arguments
              -> [TcType]           -- Argument types
              -> [ActorPolicy]      -- Argument policies
-             -> TcCodeM (ActorPolicy, [TypeParam SourcePos], MethodSig)
+             -> TcCodeM (ActorPolicy, [TypeParam PA], MethodSig)
 lookupMethod mPre i tArgs argTys argPs = do
   --debugPrint $ "lookupMethod: " ++ show (mPre, i, argTys)
   baseTm <- getTypeMap
@@ -330,8 +331,8 @@ lookupMethod mPre i tArgs argTys argPs = do
 
 -- | Lookup the signature of a lock -- note that all locks are static,
 --   so the policy of the access path is irrelevant.
-lookupLock :: Maybe (Name SourcePos) -- Access path
-           -> Ident SourcePos        -- Name of lock
+lookupLock :: Maybe (Name PA) -- Access path
+           -> Ident PA        -- Name of lock
            -> TcCodeM LockSig
 lookupLock mPre i@(Ident sp _) = do
   baseTm <- getTypeMap
@@ -345,7 +346,7 @@ lookupLock mPre i@(Ident sp _) = do
     Nothing -> do
       fail $ "Lock " ++ prettyPrint (Name sp LName mPre i) ++ " not in scope"
 
-lookupFieldT :: TcStateType -> Ident SourcePos -> TcCodeM VarFieldSig
+lookupFieldT :: TcStateType -> Ident PA -> TcCodeM VarFieldSig
 lookupFieldT typ i = do
   check (isRefType typ) $ toUndef ("Not a reference type: " ++ prettyPrint typ)
   aSig <- lookupTypeOfStateType typ
@@ -355,11 +356,11 @@ lookupFieldT typ i = do
                       ++ " does not have a field named " ++ prettyPrint i
 
 lookupMethodT :: TcStateType
-              -> Ident SourcePos
-              -> [TypeArgument SourcePos]
+              -> Ident PA
+              -> [TypeArgument PA]
               -> [TcType]
               -> [ActorPolicy]
-              -> TcCodeM ([TypeParam SourcePos], MethodSig)
+              -> TcCodeM ([TypeParam PA], MethodSig)
 lookupMethodT typ i tArgs argTys argPs = do
   check (isRefType typ) $ toUndef $ "Not a reference type: " ++ prettyPrint typ
   aSig <- lookupTypeOfStateType typ
@@ -401,11 +402,11 @@ lookupMethodT typ i tArgs argTys argPs = do
                         return (tps, msig)
 
 lookupConstr :: TcClassType
-             -> [TypeArgument SourcePos]
+             -> [TypeArgument PA]
              -> ActorPolicy -- policyof(this), i.e. the result
              -> [TcType]
              -> [ActorPolicy]
-             -> TcCodeM ([TypeParam SourcePos], [(RefType SourcePos, B.ByteString)], ConstrSig)
+             -> TcCodeM ([TypeParam PA], [(RefType PA, B.ByteString)], ConstrSig)
 lookupConstr ctyp tArgs pThis argTys argPs = do
   --debugPrint $ "\n\n######## Looking up constructor! ######## \n"
   let typ = clsTypeToType ctyp
@@ -587,7 +588,7 @@ updateStateType _mN _mTyO _ty sty = return sty -- BOGUS!!!
 
 -- Instance Analysis
 
-getInstanceActors :: Maybe (Name SourcePos) -> TcClassType -> TcCodeM [ActorId]
+getInstanceActors :: Maybe (Name PA) -> TcClassType -> TcCodeM [ActorId]
 getInstanceActors mn ct@(TcClassT tyN _) = do
   instanceMap <- instanceSt <$> getState
   case maybe Nothing (\n -> Map.lookup n instanceMap) mn of
@@ -598,7 +599,7 @@ getInstanceActors mn ct@(TcClassT tyN _) = do
 
 -- Policy Analysis
 
-getPolicyBounds :: Maybe (Name SourcePos) -> Maybe TcStateType -> TcCodeM ActorPolicyBounds
+getPolicyBounds :: Maybe (Name PA) -> Maybe TcStateType -> TcCodeM ActorPolicyBounds
 getPolicyBounds mn mtyO = do
   policyMap <- policySt <$> getState
   case maybe Nothing (\n -> Map.lookup n policyMap) mn of
@@ -613,7 +614,7 @@ getPolicyBounds mn mtyO = do
 
 -- Actor Analysis
 
-getActorId :: Maybe (Name SourcePos) -> Maybe TcStateType -> TcCodeM ActorId
+getActorId :: Maybe (Name PA) -> Maybe TcStateType -> TcCodeM ActorId
 getActorId mn mtyO = do
   actorMap <- actorSt <$> getState
   case maybe Nothing (\n -> Map.lookup n actorMap) mn of
@@ -626,27 +627,27 @@ getActorId mn mtyO = do
                  _ -> liftTcDeclM $ unknownActorId
     Just ai -> return $ aID ai
 
-setActorId :: Name SourcePos -> ActorId -> TcCodeM ()
+setActorId :: Name PA -> ActorId -> TcCodeM ()
 setActorId n aid = updateState setAct
   where setAct :: CodeState -> CodeState
         setAct s@(CodeState { actorSt = actMap }) = s { actorSt = Map.adjust replId n actMap }
         replId (AI _ st) = AI aid st
 
 
-newActorIdWith :: Ident SourcePos -> ActorId -> TcCodeM ()
+newActorIdWith :: Ident PA -> ActorId -> TcCodeM ()
 newActorIdWith i aid = do
   updateState insertAct
       where insertAct :: CodeState -> CodeState
             insertAct s@(CodeState { actorSt = actMap }) =
                 s { actorSt = Map.insert (mkSimpleName EName i) (AI aid Stable) actMap }
 
-newActorId :: Ident SourcePos -> TcCodeM ActorId
+newActorId :: Ident PA -> TcCodeM ActorId
 newActorId i = do
   aid <- liftTcDeclM $ freshActorId (prettyPrint i)
   newActorIdWith i aid
   return aid
 
-newUnknownId :: Ident SourcePos -> TcCodeM ActorId
+newUnknownId :: Ident PA -> TcCodeM ActorId
 newUnknownId i = do
   aid <- liftTcDeclM unknownActorId
   newActorIdWith i aid
@@ -868,7 +869,7 @@ scramble = transformBi scr
 -- 'scrambleT' should be called when a field is
 -- updated, and will remove everything that could
 -- be an update-through-alias of that field.
-scrambleT :: TcRefType -> Ident SourcePos -> Bool -> TcCodeM ()
+scrambleT :: TcRefType -> Ident PA -> Bool -> TcCodeM ()
 scrambleT rtyO iF fresh = setState =<< transformBiM scr =<< getState -- "updateStateM"
   where scr :: InstanceInfo -> TcCodeM InstanceInfo
         scr isig = do
@@ -890,13 +891,13 @@ deleteIf :: Ord k => (k -> v -> Bool) -> Map k v -> Map k v
 deleteIf test = snd . Map.partitionWithKey test
 
 
-varUpdatedNN :: Name SourcePos -> Maybe (Name SourcePos) -> Ident SourcePos -> TcCodeM ()
+varUpdatedNN :: Name PA -> Maybe (Name PA) -> Ident PA -> TcCodeM ()
 varUpdatedNN n mPre i = do
   (ty, _, _, _) <- lookupVar mPre i
   _ <- updateStateType (Just (n, True)) (unStateType ty) (Just $ setNullInStateType ty (NotNull, Committed))
   return ()
 
-isNullChecked :: Exp SourcePos -> TcCodeM ()
+isNullChecked :: Exp PA -> TcCodeM ()
 isNullChecked ( BinOp _ (ExpName _ n@(Name _ EName mPre i)) (Equal _) (Lit _ (Null _)) ) =
     varUpdatedNN n mPre i
 isNullChecked ( BinOp _ (Lit _ (Null _)) (Equal _) (ExpName _ n@(Name _ EName mPre i)) ) =
@@ -904,7 +905,7 @@ isNullChecked ( BinOp _ (Lit _ (Null _)) (Equal _) (ExpName _ n@(Name _ EName mP
 isNullChecked _ = return ()
 
 
-isNotNullChecked :: Exp SourcePos -> TcCodeM ()
+isNotNullChecked :: Exp PA -> TcCodeM ()
 isNotNullChecked ( BinOp _ (ExpName _ n@(Name _ EName mPre i)) (NotEq _) (Lit _ (Null _)) ) =
     varUpdatedNN n mPre i
 isNotNullChecked ( BinOp _ (Lit _ (Null _)) (NotEq _) (ExpName _ n@(Name _ EName mPre i)) ) =

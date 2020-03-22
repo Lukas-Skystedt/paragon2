@@ -3,12 +3,13 @@ module Language.Java.Paragon.TypeCheck.Interpreter where
 
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.Error
-import Language.Java.Paragon.Syntax
+import Language.Java.Paragon.SyntaxTTG
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.SourcePos
 
 import qualified Language.Java.Paragon.PolicyLang as PL
 
+import Language.Java.Paragon.Decorations.PaDecoration
 import {-# SOURCE #-} Language.Java.Paragon.TypeCheck.Monad.TcDeclM
 import Language.Java.Paragon.TypeCheck.TypeMap
 import Language.Java.Paragon.TypeCheck.Types
@@ -24,7 +25,7 @@ import qualified Control.Monad.Fail as Fail
 interpretModule :: String
 interpretModule = typeCheckerBase ++ ".Interpreter"
 
-data Value = VLit (Literal SourcePos)
+data Value = VLit (Literal PA)
            | VPol PL.PrgPolicy
            | VAct PL.TypedActorIdSpec
            | VArr [Value]
@@ -36,10 +37,10 @@ data Value = VLit (Literal SourcePos)
 data InterpretM a
     = ReturnM a
     | MethodReturn Value
-    | GetVariable (Name  SourcePos) (Value -> InterpretM a)
-    | SetVariable (Ident SourcePos) Value (InterpretM a)
-    | CallMethod (Name SourcePos) [Value] (Value -> InterpretM a)
-    | EvalType (RefType SourcePos) (TcRefType -> InterpretM a)
+    | GetVariable (Name  PA) (Value -> InterpretM a)
+    | SetVariable (Ident PA) Value (InterpretM a)
+    | CallMethod (Name PA) [Value] (Value -> InterpretM a)
+    | EvalType (RefType PA) (TcRefType -> InterpretM a)
     | SubTypeOf TcRefType TcRefType (Bool -> InterpretM a)
   deriving Functor
 
@@ -82,27 +83,27 @@ instance HasSubTyping InterpretM where
 -- Dummy implementation, for now
 --lookupVarC :: Name SourcePos -> TcCodeM Value
 --lookupVarC n = liftTcDeclM $ lookupFieldD n
-type VMap = Map (Ident SourcePos) Value
+type VMap = Map (Ident PA) Value
 
 interpretPolicy :: forall m . (EvalPolicyM m) =>
-                   (Name SourcePos -> m Value) -> Exp SourcePos -> m PL.PrgPolicy
+                   (Name PA -> m Value) -> Exp PA -> m PL.PrgPolicy
 interpretPolicy lokup e = do
   VPol p <- runInterpretM lokup $ iExp e
   return p
 
 interpretTypeMethod :: forall m . (EvalPolicyM m) =>
-                       (Name SourcePos -> m Value) -> MethodInvocation SourcePos -> m PL.PrgPolicy
+                       (Name PA -> m Value) -> MethodInvocation PA -> m PL.PrgPolicy
 interpretTypeMethod lokup mi = do
   VPol p <- runInterpretM lokup $ iMethodInv mi
   return p
 
 interpretActorId :: forall m . (EvalPolicyM m) =>
-                   (Name SourcePos -> m Value) -> Name SourcePos -> m PL.TypedActorIdSpec
+                   (Name PA -> m Value) -> Name PA -> m PL.TypedActorIdSpec
 interpretActorId lokup n@(Name spos _ _ _) =
   runInterpretM lokup $ iActorName (ActorName spos n)
 
 interpretActor :: forall m . (EvalPolicyM m) =>
-                  (Name SourcePos -> m Value) -> [(Ident SourcePos, TcRefType)] -> Actor SourcePos -> m PL.ActorSetRep
+                  (Name PA -> m Value) -> [(Ident PA, TcRefType)] -> Actor PA -> m PL.ActorSetRep
 interpretActor lokup tys act =
   runInterpretM lokup $ iActor tys act -- TODO: Where is this ever used?
 
@@ -111,7 +112,7 @@ interpretActor lokup tys act =
 
 
 runInterpretM :: forall m . (EvalPolicyM m) =>
-                 (Name SourcePos -> m Value) -> (forall a . InterpretM a -> m a)
+                 (Name PA -> m Value) -> (forall a . InterpretM a -> m a)
 runInterpretM lokup = runReturnIM Map.empty
   where
     runIM :: (VMap -> InterpretM a -> m b) -> VMap -> InterpretM a -> m b
@@ -159,10 +160,10 @@ runInterpretM lokup = runReturnIM Map.empty
     runReturnIM _ (ReturnM v) = return v
     runReturnIM vm im = runIM runReturnIM vm im
 
-getVar :: Name SourcePos -> InterpretM Value
+getVar :: Name PA -> InterpretM Value
 getVar n = GetVariable n ReturnM
 
-setVar :: Ident SourcePos -> Value -> InterpretM SourcePos
+setVar :: Ident PA -> Value -> InterpretM SourcePos
 setVar i@(Ident spos _) v = SetVariable i v (ReturnM spos)
 
 getReturnedValue :: InterpretM a -> InterpretM Value
@@ -175,30 +176,30 @@ getReturnedValue im = panic (interpretModule ++ ".getReturnedValue")
 -- The interpreter --
 ---------------------
 
-iBlock :: Block SourcePos -> InterpretM ()
+iBlock :: Block PA -> InterpretM ()
 iBlock (Block _ bstmts) = mapM_ iBlockStmt bstmts
 
-iBlockStmt :: BlockStmt SourcePos -> InterpretM ()
+iBlockStmt :: BlockStmt PA -> InterpretM ()
 iBlockStmt (BlockStmt _ stmt) = iStmt stmt
 iBlockStmt (LocalVars _ _ ty vds) = mapM_ (iVarDecl ty) vds
 
-iVarDecl :: Type SourcePos -> VarDecl SourcePos -> InterpretM SourcePos
+iVarDecl :: Type PA -> VarDecl PA -> InterpretM SourcePos
 iVarDecl (PrimType _ pt) (VarDecl _ (VarId _ i) mInit) = do
   val <- case mInit of
            Nothing -> defaultVal pt
            Just init_ -> iVarInit init_
   setVar i val
 
-    where defaultVal :: PrimType SourcePos -> InterpretM Value
+    where defaultVal :: PrimType PA -> InterpretM Value
           defaultVal (BooleanT spos) = return $ VLit $ Boolean spos False
           defaultVal (IntT     spos) = return $ VLit $ Int spos 0
           defaultVal _ = fail "defaultVal: Unsupported uninitialized variable"
 
-iVarInit :: VarInit SourcePos -> InterpretM Value
+iVarInit :: VarInit PA -> InterpretM Value
 iVarInit (InitExp _ init_) = iExp init_
 iVarInit (InitArray _ (ArrayInit _ vinits)) = VArr <$> mapM iVarInit vinits
 
-iStmt :: Stmt SourcePos -> InterpretM ()
+iStmt :: Stmt PA -> InterpretM ()
 iStmt s =
     case s of
       IfThen _ c stmt -> do
@@ -222,13 +223,13 @@ iStmt s =
       _ -> panic (interpretModule ++ ".iStmt")
            "Unsupported statement in typemethod"
 
-iBool :: Exp SourcePos -> InterpretM Bool
+iBool :: Exp PA -> InterpretM Bool
 iBool e = do
   VLit (Boolean _ b) <- iExp e
   return b
 
 
-iExp :: Exp SourcePos -> InterpretM Value
+iExp :: Exp PA -> InterpretM Value
 iExp e =
     case e of
       Lit _ l -> return $ VLit l
@@ -240,7 +241,7 @@ iExp e =
       _ -> panic (interpretModule ++ ".iExp") $
            "Unhandled case: " ++ show e
 
-iPolicyExp :: PolicyExp SourcePos -> InterpretM Value
+iPolicyExp :: PolicyExp PA -> InterpretM Value
 iPolicyExp pe = VPol <$>
     case pe of
       PolicyLit _ cs -> PL.ConcretePolicy <$> (PL.Policy <$> mapM iClause cs)
@@ -248,7 +249,7 @@ iPolicyExp pe = VPol <$>
       PolicyThis _   -> return $ PL.PolicyVar PL.ThisVar
       PolicyTypeVar _ i -> return $ PL.PolicyVar $ PL.PolicyTypeParam (unIdent i)
 
-iClause :: Clause SourcePos -> InterpretM PL.TcClause
+iClause :: Clause PA -> InterpretM PL.TcClause
 iClause (Clause _ cvds chead atoms) = do
   iTysCvds <- mapM iClauseVarDecl cvds
   (hActor, hActset, iTys) <- iClauseHead iTysCvds chead
@@ -256,21 +257,21 @@ iClause (Clause _ cvds chead atoms) = do
       actMap = (hActor, PL.HeadActor) : zip allQs (map PL.QuantActor [0..])
   qs <- mapM (iActor iTys) allQs
   return $ PL.Clause hActset qs $ map (generalizeAtom actMap) atoms
-         where extractActors :: Atom SourcePos -> [Actor SourcePos]
+         where extractActors :: Atom PA -> [Actor PA]
                extractActors (Atom _ _ as) = as
 
                --cheadToActor :: ClauseHead SourcePos -> Actor SourcePos
                --cheadToActor (ClauseDeclHead _ (ClauseVarDecl _ rt i)) =
                --    undefined
 
-iClauseVarDecl :: ClauseVarDecl SourcePos -> InterpretM (Ident SourcePos, TcRefType)
+iClauseVarDecl :: ClauseVarDecl PA -> InterpretM (Ident PA, TcRefType)
 iClauseVarDecl (ClauseVarDecl _ rt i) = do
   rTy <- iRefType rt
   return (i, rTy)
 
-iClauseHead :: [(Ident SourcePos, TcRefType)]
-            -> ClauseHead SourcePos
-            -> InterpretM (Actor SourcePos, PL.TcActor, [(Ident SourcePos, TcRefType)])
+iClauseHead :: [(Ident PA, TcRefType)]
+            -> ClauseHead PA
+            -> InterpretM (Actor PA, PL.TcActor, [(Ident PA, TcRefType)])
 iClauseHead iTys (ClauseDeclHead n (ClauseVarDecl _ rt i)) = do
   rTy <- iRefType rt
   return (Var n i, PL.TypedActor rTy (unIdent i), (i,rTy):iTys)
@@ -278,7 +279,7 @@ iClauseHead iTys (ClauseVarHead _ act) = do
   hAct <- iActor iTys act
   return (act, hAct, iTys)
 
-iRefType :: RefType SourcePos -> InterpretM TcRefType
+iRefType :: RefType PA -> InterpretM TcRefType
 iRefType rt = EvalType rt ReturnM
 
 --iClauseHead :: ClauseHead SourcePos -> InterpretM PL.TcActor
@@ -288,7 +289,7 @@ iRefType rt = EvalType rt ReturnM
 --iClauseVarDecl :: ClauseVarDecl SourcePos -> InterpretM PL.TcActor
 --iClauseVarDecl (ClauseVarDecl _ rt i) = return $ PL.TypedActor rt $ unIdent i
 
-generalizeAtom :: [(Actor SourcePos, PL.ActorRep)] -> Atom SourcePos -> PL.TcAtom
+generalizeAtom :: [(Actor PA, PL.ActorRep)] -> Atom PA -> PL.TcAtom
 generalizeAtom actMap (Atom _ n as) = PL.Atom n $ map convertActor as
   where convertActor a = fromJust $ lookup a actMap
 
@@ -303,13 +304,13 @@ generalizeAtom actMap (Atom _ n as) = PL.Atom n $ map convertActor as
 --iActorRep actMap (Actor _ aname)
 
 
-iActor :: [(Ident SourcePos, TcRefType)] -> Actor SourcePos -> InterpretM PL.TcActor
+iActor :: [(Ident PA, TcRefType)] -> Actor PA -> InterpretM PL.TcActor
 iActor iTys (Actor _ aname) = PL.SingletonActor <$> iActorName aname
 iActor iTys (Var _ i) = do
     let Just rTy = lookup i iTys -- We will know the types for all Vars
     return $ PL.TypedActor rTy $ unIdent i
 
-iActorName :: ActorName SourcePos -> InterpretM PL.TypedActorIdSpec
+iActorName :: ActorName PA -> InterpretM PL.TypedActorIdSpec
 iActorName (ActorName _ n) = do
   VAct aid <- getVar n
   return aid
@@ -318,7 +319,7 @@ iActorName (ActorTypeVar _ rt i) = do
   return $ PL.TypedActorIdSpec rTy $ PL.ActorTPVar $ unIdent i
 
 
-iOp :: Op SourcePos -> Exp SourcePos -> Exp SourcePos -> InterpretM Value
+iOp :: Op PA -> Exp PA -> Exp PA -> InterpretM Value
 iOp op e1 e2 =
     case op of
       -- "conditional and/or" need different treatment
@@ -343,7 +344,7 @@ iOp op e1 e2 =
                       (VPol pca, VPol pcb) -> VPol <$> pca `PL.glb` pcb
           _ -> fail $ "iOp: operator not yet implemented: " ++ prettyPrint op
 
-iMethodInv :: MethodInvocation SourcePos -> InterpretM Value
+iMethodInv :: MethodInvocation PA -> InterpretM Value
 iMethodInv (MethodCallOrLockQuery _ n as) =
     do vs <- mapM iExp as
        CallMethod n vs ReturnM
@@ -354,7 +355,7 @@ iMethodInv (MethodCallOrLockQuery _ n as) =
 -- return type will be 'policy', which during type-checking
 -- means a PolicyCT.
 
-import Language.Java.Paragon.Syntax
+import Language.Java.Paragon.SyntaxTTG
 import Language.Java.Paragon.Pretty
 
 --import qualified Language.Java.Paragon.TypeChecker.PriorityMap as PM

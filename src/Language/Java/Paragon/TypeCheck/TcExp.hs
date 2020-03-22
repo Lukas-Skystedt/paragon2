@@ -10,6 +10,7 @@ import Language.Java.Paragon.SourcePos
 
 import qualified Language.Java.Paragon.PolicyLang as PL
 
+import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.TypeCheck.Monad.TcCodeM
 import Language.Java.Paragon.TypeCheck.Monad
 import Language.Java.Paragon.TypeCheck.Types
@@ -31,7 +32,7 @@ tcExpModule = typeCheckerBase ++ ".TcExp"
 --    Types of literal values    --
 -----------------------------------
 
-litType :: Literal SourcePos -> TcType
+litType :: Literal PA -> TcType
 litType (Int     _ _) = intT
 litType (Word    _ _) = longT
 litType (Float   _ _) = floatT
@@ -50,7 +51,7 @@ litType (Null    _  ) = nullT
 -- expression, and a typechecked expression.
 -- Encapsulated in the TcCodeM monad gives access to the code environment,
 -- state, allows it to fail, add error messages and policy contraints.
-tcExp :: Exp SourcePos -> TcCodeM (TcStateType, ActorPolicy, Exp T)
+tcExp :: Exp PA -> TcCodeM (TcStateType, ActorPolicy, Exp T)
 
 -- Rule PAREN
 -- Expressions in parantheses are simply relayed
@@ -418,9 +419,9 @@ tcExp (ArrayCreate sp bt dimEsPs dimImplPs) = do
       where checkDimExprs :: [ActorPolicy]   -- ^ Policies of earlier dimensions
                           -> [Maybe (Policy T)]      -- ^ Annotated policy expressions of earlier dimensions
                           -> [Exp T]         -- ^ Annotated expressions
-                          -> [(Exp SourcePos, Maybe (Policy SourcePos))]
+                          -> [(Exp PA, Maybe (Policy PA))]
                                              -- ^ Remaining dimexprs/pols
-                          -> SourcePos       -- ^ Source location
+                          -> PA       -- ^ Source location
                           -> (ActorPolicy, Maybe (Policy T))     -- ^ Policy and rewritten term of previous dimension
                           -> TcCodeM ([ActorPolicy], [Maybe (Policy T)], [Exp T])
             checkDimExprs accP accPE accE [] _ (pPrev, pePrev) =
@@ -485,7 +486,7 @@ tcArrayInit baseType (pol1:pols) (ArrayInit sp inits) = do
   return $ ArrayInit Nothing inits'
 tcArrayInit _ [] _ = fail "Array initializer has too many dimensions"
 
-tcVarInit :: TcType -> [ActorPolicy] -> VarInit SourcePos -> TcCodeM (ActorPolicy, VarInit T)
+tcVarInit :: TcType -> [ActorPolicy] -> VarInit PA -> TcCodeM (ActorPolicy, VarInit T)
 tcVarInit baseType pols (InitExp _ e) = do
 --  debugPrint $ "Pols: " ++ show pols
 --  debugPrint $ "Exp:  " ++ show e
@@ -501,7 +502,7 @@ tcVarInit baseType pols (InitArray _ arr) = do
   bt <- PL.bottomM
   return (bt, InitArray Nothing arr')
 
-evalMaybePol :: Maybe (Policy SourcePos) -> TcCodeM (ActorPolicy, Maybe (Policy T))
+evalMaybePol :: Maybe (Policy PA) -> TcCodeM (ActorPolicy, Maybe (Policy T))
 evalMaybePol Nothing = do
   pol <- genMeta
   return (pol, Nothing)
@@ -514,7 +515,7 @@ evalMaybePol (Just p) = do
 --------------------------
 -- Field Access
 
-tcFieldAccess :: FieldAccess SourcePos -> TcCodeM (TcStateType, ActorPolicy, FieldAccess T)
+tcFieldAccess :: FieldAccess PA -> TcCodeM (TcStateType, ActorPolicy, FieldAccess T)
 tcFieldAccess (PrimaryFieldAccess _ e fi) = do
   (tyE,pE,e') <- tcExp e
   VSig tyF pFi _ _ _ _ <- instThis pE =<< lookupFieldT tyE fi
@@ -527,7 +528,7 @@ tcFieldAccess fa = error $ "Unsupported field access: " ++ prettyPrint fa
 --------------------------
 -- Instance creation
 
-tcCreate :: TcClassType -> [TypeArgument SourcePos] -> [Argument SourcePos]
+tcCreate :: TcClassType -> [TypeArgument PA] -> [Argument PA]
          -> TcCodeM (TcStateType, ActorPolicy, [TypeArgument T], [Argument T],Bool)
 tcCreate ctyT@(TcClassT tyN@(Name _ _ _ tyI) _) tas args = do
   resP <- newMetaPolVar tyI
@@ -626,7 +627,7 @@ tcCreate _ _ _ = panic (tcExpModule ++ ".tcCreate")
 
 -- | Check a method invocation, which could possibly represent
 --   a lock query expression.
-tcMethodOrLockInv :: MethodInvocation SourcePos -> TcCodeM (TcStateType, ActorPolicy, MethodInvocation T)
+tcMethodOrLockInv :: MethodInvocation PA -> TcCodeM (TcStateType, ActorPolicy, MethodInvocation T)
 tcMethodOrLockInv (MethodCallOrLockQuery spM (Name spN MOrLName mPre i) args) = do
   -- We couldn't resolve without type information whether
   -- this truly is a method or a lock.
@@ -670,7 +671,7 @@ tcMethodOrLockInv lq@(MethodCallOrLockQuery _ nam@(Name _ LName mPre i) args) = 
 tcMethodOrLockInv mi = tcMethodInv mi
 
 -- | Check a true method invocation
-tcMethodInv :: MethodInvocation SourcePos -> TcCodeM (TcStateType, ActorPolicy, MethodInvocation T)
+tcMethodInv :: MethodInvocation PA -> TcCodeM (TcStateType, ActorPolicy, MethodInvocation T)
 tcMethodInv mi = do
   -- debugPrint $ "tcMethodInv: " ++ prettyPrint mi
   (n, msig, args, psArgs, pE, ef, tysArgs, sp) <-
@@ -812,7 +813,7 @@ tcPolicy e = do
 -- Policy expressions
 -- Treat them as pure compile-time for now
 
-tcPolicyExp :: PolicyExp SourcePos -> TcCodeM PL.PrgPolicy
+tcPolicyExp :: PolicyExp PA -> TcCodeM PL.PrgPolicy
 tcPolicyExp pe@(PolicyOf _ i) = do
   (_, _, param, _) <- lookupVar Nothing i
   check param $
@@ -831,7 +832,7 @@ tcPolicyExp pe = do
   --debugPrint $ "Current TypeMap: " ++ prettyPrint tm
   tcEvalPolicy pe -- Lit or This
 
-tcEvalPolicy :: PolicyExp SourcePos -> TcCodeM PL.PrgPolicy
+tcEvalPolicy :: PolicyExp PA -> TcCodeM PL.PrgPolicy
 tcEvalPolicy pe@(PolicyThis pos) = evalPolicy (PolicyExp pos pe)
 tcEvalPolicy pe@(PolicyLit pos cs) = do
 --  mapM_ tcClause cs
@@ -870,12 +871,12 @@ tcAtom h qs (PL.Atom n@(Name _ _ mPre i) reps) = do
 
 
 {-
-tcClause :: Clause SourcePos -> TcCodeM ()
+tcClause :: Clause PA -> TcCodeM ()
 tcClause (Clause _ cvds ch as) = do
 -}
 
 {-
-tcClause :: Clause SourcePos -> TcCodeM PL.TcClause
+tcClause :: Clause PA -> TcCodeM PL.TcClause
 tcClause (Clause _ cvds chead ats) = do
   tcH <- tcActor h
   let allQs = nub $ delete h $ concatMap extractActors ats
@@ -887,7 +888,7 @@ tcClause (Clause _ cvds chead ats) = do
        extractActors (Atom _ _ as) = as
 
 
-tcAtom :: [(Actor SourcePos, PL.ActorRep)] -> Atom SourcePos -> TcCodeM PL.TcAtom
+tcAtom :: [(Actor PA, PL.ActorRep)] -> Atom PA -> TcCodeM PL.TcAtom
 tcAtom actMap (Atom _ n@(Name _ LName mPre i) as) = do
   LSig _ ar _ <- lookupLock mPre i
   check (length as == ar) $ toUndef $ "Arity mismatch in policy"
@@ -899,12 +900,12 @@ tcAtom actMap (Atom _ n@(Name _ LName mPre i) as) = do
 tcAtom _ (Atom _ n _) = panic (tcExpModule ++ ".tcAtom") $
                         "None-lock name: " ++ show n
 
-tcActor :: Actor SourcePos -> TcCodeM PL.TcActor
+tcActor :: Actor PA -> TcCodeM PL.TcActor
 tcActor (Var   _ i) = return $ PL.AnyActor (unIdent i)
 tcActor (Actor _ n) = PL.SingletonActor <$> tcActorName n
 -}
 
-tcActorName :: ActorName SourcePos -> TcCodeM PL.TypedActorIdSpec
+tcActorName :: ActorName PA -> TcCodeM PL.TypedActorIdSpec
 tcActorName (ActorName    sp n) = do
   (sty,_,_) <- tcExp $ ExpName sp n
   case mActorId sty of
@@ -919,13 +920,13 @@ tcActorName (ActorTypeVar _ rt i) = do
 --------------------------------------------------------------------------------
 {-- Type-checking types
 
-tcSrcType :: Type SourcePos -> TcCodeM TcType
+tcSrcType :: Type PA -> TcCodeM TcType
 tcSrcType (PrimType _ pt) = return $ TcPrimT pt
 tcSrcType (RefType  _ rt) = TcRefT <$> tcSrcRefType rt
 tcSrcType _ = panic (tcExpModule ++ ".tcSrcType")
               "AntiQType should not appear in AST being type-checked"
 
-tcSrcRefType :: RefType SourcePos -> TcCodeM TcRefType
+tcSrcRefType :: RefType PA -> TcCodeM TcRefType
 tcSrcRefType (TypeVariable _ i) = return $ TcTypeVar $ unIdent i
 tcSrcRefType (ArrayType _ t mps) = do
   ty <- tcSrcType t
@@ -935,7 +936,7 @@ tcSrcRefType (ArrayType _ t mps) = do
 tcSrcRefType (ClassRefType _ ct) = TcClsRefT <$> tcSrcClsType ct
 
 
-tcSrcClsType :: ClassType SourcePos -> TcCodeM TcClassType
+tcSrcClsType :: ClassType PA -> TcCodeM TcClassType
 tcSrcClsType _ct@(ClassType _ n tas) = do
 --  debugPrint $ "Evaluating class type: " ++ show _ct
   baseTm <- liftTcDeclM getTypeMap
@@ -951,7 +952,7 @@ tcSrcClsType _ct@(ClassType _ n tas) = do
   return $ TcClassT n tArgs
 
 -}
-tcSrcType :: TcCodeM ActorPolicy -> Type SourcePos -> TcCodeM (TcType, Type T)
+tcSrcType :: TcCodeM ActorPolicy -> Type PA -> TcCodeM (TcType, Type T)
 tcSrcType _  (PrimType _ pt) = return (TcPrimT pt, PrimType Nothing (notAppl pt))
 tcSrcType gp (RefType  _ rt) = do
   (tyR, rtT) <- tcSrcRefType gp rt
@@ -961,7 +962,7 @@ tcSrcType _ _ = panic (tcExpModule ++ ".tcSrcType")
                 "AntiQType should not appear in AST being type-checked"
 
 
-tcSrcRefType :: TcCodeM ActorPolicy -> RefType SourcePos -> TcCodeM (TcRefType, RefType T)
+tcSrcRefType :: TcCodeM ActorPolicy -> RefType PA -> TcCodeM (TcRefType, RefType T)
 tcSrcRefType _ (TypeVariable _ i) =
     return (TcTypeVar $ unIdent i, TypeVariable Nothing (notAppl i))
 tcSrcRefType genPol (ArrayType _ t mps) = do
@@ -983,7 +984,7 @@ tcSrcRefType gp (ClassRefType _ ct) = do
   return (TcClsRefT tyC, ClassRefType Nothing ctT)
 
 
-tcSrcClsType :: TcCodeM ActorPolicy -> ClassType SourcePos -> TcCodeM (TcClassType, ClassType T)
+tcSrcClsType :: TcCodeM ActorPolicy -> ClassType PA -> TcCodeM (TcClassType, ClassType T)
 tcSrcClsType gp (ClassType _ n tas) = do
   baseTm <- liftTcDeclM getTypeMap
   -- debugPrint $ "Current type map: " ++ show baseTm
@@ -994,13 +995,13 @@ tcSrcClsType gp (ClassType _ n tas) = do
   (tArgs, tasT) <- unzip <$> zipWithM (tcSrcTypeArg gp) tps tas
   return (TcClassT n tArgs, ClassType Nothing (notAppl n) tasT)
 
-tcSrcTypeArg :: TcCodeM ActorPolicy -> TypeParam SourcePos -> TypeArgument SourcePos -> TcCodeM (TcTypeArg, TypeArgument T)
+tcSrcTypeArg :: TcCodeM ActorPolicy -> TypeParam PA -> TypeArgument PA -> TcCodeM (TcTypeArg, TypeArgument T)
 tcSrcTypeArg gp tp (ActualArg _ a) = do
   (tArg, aT) <- tcSrcNWTypeArg gp tp a
   return (tArg, ActualArg Nothing aT)
 tcSrcTypeArg _ _ _ = fail "tcSrcTypeArg: Wildcards not yet supported"
 
-tcSrcNWTypeArg :: TcCodeM ActorPolicy -> TypeParam SourcePos -> NonWildTypeArgument SourcePos -> TcCodeM (TcTypeArg, NonWildTypeArgument T)
+tcSrcNWTypeArg :: TcCodeM ActorPolicy -> TypeParam PA -> NonWildTypeArgument PA -> TcCodeM (TcTypeArg, NonWildTypeArgument T)
 tcSrcNWTypeArg gp TypeParam{} an@(ActualName nPos n) = do
   (tyC, _) <- tcSrcClsType gp (ClassType nPos n [])
   return (TcActualType $ TcClsRefT tyC, notAppl an)
@@ -1038,11 +1039,11 @@ tcSrcNWTypeArg _ tp nwta =
 
 {-
 
-tcSrcTypeArg :: TypeParam SourcePos -> TypeArgument SourcePos -> TcCodeM TcTypeArg
+tcSrcTypeArg :: TypeParam PA -> TypeArgument PA -> TcCodeM TcTypeArg
 tcSrcTypeArg tp (ActualArg _ a) = tcSrcNWTypeArg tp a
 tcSrcTypeArg _ _ = fail "tcSrcTypeArg: Wildcards not yet supported"
 
-tcSrcNWTypeArg :: TypeParam SourcePos -> NonWildTypeArgument SourcePos -> TcCodeM TcTypeArg
+tcSrcNWTypeArg :: TypeParam PA -> NonWildTypeArgument PA -> TcCodeM TcTypeArg
 -- Types may be names or types -- TODO: Check bounds
 tcSrcNWTypeArg (TypeParam {}) (ActualName sp n) = do
     TcActualType . TcClsRefT <$> tcSrcClsType (ClassType sp n [])
@@ -1066,7 +1067,7 @@ tcSrcNWTypeArg tp nwta =
 -----------------------------------}
 -- Policies
 
-tcPolicy :: Exp SourcePos -> TcCodeM ActorPolicy
+tcPolicy :: Exp PA -> TcCodeM ActorPolicy
 tcPolicy e = withCompileTimeStatus True $ do
   (sty, _, _) <- tcExp e
   case mPolicyPol sty of
@@ -1076,7 +1077,7 @@ tcPolicy e = withCompileTimeStatus True $ do
     Nothing -> panic (tcExpModule ++ ".tcPolicy") $
                "Non-policy type for policy: " ++ show e
 {-
-tcLock :: Lock SourcePos -> TcCodeM TcLock
+tcLock :: Lock PA -> TcCodeM TcLock
 tcLock (Lock sp n@(Name spN _nt mPre i) ans) = do
   tm <- case mPre of
           Nothing -> liftTcDeclM getTypeMap
@@ -1107,7 +1108,7 @@ tcLock l = panic (tcExpModule ++ ".tcLock")
 --    Types of operators         --
 -----------------------------------
 
-opType :: Op SourcePos -> TcStateType -> TcStateType -> TcCodeM TcStateType
+opType :: Op PA -> TcStateType -> TcStateType -> TcCodeM TcStateType
 -- First the special cases: policy operators, and String conversion
 opType (Mult _) (TcPolicyPolT p1) (TcPolicyPolT p2) = TcPolicyPolT <$> p1 `PL.lub` p2
 opType (Add  _) (TcPolicyPolT p1) (TcPolicyPolT p2) = TcPolicyPolT <$> p1 `PL.glb` p2

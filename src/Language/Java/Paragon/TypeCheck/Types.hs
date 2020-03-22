@@ -3,6 +3,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
 module Language.Java.Paragon.TypeCheck.Types where
 
+import Security.InfoFlow.Policy.FlowLocks.Policy (MetaPolicy(..),VarPolicy(..),Clause(..),Atom(..),Policy(..))
+
 import Language.Java.Paragon.SyntaxTTG hiding (Clause(..))
 import Language.Java.Paragon.Decorations.NoDecoration
 import Language.Java.Paragon.Decorations.PaDecoration
@@ -52,31 +54,44 @@ data TcStateType
     | TcPolicyPolT ActorPolicyBounds
     | TcLockT [TcLock]             -- ^ List of looks checked in the expression
     | TcType TcType NullType       -- ^ Simply the type with nullpointer information
-  -- deriving (Eq, Show, Data, Typeable)
+  deriving (Eq, Show, Data, Typeable)
 
 
 data TcType
-    = TcPrimT (PrimType UD) | TcRefT TcRefType | TcVoidT --  TcLockRetT
+    = TcPrimT (PrimType PA) | TcRefT TcRefType | TcVoidT --  TcLockRetT
      -- --  TcActorIdT ActorId | TcPolicyPolT ActorPolicy | TcLockT [TcLock]
-  -- deriving (Eq, Ord, Show, Data, Typeable)
+  deriving (Eq, Ord, Show, Data, Typeable)
 
 data TcRefType
     = TcClsRefT TcClassType
     | TcArrayT TcType ActorPolicy
     | TcTypeVar B.ByteString
     | TcNullT
-  -- deriving (Eq, Ord, Show, Data, Typeable)
+  deriving (Eq, Ord, Show, Data, Typeable)
+
+-- Not var in VarPolicy
+-- apEq :: ActorPolicy -> ActorPolicy -> Bool
+-- apEq (VarPolicy (ConcretePolicy (Policy [Clause actset1 _ [atom1]])))
+--      (VarPolicy (ConcretePolicy (Policy [Clause actset2 _ [atom2]]))) = atom1==atom2
+
+-- instance Eq (XName PA) => Eq TcRefType where
+--  (TcClsRefT a1)   == (TcClsRefT b1)   = a1 == b1
+--  (TcArrayT a1 a2) == (TcArrayT b1 b2) = a1 == b1 && a2 `apEq` b2
+--  (TcTypeVar a1)   == (TcTypeVar b1)   = a1 == b1
+--  TcNullT          == TcNullT          = True
+--  _                == _                = False
+
 
 data TcClassType
-    = TcClassT (Name UD) [TcTypeArg] -- [ActorId] -- Ignore wildcards for now
-  -- deriving (Eq, Ord, Show, Data, Typeable)
+    = TcClassT (Name PA) [TcTypeArg] -- [ActorId] -- Ignore wildcards for now
+  deriving (Eq, Ord, Show, Data, Typeable)
 
 data TcTypeArg
     = TcActualType TcRefType
     | TcActualPolicy ActorPolicy
     | TcActualActor TypedActorIdSpec
     | TcActualLockState [TcLock]
-  -- deriving (Eq, Ord, Show, Data, Typeable)
+  deriving (Eq, Ord, Show, Data, Typeable)
 
 {-- The Ord instances are only ever used in order to have types
 -- as keys for Maps, specifically for method/constructor
@@ -115,16 +130,16 @@ instance Ord TcTypeArg where
 
 booleanT, byteT, shortT, intT, longT,
  charT, floatT, doubleT, {-actorT,-} policyT :: TcType
-booleanT = TcPrimT UdBooleanT
-byteT    = TcPrimT UdByteT
-shortT   = TcPrimT UdShortT
-intT     = TcPrimT UdIntT
-longT    = TcPrimT UdLongT
-charT    = TcPrimT UdCharT
-floatT   = TcPrimT UdFloatT
-doubleT  = TcPrimT UdDoubleT
+booleanT = TcPrimT (BooleanT defaultPos)
+byteT    = TcPrimT (ByteT defaultPos)
+shortT   = TcPrimT (ShortT defaultPos)
+intT     = TcPrimT (IntT defaultPos)
+longT    = TcPrimT (LongT defaultPos)
+charT    = TcPrimT (CharT defaultPos)
+floatT   = TcPrimT (FloatT defaultPos)
+doubleT  = TcPrimT (DoubleT defaultPos)
 --actorT   = TcPrimT (ActorT   defaultPos)
-policyT  = TcPrimT PolicyT
+policyT  = TcPrimT (PolicyT defaultPos)
 
 -- | Takes a regular type and converts it to a type with state.
 -- If the type is a null reference it's result will have state
@@ -181,10 +196,10 @@ clsTypeWArg :: Name () -> [TcTypeArg] -> TcType
 clsTypeWArg n = TcClassT n
 -}
 
-clsType :: Ident ud -> TcClassType
+clsType :: Ident PA -> TcClassType
 clsType = qualClsType . return
 
-qualClsType :: [Ident UD] -> TcClassType
+qualClsType :: [Ident PA] -> TcClassType
 qualClsType is = TcClassT (mkName_ TName PName is) []
 
 --nameToClsType :: Name () -> TcClassType
@@ -193,14 +208,14 @@ qualClsType is = TcClassT (mkName_ TName PName is) []
 --                  "AntiQName should never appear in an AST being type-checked"
 
 stringT, objectT :: TcClassType
-stringT = qualClsType $ map (UdIdent . B.pack)
+stringT = qualClsType $ map (Ident defaultPos . B.pack)
   ["java","lang","String"]
-objectT = qualClsType $ map (UdIdent . B.pack)
+objectT = qualClsType $ map (Ident defaultPos . B.pack)
   ["java","lang","Object"]
 
 nullExnT :: TcType
 nullExnT = TcRefT $ TcClsRefT (qualClsType $
-  map (UdIdent . B.pack)
+  map (Ident defaultPos . B.pack)
   ["java","lang","NullPointerException"])
 
 -- promoting
@@ -219,13 +234,13 @@ mkArrayType = foldr (flip arrayType)
 -- Destructors
 
 -- Invariant: First argument is a class type
-typeName :: TcType -> Maybe (Name UD)
+typeName :: TcType -> Maybe (Name PA)
 typeName (TcRefT (TcClsRefT (TcClassT n tas))) =
 --         let (is, args) = unzip pn in
          if null tas then Just (mkUniformName_ AmbName $ flattenName n) else Nothing
 typeName _ = Nothing
 
-typeName_ :: TcType -> Name UD
+typeName_ :: TcType -> Name PA
 typeName_ (TcRefT (TcClsRefT (TcClassT n _tas))) = mkUniformName_ AmbName $ flattenName n
 --    let (is, _) = unzip pn in mkUniformName_ AmbName is
 typeName_ t = error $ "typeName_: Not a class type: " ++ show t
@@ -251,7 +266,7 @@ mRefType _ = Nothing
 isPrimType (TcType (TcPrimT _) _) = True
 isPrimType _ = False
 
-mNameRefType :: TcRefType -> Maybe (Name UD)
+mNameRefType :: TcRefType -> Maybe (Name PA)
 mNameRefType (TcClsRefT (TcClassT n as)) =
     if null as then Just (mkUniformName_ AmbName $ flattenName n) else Nothing
 mNameRefType _ = Nothing
@@ -390,7 +405,7 @@ isIntConvertible sty =
 
 isBoolConvertible :: TcStateType -> Bool
 isBoolConvertible t = unStateType t == booleanT -- includes lock types
-                      || unboxType t == Just UdBooleanT
+                      || unboxType t == Just (BooleanT defaultPos)
 
 
 unaryNumPromote :: TcStateType -> Maybe (PrimType PA)

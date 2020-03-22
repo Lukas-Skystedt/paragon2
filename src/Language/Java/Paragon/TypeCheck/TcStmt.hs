@@ -1,7 +1,7 @@
 {-# LANGUAGE TupleSections, BangPatterns #-}
 module Language.Java.Paragon.TypeCheck.TcStmt where
 
-import Language.Java.Paragon.Syntax
+import Language.Java.Paragon.SyntaxTTG
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.Error
@@ -269,11 +269,11 @@ tcStmt (Try _ block [] (Just finBlock)) = do
 tcStmt (Try sp blk catches mFinally) = do
     let catchChain = linearise catches mFinally blk
     tcStmt catchChain
-        where linearise :: [Catch SourcePos] -> Maybe (Block SourcePos) -> Block SourcePos -> Stmt SourcePos
+        where linearise :: [Catch PA] -> Maybe (Block PA) -> Block PA -> Stmt PA
               linearise [] justFin  block = Try sp block [] justFin
               linearise [c] Nothing block = Try sp block [c] Nothing
               linearise (c:cs) mFin block = linearise cs mFin $ bl (Try sp block [c] Nothing)
-              bl :: Stmt SourcePos -> Block SourcePos
+              bl :: Stmt PA -> Block PA
               bl = Block sp . return . BlockStmt sp
 
 -- Rule OPEN
@@ -397,7 +397,7 @@ tcStmt (OpenBlock _ l@(Lock _ n@(Name _ nt mPre i) as) block) = do
 tcStmt s = fail $ "Unsupported statement: " ++ prettyPrint s
 
 
-withInits :: Maybe (ForInit SourcePos) -> TcCodeM a -> TcCodeM (Maybe (ForInit T), a)
+withInits :: Maybe (ForInit PA) -> TcCodeM a -> TcCodeM (Maybe (ForInit T), a)
 withInits Nothing tca = (Nothing,) <$> tca
 withInits (Just (ForInitExps _ es)) tca = do
     (_,_,es') <- unzip3 <$> mapM tcExp es
@@ -419,7 +419,7 @@ tcBlock (Block _ bss) = Block Nothing <$> insideBlock (tcBlockStmts bss)
 insideBlock :: TcCodeM a -> TcCodeM a
 insideBlock = withEnv (\env -> return $ env { vars = emptyVarMap : vars env })
 
-tcBlockStmts :: [BlockStmt SourcePos] -> TcCodeM [BlockStmt T]
+tcBlockStmts :: [BlockStmt PA] -> TcCodeM [BlockStmt T]
 -- Rule EMPTYBLOCK
 tcBlockStmts [] = return []
 
@@ -452,7 +452,7 @@ tcPolicyMod polExp = do
   return polExp'
 -}
 
-tcLocalVars ::  PL.ActorPolicy -> TcType -> Bool -> [VarDecl SourcePos]
+tcLocalVars ::  PL.ActorPolicy -> TcType -> Bool -> [VarDecl PA]
             -> [VarDecl T] -> TcCodeM a -> TcCodeM ([VarDecl T], a)
 tcLocalVars _ _ _ [] acc cont = cont >>= \a -> return (reverse acc, a)
 
@@ -509,7 +509,7 @@ tcLocalVars _ _ _ (vd:_) _ _ =
     fail $ "Deprecated array syntax not supported: " ++ prettyPrint vd
 
 
-localVarPol :: [Modifier SourcePos] -> [VarDecl SourcePos] -> TcCodeM PL.ActorPolicy
+localVarPol :: [Modifier PA] -> [VarDecl PA] -> TcCodeM PL.ActorPolicy
 localVarPol ms vds =
     case [ p | Reads _ p <- ms ] of
       [] -> newMetaPolVar . getVarId . head $ vds     -- TODO a TcVarPolicy for each variable, or a shared one ?
@@ -538,7 +538,7 @@ tcEci eci = do
 
 -- | Checks whether a non-void method has at least one return statement.
 --   Doesn't care about the types (they have been checked before).
-checkReturnStmts :: MethodBody SourcePos -> TcCodeM ()
+checkReturnStmts :: MethodBody PA -> TcCodeM ()
 checkReturnStmts (MethodBody sp mBlock) = do
   (retType, _) <- getReturn
   unless (retType == voidT) $ do
@@ -605,5 +605,5 @@ checkReturnStmts (MethodBody sp mBlock) = do
 --   Helper functions    --
 ---------------------------
 
-isFinal :: [Modifier SourcePos] -> Bool
+isFinal :: [Modifier PA] -> Bool
 isFinal = (Final defaultPos `elem`)

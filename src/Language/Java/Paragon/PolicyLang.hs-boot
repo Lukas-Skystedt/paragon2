@@ -9,6 +9,7 @@ module Language.Java.Paragon.PolicyLang
 import Language.Java.Paragon.SourcePos
 import Language.Java.Paragon.SyntaxTTG (Name)
 import Language.Java.Paragon.Pretty
+import Language.Java.Paragon.Decorations.PaDecoration
 
 import Control.Applicative
 
@@ -29,18 +30,18 @@ type ActorPolicy
     = MetaPolicy 
         MetaVarRep 
         PolicyVarRep 
-        (Name SourcePos) 
+        (Name PA) 
         ActorSetRep
 
 type PrgPolicy
     = VarPolicy
         PolicyVarRep
-        (Name SourcePos)
+        (Name PA)
         ActorSetRep
 
 type TcLock = LockSpec
-type TcLockDelta = LockDelta (Name SourcePos) TypedActorIdSpec
-type GlobalPol = GlobalPolicy (Name SourcePos) ActorSetRep
+type TcLockDelta = LockDelta (Name PA) TypedActorIdSpec
+type GlobalPol = GlobalPolicy (Name PA) ActorSetRep
 
 data ActorPolicyBounds
 instance Eq ActorPolicyBounds

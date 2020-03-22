@@ -1,13 +1,14 @@
-{-# LANGUAGE CPP, DeriveDataTypeable, FlexibleInstances #-}
+{-# LANGUAGE CPP, DeriveDataTypeable, FlexibleInstances, TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Language.Java.Paragon.PolicyLang.Locks where
 
 --import Data.List (intersect, union, (\\) )
 
-import Language.Java.Paragon.Syntax (Name(..), Ident(..), NameType(LName))
+import Language.Java.Paragon.SyntaxTTG (Name(..), Ident(..), NameType(LName), XName)
 import Language.Java.Paragon.Pretty
---import Language.Java.Paragon.Interaction
+import Language.Java.Paragon.SourcePos(defaultPos)
 import Language.Java.Paragon.Decorations.NoDecoration
+import Language.Java.Paragon.Decorations.PaDecoration
 
 import Language.Java.Paragon.PolicyLang.Actors
 
@@ -32,8 +33,7 @@ noMods = ([],[])
 --  deriving (Eq, Ord, Show, Data, Typeable)
 -}
 
-data Named
-type instance XName Named = Name UD
+type Named = Name PA
 
 -- | In some places we allow a lock to be represented
 --   via a lock(-state) type parameter
@@ -45,16 +45,16 @@ data LockSpec
     | LockTypeParam B.ByteString
     -- ^ Lock (set) represented by a type parameter
     --   (is instantiated upon instance creation)
---data TcLock = TcLock (Name UD) [ActorId] | TcLockVar B.ByteString
+--data TcLock = TcLock (Name PA) [ActorId] | TcLockVar B.ByteString
   deriving (Eq, Ord, Show, Data, Typeable)
 
-skolemizeLock :: LockSpec -> Lock (Name UD) TypedActorIdSpec
+skolemizeLock :: LockSpec -> Lock (Name PA) TypedActorIdSpec
 skolemizeLock (LockTypeParam bi) =
     Lock (Name defaultPos LName Nothing $
                Ident defaultPos bi) []
 skolemizeLock (ConcreteLock l) = l
 
-type LockMods = LockDelta (Name UD) TypedActorIdSpec
+type LockMods = LockDelta (Name PA) TypedActorIdSpec
 
 
 instance (Pretty name, Pretty aid) =>

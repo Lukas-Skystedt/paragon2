@@ -2,6 +2,8 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Language.Java.Paragon.TypeCheck.TypeMap where
 
+import Language.Java.Paragon.Decorations.NoDecoration
+import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.SyntaxTTG
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Interaction
@@ -34,7 +36,7 @@ data VarFieldSig = VSig {
 
 data MethodSig = MSig {
       mRetType   :: TcType,
-      mModifiers :: [Modifier ()],
+      mModifiers :: [Modifier UD],
       mRetPol    :: ActorPolicy,
       mPars      :: [B.ByteString],
       mParBounds :: [ActorPolicy],
@@ -87,8 +89,8 @@ data TypeSig = TSig {
 
 type Map = Map.Map
 
-type MethodMap = Map ([TypeParam SourcePos], [TcType], Bool) MethodSig
-type ConstrMap = Map ([TypeParam SourcePos], [TcType], Bool) ConstrSig
+type MethodMap = Map ([TypeParam PA], [TcType], Bool) MethodSig
+type ConstrMap = Map ([TypeParam PA], [TcType], Bool) ConstrSig
 
 data TypeMap = TypeMap {
       -- signatures
@@ -100,9 +102,9 @@ data TypeMap = TypeMap {
       policies    :: Map B.ByteString PrgPolicy,
       actors      :: Map B.ByteString TypedActorIdSpec,
       -- typemethod eval info
-      typemethods :: Map B.ByteString ([B.ByteString], Block SourcePos),
+      typemethods :: Map B.ByteString ([B.ByteString], Block PA),
       -- types and packages
-      types       :: Map B.ByteString ([TypeParam SourcePos], [(RefType SourcePos, B.ByteString)], TypeSig),
+      types       :: Map B.ByteString ([TypeParam PA], [(RefType PA, B.ByteString)], TypeSig),
       packages    :: Map B.ByteString TypeMap
     }
   deriving (Show, Data, Typeable)
@@ -179,17 +181,17 @@ extendTypeMapP = go . map unIdent . flattenName
             newTm = go is leafTm eTm
         in tm { packages = Map.insert i newTm mTm }
 
-extendTypeMapT :: Name SourcePos
-               -> [TypeParam SourcePos]
-               -> [(RefType SourcePos, B.ByteString)]
+extendTypeMapT :: Name PA
+               -> [TypeParam PA]
+               -> [(RefType PA, B.ByteString)]
                -> TypeSig
                -> TypeMap
                -> TypeMap
 extendTypeMapT = go . map unIdent . flattenName
   where
     go :: [B.ByteString]
-       -> [TypeParam SourcePos]
-       -> [(RefType SourcePos, B.ByteString)]
+       -> [TypeParam PA]
+       -> [(RefType PA, B.ByteString)]
        -> TypeSig -> TypeMap -> TypeMap
     go [] _ _ _ _ = panic (typeMapModule ++ ".extendTypeMapT")
                     "Empty ident list"
@@ -203,7 +205,7 @@ extendTypeMapT = go . map unIdent . flattenName
             newTm = go is tps iaps tSig eTm
         in tm { packages = Map.insert i newTm mTm }
 
-extendTypeMapN :: Name SourcePos -> (TypeMap -> TypeMap) -> TypeMap -> TypeMap
+extendTypeMapN :: Name PA -> (TypeMap -> TypeMap) -> TypeMap -> TypeMap
 extendTypeMapN = go . map unIdent . flattenName
   where
     go :: [B.ByteString] -> (TypeMap -> TypeMap) -> TypeMap -> TypeMap
@@ -233,7 +235,7 @@ extendTypeMapN = go . map unIdent . flattenName
 --------------------------------------
 
 -- TODO: This is an anomaly!!!
-lookupNamed :: (TypeMap -> Map B.ByteString a) -> Name SourcePos -> TypeMap -> Maybe a
+lookupNamed :: (TypeMap -> Map B.ByteString a) -> Name PA -> TypeMap -> Maybe a
 lookupNamed recf (Name _ _ Nothing i) tm = Map.lookup (unIdent i) (recf tm)
 lookupNamed recf nam@(Name _ _ (Just pre) i) tm = do
     newTm <- case nameType pre of
@@ -304,11 +306,11 @@ lookupTypeOfStateT _ _ = Left Nothing
 --   Left denotes an error, which wraps:
 --   * If T is not a refType, return Nothing
 --   * If T is given the wrong number of type arguments, return Just errorMessage.
-lookupTypeOfT :: TcType -> TypeMap -> Either (Maybe String) ([(RefType SourcePos, B.ByteString)], TypeSig)
+lookupTypeOfT :: TcType -> TypeMap -> Either (Maybe String) ([(RefType PA, B.ByteString)], TypeSig)
 lookupTypeOfT (TcRefT refT) = lookupTypeOfRefT refT
 lookupTypeOfT _ = const $ Left Nothing
 
-lookupTypeOfRefT :: TcRefType -> TypeMap -> Either (Maybe String) ([(RefType SourcePos, B.ByteString)], TypeSig)
+lookupTypeOfRefT :: TcRefType -> TypeMap -> Either (Maybe String) ([(RefType PA, B.ByteString)], TypeSig)
 lookupTypeOfRefT (TcArrayT ty pol) _ = Right ([], hardCodedArrayTM ty pol)
 lookupTypeOfRefT (TcTypeVar _ ) _ = panic (typeMapModule ++ ".lookupTypeOfRefT")
                                     "TcTypeVar should have been instantiated"
@@ -336,7 +338,7 @@ lookupTypeOfRefT _rt@(TcClsRefT (TcClassT n tas)) startTm =
 --   Type argument instantiation    --
 --------------------------------------
 
-instantiate :: Data a => [(TypeParam SourcePos,TcTypeArg)] -> a -> a
+instantiate :: Data a => [(TypeParam PA,TcTypeArg)] -> a -> a
 instantiate pas = transformBi instT
                      . transformBi instA
                      . transformBi instP
@@ -473,10 +475,10 @@ instance Pretty ([TypeParam a], [TcType], Bool) where
                                  text (show b),
                                  char ')']
 
-instance Pretty ([B.ByteString], Block SourcePos) where
+instance Pretty ([B.ByteString], Block PA) where
     pretty (pars, _body) = hcat [pretty pars, text "{ ... }"]
 
-instance Pretty ([TypeParam SourcePos], [(RefType SourcePos, B.ByteString)], TypeSig) where
+instance Pretty ([TypeParam PA], [(RefType PA, B.ByteString)], TypeSig) where
     pretty (tps, iaps, tsig) = vcat [ pretty tps <+> hcat (punctuate comma $ map ppIap iaps),
                                       pretty tsig ]
       where ppIap (rt,b) = pretty rt <+> pretty b

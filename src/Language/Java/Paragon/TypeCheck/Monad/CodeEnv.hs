@@ -1,13 +1,14 @@
 {-# LANGUAGE CPP, DeriveDataTypeable, RelaxedPolyRec #-}
 module Language.Java.Paragon.TypeCheck.Monad.CodeEnv where
 
-import Language.Java.Paragon.Syntax
+import Language.Java.Paragon.SyntaxTTG
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos
 
 import Language.Java.Paragon.PolicyLang
 import Language.Java.Paragon.TypeCheck.Types
 
+import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.TypeCheck.TypeMap
 
 import qualified Data.Map as Map
@@ -46,14 +47,14 @@ simpleEnv brPol compT str statCtx =
       staticContext = statCtx
     }
 
-data Entity = VarEntity (Name SourcePos)
+data Entity = VarEntity (Name PA)
             | ThisFieldEntity B.ByteString
             | ExnEntity TcType
-            | LockEntity (Name SourcePos)
+            | LockEntity (Name PA)
             | BreakE | ContinueE | ReturnE | NullE
   deriving (Show, Eq, Ord, Data, Typeable)
 
-varE, lockE :: Name SourcePos -> Entity
+varE, lockE :: Name PA -> Entity
 varE = VarEntity
 lockE = LockEntity
 

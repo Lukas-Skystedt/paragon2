@@ -4,6 +4,7 @@ module Language.Java.Paragon.PolicyLang.Actors where
 
 import Language.Java.Paragon.SyntaxTTG
 import Language.Java.Paragon.Pretty
+import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.Decorations.NoDecoration
 
 import Language.Java.Paragon.TypeCheck.Types (TcRefType)
@@ -31,7 +32,7 @@ import Prelude hiding ((<>))
 data ActorIdentity
     = Fresh Int String
     -- ^ Can be traced back to the actor initialization
-    | Instance (Name UD) Int
+    | Instance (Name PA) Int
     -- ^ The non-static fields - the first parameter is
     --   the point-separated address to the actor field
     | Unknown Int
@@ -95,5 +96,5 @@ newUnknown = liftBase $ Unknown <$> getFreshInt
 newFresh :: MonadBase m => String -> m ActorIdentity
 newFresh str = liftBase $ flip Fresh str <$> getFreshInt
 
-newInstance :: MonadBase m => Name UD/g -> m ActorIdentity
+newInstance :: MonadBase m => Name PA -> m ActorIdentity
 newInstance n = liftBase $ Instance n <$> getFreshInt

@@ -1,4 +1,5 @@
-{-# LANGUAGE TupleSections, BangPatterns, FlexibleInstances, MultiParamTypeClasses, ImpredicativeTypes, PatternGuards #-}
+{-# LANGUAGE TupleSections, BangPatterns, FlexibleInstances, MultiParamTypeClasses,
+    ImpredicativeTypes, PatternGuards, TypeFamilies #-}
 module Language.Java.Paragon.TypeCheck.Monad.TcCodeM
     (
      module Language.Java.Paragon.TypeCheck.Monad.TcDeclM,
@@ -28,6 +29,8 @@ import Language.Java.Paragon.SourcePos
 
 import Language.Java.Paragon.TypeCheck.Monad.TcDeclM
 
+import Language.Java.Paragon.Decorations.NoDecoration
+import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.TypeCheck.Monad.CodeEnv
 import Language.Java.Paragon.TypeCheck.Monad.CodeState
 
@@ -223,7 +226,7 @@ instance EvalPolicyM TcCodeM where
   evalActor = interpretActor lookupFieldC
   evalLock = liftTcDeclM . evalLock
 
-lookupFieldC :: Name x -> TcCodeM Value
+lookupFieldC :: Name PA -> TcCodeM Value
 lookupFieldC n@(Name _ _ mPre i) = do
   debugPrint $ "lookupFieldC: " ++ prettyPrint n
   (sty, _, _, _) <- lookupVar mPre i
@@ -290,7 +293,7 @@ addConstraint c err = TcCodeM (\_ s -> return ((), s, [(c,err)]))
 
 
 -- Using a zipper technique
-touchPrefix :: Maybe (Name x) -> TcCodeM (VarMap, VarMap -> CodeState)
+touchPrefix :: Maybe (Name PA) -> TcCodeM (VarMap, VarMap -> CodeState)
 touchPrefix mn = do
   case mn of
     Nothing -> do
@@ -321,7 +324,7 @@ touchPrefix mn = do
          $ show mn
 
 -- Using a zipper technique
-getPrefix :: Maybe (Name x) -> TcCodeM VarMap
+getPrefix :: Maybe (Name PA) -> TcCodeM VarMap
 getPrefix mn = do
   case mn of
     Nothing -> varMapSt <$> getState
@@ -357,7 +360,7 @@ getPrefix mn = do
 --   Returns the relevant type (Nothing if package), its typemap
 --   and the accumulated policy of the name access path.
 --   Last component - if prefix is a field -> is it static
-lookupPrefixName :: Name x -> TcCodeM (Maybe TcStateType, TypeMap, ActorPolicy, Maybe Bool)
+lookupPrefixName :: Name PA -> TcCodeM (Maybe TcStateType, TypeMap, ActorPolicy, Maybe Bool)
 lookupPrefixName n@(Name _ EName Nothing i) = do
     -- Special case: This *could* be a var, since those can only
     -- appear first in the name, i.e. prefix == Nothing
@@ -439,7 +442,7 @@ lookupPrefixName n = panic (tcCodeMModule ++ ".lookupPrefixName")
 -- | Lookup the type and policy of a field or variable access path.
 --   Last component - if it is a field -> is it static
 --   Precondition: Name is the decomposition of an EName
-lookupVar :: Maybe (Name x) -> Ident x -> TcCodeM (TcStateType, ActorPolicy, Bool, Maybe Bool)
+lookupVar :: Maybe (Name PA) -> Ident PA -> TcCodeM (TcStateType, ActorPolicy, Bool, Maybe Bool)
 lookupVar Nothing i@(Ident sp _) = do
   -- Could be a single variable
   let nam = Name sp EName Nothing i -- Reconstructing for lookups
@@ -464,12 +467,23 @@ lookupVar Nothing i@(Ident sp _) = do
             -- except as an actor identity
             case Map.lookup (unIdent i) $ actors tm of
               Just aid -> do
+                -- TODO: These panics need to be sorted out
                  let pnc = panic (tcCodeMModule ++ ".lookupVar:actors")
+                             $ "Not a var or field, but an actor, and yet...: " ++ show i
+                     pnc2 = panic (tcCodeMModule ++ ".lookupVar:actors")
+                             $ "Not a var or field, but an actor, and yet...: " ++ show i
+                     pnc3 = panic (tcCodeMModule ++ ".lookupVar:actors")
+                             $ "Not a var or field, but an actor, and yet...: " ++ show i
+                     pnc4 = panic (tcCodeMModule ++ ".lookupVar:actors")
+                             $ "Not a var or field, but an actor, and yet...: " ++ show i
+                     pnc5 = panic (tcCodeMModule ++ ".lookupVar:actors")
+                             $ "Not a var or field, but an actor, and yet...: " ++ show i
+                     pnc6 = panic (tcCodeMModule ++ ".lookupVar:actors")
                              $ "Not a var or field, but an actor, and yet...: " ++ show i
                  -- Really ugly hack where we assume that only the actor id will be unwrapped
                  -- at the use site
-                 let sty = TcInstance pnc aid pnc pnc
-                 return (sty, pnc, pnc, pnc)
+                 let sty = TcInstance pnc aid pnc2 pnc3
+                 return (sty, pnc4, pnc5, pnc6)
               Nothing -> panic (tcCodeMModule ++ ".lookupVar")
                          $ "Not a var or field: " ++ show i
   where lookupVarInVarMaps :: Ident a -> [Map B.ByteString VarFieldSig] -> Maybe VarFieldSig
@@ -516,7 +530,7 @@ startState = updateState $ \s -> s { lockMods = noMods, exnS = Map.empty }
 -- associated type of that (instance) actor is returned. For policies the
 -- policy bounds. For all other types just the type with null-pointer
 -- information.
-getStateType :: Maybe (Name x)          -- ^ field/var name (if decidable)
+getStateType :: Maybe (Name PA)          -- ^ field/var name (if decidable)
              -> Maybe TcStateType        -- ^ containing object state type
              -> TcType                   -- ^ field/var/cell type
              -> TcCodeM TcStateType
@@ -556,7 +570,7 @@ getActorId (Just (Name _ EName mPre i)) mstyO = do
 getActorId mn ms = panic (tcCodeMModule ++ ".getActorId")
                    $ show (mn, ms)
 -}
-getPolicyBounds :: Maybe (Name x)
+getPolicyBounds :: Maybe (Name PA)
                 -> Maybe TcStateType
                 -> TcCodeM ActorPolicyBounds
 getPolicyBounds Nothing Nothing = PolicyBounds <$> bottomM <*> topM
@@ -587,7 +601,7 @@ getPolicyBounds mn ms = panic (tcCodeMModule ++ ".getPolicyBounds")
 
 
 getInstanceActors :: TcClassType
-                  -> Maybe (Name x)
+                  -> Maybe (Name PA)
                   -> Maybe TcStateType
                   -> TcCodeM (TypedActorIdSpec, [TypedActorIdSpec], NullType)
 getInstanceActors ct@(TcClassT tyN _) Nothing Nothing = do
@@ -656,7 +670,7 @@ throwNull = do
    throwExn (ExnType nullExnT) wX
 
 
-updateStateType :: Maybe (Name x, Bool) -- field/var name and stability (if decidable)
+updateStateType :: Maybe (Name PA, Bool) -- field/var name and stability (if decidable)
                 -> TcType                -- field/var/cell type
                 -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
                 -> TcCodeM TcStateType
@@ -691,7 +705,7 @@ updateActorId (Just (Name _ EName mPre i, stab)) mRhsSty = do
 updateActorId mn _ = panic (tcCodeMModule ++ ".updateActorId")
                      $ show mn
 -}
-updatePolicyBounds :: Maybe (Name x, Bool) -- field/var name and stability (if decidable)
+updatePolicyBounds :: Maybe (Name PA, Bool) -- field/var name and stability (if decidable)
                    -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
                    -> TcCodeM ActorPolicyBounds
 updatePolicyBounds Nothing (Just rhsSty) =
@@ -713,7 +727,7 @@ updatePolicyBounds mn _ = panic (tcCodeMModule ++ ".updatePolicyBounds")
 
 
 updateInstanceActors :: TcClassType
-                     -> Maybe (Name x, Bool) -- field/var name and stability (if decidable)
+                     -> Maybe (Name PA, Bool) -- field/var name and stability (if decidable)
 --                     -> Maybe TcStateType     -- containing type
                      -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
                      -> TcCodeM (TypedActorIdSpec, [TypedActorIdSpec], NullType)
@@ -792,7 +806,7 @@ getBranchPC_ = do env <- getEnv
 extendBranchPC :: ActorPolicy -> String -> TcCodeM a -> TcCodeM a
 extendBranchPC p str = withEnv $ return . joinBranchPC p str
 
-addBranchPCList :: [Ident x] -> TcCodeM a -> TcCodeM a
+addBranchPCList :: [Ident PA] -> TcCodeM a -> TcCodeM a
 addBranchPCList is =
     withEnv $ \env ->
         let (bm, def) = branchPCE env
@@ -813,7 +827,7 @@ getCurrentPC ent = do
   bt <- bottomM
   foldM lub bt (bpcs ++ epcs)
 
-registerParamType :: Ident x -> TcType -> TcCodeM ()
+registerParamType :: Ident PA -> TcType -> TcCodeM ()
 registerParamType i ty = registerStateType i ty True Nothing
 
 --------------------------------------------
@@ -861,7 +875,7 @@ constraintPC bpcs pW msgf = mapM_ (uncurry constraintPC_) bpcs
 
 
 
-exnConsistent :: Either (Name x) TcClassType
+exnConsistent :: Either (Name PA) TcClassType
               -> TcType -> (ActorPolicy, ActorPolicy) -> TcCodeM ()
 exnConsistent caller exnTy (rX,wX) = do
     exnMap <- exnsE <$> getEnv
@@ -951,7 +965,7 @@ openLock  l = applyLockMods $ open  $ skolemizeLock l
 closeLock l = applyLockMods $ close $ skolemizeLock l
 
 
-registerStateType :: Ident x               -- Entity to register
+registerStateType :: Ident PA               -- Entity to register
                   -> TcType                 -- Its type
                   -> Bool                   -- Its stability
                   -> Maybe TcStateType      -- rhs state type (Nothing if no initialiser)
