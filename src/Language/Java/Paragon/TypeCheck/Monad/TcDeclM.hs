@@ -44,6 +44,7 @@ import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.NameResolution
 import Language.Java.Paragon.SourcePos
 
+import Language.Java.Paragon.Decorations.TcDecoration
 import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.Decorations.NoDecoration
 import Language.Java.Paragon.TypeCheck.TypeMap
@@ -65,7 +66,7 @@ import qualified Control.Monad.Fail as Fail
 tcDeclMModule :: String
 tcDeclMModule = typeCheckerBase ++ ".Monad.TcDeclM"
 
-type TypeCheck m ast = ast PA -> m (ast T)
+type TypeCheck m ast = ast PA -> m (ast TC)
 
 lookupTypeOfStateType :: MonadTcDeclM m => TcStateType -> m TypeSig
 lookupTypeOfStateType sty {-@(TcInstance{})-} = liftTcDeclM $ do

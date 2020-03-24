@@ -5,14 +5,11 @@ module Language.Java.Paragon.Decorations.TcDecoration where
 
 import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.TypeCheck.Types
 
 
 -- | Type checking. AST type index for the result of the type checking phase.
 data TC
-
--- | Placeholder type that will be replaced by the actual type for Paragon types
--- (AST decoration).
-type TcPlaceHolder = ()
 
 -- Derive type instances on the form
 -- > type instance XCompilationUnit PTE = NoFieldExt
@@ -29,7 +26,11 @@ $(makeTypeInsts ''TC ''NoFieldExt
   , ''XDecl
   ])
 
-$(makeTypeInsts ''TC ''TcPlaceHolder
+-- Make pattern synonyms on the form
+-- > pattern TcCompilationUnit typ mpd id td = CompilationUnit typ mpd id td
+$(makePatternSyns "Ct" allDataConstructors [p| () |])
+
+$(makeTypeInsts ''TC ''T
   [ ''XMemberDecl, ''XVarDecl, ''XVarDeclId, ''XFormalParam, ''XMethodBody
   , ''XConstructorBody, ''XExplConstrInv, ''XMod, ''XBlock, ''XBlockStm
   , ''XStm, ''XCatch, ''XSwitchBlock, ''XSwitchLabel, ''XForInit
