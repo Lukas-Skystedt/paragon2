@@ -571,8 +571,10 @@ instance Pretty (ClassType a) where
 --      map (\(i,tas) -> pretty i <> ppTypeParams tas) itas
 
 instance Pretty (TypeArgument a) where
-  pretty (ActualArg _ aa) = pretty aa
-  pretty (Wildcard _ mBound) = char '?' <+> maybePP mBound
+  -- pretty (ActualArg _ aa) = pretty aa
+  -- pretty (Wildcard _ mBound) = char '?' <+> maybePP mBound
+  -- TODO: Implement Pretty for TypeArgument
+  pretty _ = error "Pretty not yet defined for TypeArgument"
 
 instance Pretty (NonWildTypeArgument a) where
   pretty (ActualName   _ n) = pretty n

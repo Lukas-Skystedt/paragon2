@@ -44,7 +44,6 @@ import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.NameResolution
 import Language.Java.Paragon.SourcePos
 
-import Language.Java.Paragon.Decorations.TcDecoration
 import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.Decorations.NoDecoration
 import Language.Java.Paragon.TypeCheck.TypeMap

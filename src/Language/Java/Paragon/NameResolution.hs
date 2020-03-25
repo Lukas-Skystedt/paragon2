@@ -9,6 +9,7 @@ import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos --(defaultPos)
 import Language.Java.Paragon.NameResolution.Monad
+import Language.Java.Paragon.Decorations.NrDecoration
 
 import qualified Data.Map as Map
 import qualified Data.ByteString.Char8 as B
@@ -559,7 +560,7 @@ rnTypeParam (ActorParam pos rt i) = flip (ActorParam pos) i <$> rnRefType rt
 rnTypeParam tp = return tp
 
 rnTypeArgument :: Resolve TypeArgument
-rnTypeArgument (ActualArg pos nwta) = ActualArg pos <$> rnNonWildTypeArgument nwta
+rnTypeArgument (NrActualArg pos nwta) = NrActualArg pos <$> rnNonWildTypeArgument nwta
 rnTypeArgument x = failEC x . mkErrorFromInfo $
                      UnsupportedFeature "Wildcards not yet supported"
 

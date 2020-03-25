@@ -535,7 +535,7 @@ type family XReturnType x
 data Type x
     = PrimType (XType x) (PrimType x)
     | RefType (XType x) (RefType x)
-    | AntiQType (XType x) String
+    | AntiQType (XType x) String -- TODO: maybe this should be an extension constructor
 type family XType x
 
 -- | There are three kinds of reference types: class types, interface types, and array types.
@@ -547,21 +547,29 @@ data RefType x
     | TypeVariable (XRefType x) (Ident x)
     | ArrayType    (XRefType x) (Type x) [Maybe (Policy x)]
     -- ^ The second argument to ArrayType is the base type, and should not be an array type
+    | RefTypeExp   (XRefTypeExp x)
+    -- ^ Expansion constructor (TTG idiom). TODO naming of expansion constructors
+
+type family XRefTypeExp x
 type family XRefType x
 
 -- | A class or interface type consists of a type declaration specifier,
 --   optionally followed by type arguments (in which case it is a parameterized type).
 -- type families: XClassType
 data ClassType x
-    = ClassType(XClassType x) (Name x) [TypeArgument x]
+    = ClassType (XClassType x) (Name x) [TypeArgument x]
 type family XClassType x
 
 -- | Type arguments may be either reference types or wildcards.
 -- type families: XTypeArgument
 data TypeArgument x
-    = Wildcard  (XTypeArgument x) (Maybe (WildcardBound x))
-    | ActualArg (XTypeArgument x) (NonWildTypeArgument x)
+    -- = Wildcard  (XTypeArgument x) (Maybe (WildcardBound x))
+    -- | ActualArg (XTypeArgument x) (NonWildTypeArgument x)
+    = TypeArgumentExp (XTypeArgumentExp x)
+    -- ^ Expansion constructor (TTG idiom): TODO naming
+
 type family XTypeArgument x
+type family XTypeArgumentExp x
 
 data NonWildTypeArgument x
     = ActualName (XNonWildTypeArgument x) (Name x)      -- Can mean (XNonWildTypeArgument x) type or an exp
@@ -853,7 +861,9 @@ type ForallXFamilies (f :: * -> Constraint) x =
     f(XTypeParam x), f(XPolicyExp x), f(XLockProperties x), f(XClause x),
     f(XClauseVarDecl x), f(XClauseHead x), f(XLClause x), f(XActor x),
     f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XVarDecl x),
-    f(XVarInit x), f (XName x)
+    f(XVarInit x), f (XName x),
+    -- Nested tuple below to circumvent the constraint tuple max size of 62.
+    (f(XRefTypeExp x), f(XTypeArgumentExp x))
   )
 
 -- | Extension of 'ForallXFamilies' that includes 'Data', 'Typeable' and the
@@ -868,7 +878,8 @@ type ForallIncData (f :: * -> Constraint) x = (ForallXFamilies f x, Data x, Type
 -- type instances using template Haskell.
 allFamilies :: [TH.Name]
 allFamilies =
-  [''XCompilationUnit, ''XPackageDecl, ''XImportDecl, ''XTypeDecl, ''XClassDecl
+  [ -- Extension fields
+    ''XCompilationUnit, ''XPackageDecl, ''XImportDecl, ''XTypeDecl, ''XClassDecl
   , ''XClassBody, ''XEnumBody, ''XEnumConstant, ''XInterfaceDecl
   , ''XInterfaceBody, ''XDecl, ''XMemberDecl, ''XVarDecl, ''XVarDeclId
   , ''XVarInit, ''XFormalParam, ''XMethodBody, ''XConstructorBody
@@ -880,6 +891,8 @@ allFamilies =
   , ''XPrimType, ''XTypeParam, ''XPolicyExp, ''XLockProperties, ''XClause
   , ''XClauseVarDecl, ''XClauseHead, ''XLClause, ''XActor, ''XActorName
   , ''XAtom, ''XLock, ''XIdent, ''XName
+  -- Extension constructors
+  , ''XRefTypeExp, ''XTypeArgumentExp
   ]
 
 -- | List of all data constructors of the AST. It is used to generate pattern
@@ -915,7 +928,7 @@ allDataConstructors =
   , 'ClassFieldAccess , 'MethodCallOrLockQuery, 'PrimaryMethodCall
   , 'SuperMethodCall, 'ClassMethodCall , 'TypeMethodCall, 'ArrayInit, 'VoidType
   , 'LockType, 'Type, 'PrimType, 'RefType , 'ClassRefType, 'TypeVariable
-  , 'ArrayType, 'ClassType, 'Wildcard, 'ActualArg , 'ActualName, 'ActualType
+  , 'ArrayType, 'ClassType, {-'Wildcard, 'ActualArg,-} 'ActualName, 'ActualType
   , 'ActualExp, 'ActualLockState, 'ExtendsBound , 'SuperBound, 'BooleanT
   , 'ByteT, 'ShortT, 'IntT, 'LongT, 'CharT, 'FloatT, 'DoubleT , 'ActorT
   , 'PolicyT, 'ActorParam, 'PolicyParam, 'LockStateParam, 'PolicyLit
