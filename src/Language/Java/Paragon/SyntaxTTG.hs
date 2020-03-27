@@ -536,32 +536,47 @@ data Type x
     = PrimType (XType x) (PrimType x)
     | RefType (XType x) (RefType x)
     | AntiQType (XType x) String
+    -- ^ TODO: maybe this should be in the extension constructor
+    | TypeExt (XTypeExt x)
+
 type family XType x
+type family XTypeExt x
 
 -- | There are three kinds of reference types: class types, interface types, and array types.
 --   Reference types may be parameterized with type arguments.
 --   Type variables are introduced by generic type parameters.
 -- type families: XRefType
 data RefType x
-    = ClassRefType (XRefType x) (ClassType x)
-    | TypeVariable (XRefType x) (Ident x)
-    | ArrayType    (XRefType x) (Type x) [Maybe (Policy x)]
+    = ClassRefType (XRefType x)          (ClassType x)
+    | TypeVariable (XRefType x)          (Ident x)
+    | ArrayType    (XRefTypeArrayType x) (Type x)
+    -- Parser: [Maybe (Policy x)], TypeCheck: ActorPolicy
     -- ^ The second argument to ArrayType is the base type, and should not be an array type
+    | RefTypeExp   (XRefTypeExp x)
+    -- ^ Expansion constructor (TTG idiom). TODO naming of expansion constructors
+
+type family XRefTypeExp x
 type family XRefType x
+type family XRefTypeArrayType x
+
 
 -- | A class or interface type consists of a type declaration specifier,
 --   optionally followed by type arguments (in which case it is a parameterized type).
 -- type families: XClassType
 data ClassType x
-    = ClassType(XClassType x) (Name x) [TypeArgument x]
+    = ClassType (XClassType x) (Name x) [TypeArgument x]
 type family XClassType x
 
 -- | Type arguments may be either reference types or wildcards.
--- type families: XTypeArgument
+-- type families: 'XTypeArgumentExp'
 data TypeArgument x
-    = Wildcard  (XTypeArgument x) (Maybe (WildcardBound x))
-    | ActualArg (XTypeArgument x) (NonWildTypeArgument x)
-type family XTypeArgument x
+    -- = Wildcard  (XTypeArgument x) (Maybe (WildcardBound x))
+    -- | ActualArg (XTypeArgument x) (NonWildTypeArgument x)
+    = TypeArgumentExp (XTypeArgumentExp x)
+    -- ^ Expansion constructor (TTG idiom): TODO naming
+
+-- type family XTypeArgument x
+type family XTypeArgumentExp x
 
 data NonWildTypeArgument x
     = ActualName (XNonWildTypeArgument x) (Name x)      -- Can mean (XNonWildTypeArgument x) type or an exp
@@ -599,17 +614,17 @@ aPrimType :: (XPrimType x -> a) -> PrimType x -> a
 aPrimType f (BooleanT x) = f x
 
 
--- aOfPrimType :: PrimType a -> a
--- aOfPrimType (BooleanT x _) = x
--- aOfPrimType (ByteT    x _) = x
--- aOfPrimType (ShortT   x _) = x
--- aOfPrimType (IntT     x _) = x
--- aOfPrimType (LongT    x _) = x
--- aOfPrimType (CharT    x _) = x
--- aOfPrimType (FloatT   x _) = x
--- aOfPrimType (DoubleT  x _) = x
--- aOfPrimType (ActorT   x _) = x
--- aOfPrimType (PolicyT  x _) = x
+aOfPrimType :: PrimType x -> XPrimType x
+aOfPrimType (BooleanT x) = x
+aOfPrimType (ByteT    x) = x
+aOfPrimType (ShortT   x) = x
+aOfPrimType (IntT     x) = x
+aOfPrimType (LongT    x) = x
+aOfPrimType (CharT    x) = x
+aOfPrimType (FloatT   x) = x
+aOfPrimType (DoubleT  x) = x
+aOfPrimType (ActorT   x) = x
+aOfPrimType (PolicyT  x) = x
 
 -- | A class is generic if it declares one or more type variables. These type variables are known
 --   as the type parameters of the class.
@@ -848,12 +863,15 @@ type ForallXFamilies (f :: * -> Constraint) x =
     f(XExceptionSpec x), f(XExp x), f(XLiteral x), f(XOp x),
     f(XAssignOp x), f(XLhs x), f(XArrayIndex x), f(XFieldAccess x),
     f(XMethodInvocation x), f(XArrayInit x), f(XReturnType x), f(XType x),
-    f(XRefType x), f(XClassType x), f(XTypeArgument x),
+    f(XRefType x), f(XClassType x), f(XTypeArgumentExp x),
     f(XNonWildTypeArgument x), f(XWildcardBound x), f(XPrimType x),
     f(XTypeParam x), f(XPolicyExp x), f(XLockProperties x), f(XClause x),
     f(XClauseVarDecl x), f(XClauseHead x), f(XLClause x), f(XActor x),
     f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XVarDecl x),
-    f(XVarInit x), f (XName x)
+    f(XVarInit x), f (XName x),
+    -- Nested tuple below to circumvent the constraint tuple max size of 62.
+    (f(XRefTypeExp x), f(XTypeArgumentExp x),  f(XRefTypeArrayType x),
+     f(XTypeExt x))
   )
 
 -- | Extension of 'ForallXFamilies' that includes 'Data', 'Typeable' and the
@@ -864,11 +882,15 @@ type ForallIncData (f :: * -> Constraint) x = (ForallXFamilies f x, Data x, Type
 
 
 -- | List of every type family used for the extension field of the TTG AST.
--- | The names of these families all begin with \'X\'. It is used to generate
+-- The names of these families all begin with \'X\'. It is used to generate
 -- type instances using template Haskell.
+--
+-- Duplicates in this list will cause problems when using list difference
+-- 'Data.List.\\'.
 allFamilies :: [TH.Name]
 allFamilies =
-  [''XCompilationUnit, ''XPackageDecl, ''XImportDecl, ''XTypeDecl, ''XClassDecl
+  [ -- Extension fields
+    ''XCompilationUnit, ''XPackageDecl, ''XImportDecl, ''XTypeDecl, ''XClassDecl
   , ''XClassBody, ''XEnumBody, ''XEnumConstant, ''XInterfaceDecl
   , ''XInterfaceBody, ''XDecl, ''XMemberDecl, ''XVarDecl, ''XVarDeclId
   , ''XVarInit, ''XFormalParam, ''XMethodBody, ''XConstructorBody
@@ -876,11 +898,16 @@ allFamilies =
   , ''XSwitchBlock, ''XSwitchLabel, ''XForInit, ''XExceptionSpec, ''XExp
   , ''XLiteral, ''XOp, ''XAssignOp, ''XLhs, ''XArrayIndex, ''XFieldAccess
   , ''XMethodInvocation, ''XArrayInit, ''XReturnType, ''XType, ''XRefType
-  , ''XClassType, ''XTypeArgument, ''XNonWildTypeArgument, ''XWildcardBound
+  , ''XClassType, ''XNonWildTypeArgument, ''XWildcardBound
   , ''XPrimType, ''XTypeParam, ''XPolicyExp, ''XLockProperties, ''XClause
   , ''XClauseVarDecl, ''XClauseHead, ''XLClause, ''XActor, ''XActorName
   , ''XAtom, ''XLock, ''XIdent, ''XName
+  -- Extra field extensions
+  , ''XRefTypeArrayType
+  -- Extension constructors
+  , ''XRefTypeExp, ''XTypeArgumentExp, ''XTypeExt
   ]
+
 
 -- | List of all data constructors of the AST. It is used to generate pattern
 -- synonyms using template Haskell.
@@ -915,7 +942,7 @@ allDataConstructors =
   , 'ClassFieldAccess , 'MethodCallOrLockQuery, 'PrimaryMethodCall
   , 'SuperMethodCall, 'ClassMethodCall , 'TypeMethodCall, 'ArrayInit, 'VoidType
   , 'LockType, 'Type, 'PrimType, 'RefType , 'ClassRefType, 'TypeVariable
-  , 'ArrayType, 'ClassType, 'Wildcard, 'ActualArg , 'ActualName, 'ActualType
+  , 'ArrayType, 'ClassType, {-'Wildcard, 'ActualArg,-} 'ActualName, 'ActualType
   , 'ActualExp, 'ActualLockState, 'ExtendsBound , 'SuperBound, 'BooleanT
   , 'ByteT, 'ShortT, 'IntT, 'LongT, 'CharT, 'FloatT, 'DoubleT , 'ActorT
   , 'PolicyT, 'ActorParam, 'PolicyParam, 'LockStateParam, 'PolicyLit
@@ -923,7 +950,10 @@ allDataConstructors =
   , 'ClauseVarDecl , 'ClauseDeclHead, 'ClauseVarHead, 'LClause
   , 'ConstraintClause, 'Actor, 'Var , 'ActorName, 'ActorTypeVar, 'Atom, 'Lock
   , 'LockVar, 'Ident
+  -- Extension constructors
+  , 'TypeExt
   ]
+
 
 -- Automatically generate various instances for the syntax tree types. The
 -- generated code consist of standalone instance derivations such as

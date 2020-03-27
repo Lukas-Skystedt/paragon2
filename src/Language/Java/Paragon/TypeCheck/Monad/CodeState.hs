@@ -8,6 +8,8 @@ module Language.Java.Paragon.TypeCheck.Monad.CodeState
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Interaction
 
+import Language.Java.Paragon.Decorations.PaDecoration
+import Language.Java.Paragon.SyntaxTTG (RefType, Type)
 import Language.Java.Paragon.PolicyLang
 import Language.Java.Paragon.TypeCheck.Types
 import Language.Java.Paragon.TypeCheck.NullAnalysis
@@ -47,7 +49,7 @@ emptyCodeState :: CodeState
 emptyCodeState = CodeState emptyVM noDelta Map.empty
 
 data InstanceInfo = II {
-      iType :: TcRefType,
+      iType :: RefType TC,
       iStable :: Bool,
       iFresh :: Bool,
       iActorId :: TypedActorIdSpec,
@@ -247,7 +249,7 @@ mergeActors = mergeGeneric mergeActorInfo
 ------------------------------------------
 
 type ExnsMap  = Map.Map ExnType ExnPoint
-data ExnType  = ExnType TcType | ExnContinue | ExnBreak | ExnReturn
+data ExnType  = ExnType (Type TC) | ExnContinue | ExnBreak | ExnReturn
   deriving (Eq, Ord, Show, Data, Typeable)
 data ExnPoint = ExnPoint { epState :: CodeState, epWrite :: ActorPolicy }
   deriving (Eq, Show, Data, Typeable)

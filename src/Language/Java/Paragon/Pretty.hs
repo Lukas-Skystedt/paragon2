@@ -1,4 +1,6 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE IncoherentInstances #-}
 module Language.Java.Paragon.Pretty
     (
      prettyPrint, Pretty(..),
@@ -12,6 +14,7 @@ import Control.Arrow (first)
 import Prelude hiding ((<>))
 
 import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Decorations.PaDecoration -- (PaArrayType, PA) -- Only using these two, however, importing pattern synonyms seem to work in a different way.
 
 import qualified Data.ByteString.Char8 as B
 
@@ -557,12 +560,20 @@ instance Pretty (Type a) where
   pretty (RefType   _ rt) = pretty rt
   pretty (AntiQType _ s)  = text "#T#" <> text s
 
+-- TODO: this version only works for 'PA'
+instance Pretty (RefType PA) where
+  pretty (ClassRefType _ ct) = pretty ct
+  pretty (TypeVariable _ i)  = pretty i
+  pretty (PaArrayType _ ty mPols) =
+      pretty ty <> hcat ((flip map) mPols
+                     (\mP -> brackets empty <> maybe empty (angles . pretty) mP))
+
 instance Pretty (RefType a) where
   pretty (ClassRefType _ ct) = pretty ct
   pretty (TypeVariable _ i)  = pretty i
-  pretty (ArrayType _ ty mPols) =
-      pretty ty <> hcat ((flip map) mPols
-                     (\mP -> brackets empty <> maybe empty (angles . pretty) mP))
+  pretty (ArrayType _ ty) =
+      pretty ty 
+
 
 instance Pretty (ClassType a) where
   pretty (ClassType _ n tas) =
@@ -571,8 +582,10 @@ instance Pretty (ClassType a) where
 --      map (\(i,tas) -> pretty i <> ppTypeParams tas) itas
 
 instance Pretty (TypeArgument a) where
-  pretty (ActualArg _ aa) = pretty aa
-  pretty (Wildcard _ mBound) = char '?' <+> maybePP mBound
+  -- pretty (ActualArg _ aa) = pretty aa
+  -- pretty (Wildcard _ mBound) = char '?' <+> maybePP mBound
+  -- TODO: Implement Pretty for TypeArgument
+  pretty _ = error "Pretty not yet defined for TypeArgument"
 
 instance Pretty (NonWildTypeArgument a) where
   pretty (ActualName   _ n) = pretty n

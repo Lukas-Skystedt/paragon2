@@ -1256,7 +1256,7 @@ refType = checkNoExtraEnd refTypeE
 
 refTypeE :: P (RefType PA, Int)
 refTypeE = {- trace "refTypeE" -} (
-    (do typ <- setPos ArrayType <*>
+    (do typ <- setPos PaArrayType <*>
                (setPos PrimType <*> primType) <*>
                list1 arrPols
         return (typ, 0))
@@ -1269,7 +1269,7 @@ refTypeE = {- trace "refTypeE" -} (
            mps <- list arrPols
            case mps of
              [] -> return (baseType, e)
-             _  -> do typ <- setPos ArrayType <*>
+             _  -> do typ <- setPos PaArrayType <*>
                              (setPos RefType <*> pure baseType) <*> pure mps
                       return (typ, 0)
          else return (baseType, e)
@@ -1342,11 +1342,11 @@ typeArgsE = {- trace "typeArgsE" $ -}
 typeArgsSuffix :: P ([TypeArgument PA], Int)
 typeArgsSuffix = {- trace "typeArgsSuffix" $ -}
   (do tok Op_Query
-      wcArg <- setPos Wildcard <*> opt wildcardBound
+      wcArg <- setPos PaWildcard <*> opt wildcardBound
       (rest, e) <- typeArgsEnd 0
       return (wcArg:rest, e)) <|>
 
-  (do lArg <- setPos ActualArg <*> parens (setPos ActualLockState <*> seplist1 lock comma)
+  (do lArg <- setPos PaActualArg <*> parens (setPos ActualLockState <*> seplist1 lock comma)
       (rest, e) <- typeArgsEnd 0
       return (lArg:rest, e)) <|>
 
@@ -1355,10 +1355,10 @@ typeArgsSuffix = {- trace "typeArgsSuffix" $ -}
             tArg <- case nameOfRefType rt of
                       Just n -> setPos ActualName <*> pure (ambName (flattenName n)) -- keep as ambiguous
                       _ -> setPos ActualType <*> pure rt
-            actArg <- setPos ActualArg <*> pure tArg
+            actArg <- setPos PaActualArg <*> pure tArg
             return (actArg:rest, e)) <|>
 
-  (do eArg <- setPos ActualArg <*> (setPos ActualExp <*> argExp)
+  (do eArg <- setPos PaActualArg <*> (setPos ActualExp <*> argExp)
       (rest, e) <- typeArgsEnd 0
       return (eArg:rest, e))
 
@@ -1403,7 +1403,7 @@ wildcardBound =
 
 nonWildTypeArgs :: P [NonWildTypeArgument PA]
 nonWildTypeArgs = typeArgs >>= mapM checkNonWild
-  where checkNonWild (ActualArg _ arg) = return arg
+  where checkNonWild (PaActualArg _ arg) = return arg
         checkNonWild _ = fail "Use of wildcard in non-wild context"
 
 

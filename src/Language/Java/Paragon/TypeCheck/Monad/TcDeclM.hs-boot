@@ -10,12 +10,13 @@ module Language.Java.Paragon.TypeCheck.Monad.TcDeclM (
 import Language.Java.Paragon.Monad.PiReader
 
 import Language.Java.Paragon.Error
-import Language.Java.Paragon.Syntax (Ident, Name, TypeParam, Exp, Actor, Lock, RefType)
+import Language.Java.Paragon.SyntaxTTG (Ident, Name, TypeParam, Exp, Actor, Lock, RefType, ClassType)
 import Language.Java.Paragon.Pretty()
 import Language.Java.Paragon.Interaction()
 import Language.Java.Paragon.NameResolution()
 import Language.Java.Paragon.SourcePos
 
+import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.TypeCheck.TypeMap
 import Language.Java.Paragon.TypeCheck.Types
 import qualified Language.Java.Paragon.PolicyLang as PL
@@ -32,7 +33,7 @@ import Data.Maybe ()
 -----------------------------------------------
 -- Underlying non-cont'ed monad
 
-newtype TcDeclM a = TcDeclM (TypeMap -> TypeMap -> TcClassType -> PiReader (a, TypeMap) )
+newtype TcDeclM a = TcDeclM (TypeMap -> TypeMap -> ClassType TC -> PiReader (a, TypeMap) )
 {-
 instance Monad TcDeclM  where
   return = liftPR . return
@@ -85,17 +86,17 @@ extendGlobalTypeMap :: MonadTcDeclM m => (TypeMap -> TypeMap) -> m ()
 extendGlobalTypeMap = liftTcDeclM . extendGlobalTypeMapTB
   
 -}
-fetchType :: Name SourcePos -> TcDeclM ([TypeParam SourcePos],[(RefType SourcePos, B.ByteString)],TypeSig)
+fetchType :: Name PA -> TcDeclM ([TypeParam PA],[(RefType PA, B.ByteString)],TypeSig)
 getTypeMap :: MonadTcDeclM m => m TypeMap
 
 class (HasSubTyping m, MonadTcDeclM m) => EvalPolicyM m where
-  evalPolicy :: Exp SourcePos -> m PL.PrgPolicy
-  evalActorId :: Name SourcePos -> m PL.TypedActorIdSpec
-  evalActor :: [(Ident SourcePos, TcRefType)] -> Actor SourcePos -> m PL.ActorSetRep
-  evalLock :: Lock SourcePos -> m PL.TcLock
+  evalPolicy :: Exp PA -> m PL.PrgPolicy
+  evalActorId :: Name PA -> m PL.TypedActorIdSpec
+  evalActor :: [(Ident PA, RefType TC)] -> Actor PA -> m PL.ActorSetRep
+  evalLock :: Lock PA -> m PL.TcLock
 
 
-evalSrcRefType :: EvalPolicyM m => m PL.ActorPolicy -> RefType SourcePos -> m TcRefType
+evalSrcRefType :: EvalPolicyM m => m PL.ActorPolicy -> RefType PA -> m (RefType TC)
 
 
 {-getTypeMap = liftTcDeclM getTypeMapTB

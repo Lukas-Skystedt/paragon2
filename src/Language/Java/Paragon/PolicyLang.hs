@@ -34,12 +34,13 @@ module Language.Java.Paragon.PolicyLang
      thisP, substThis, includesThis, includesThisVP
     ) where
 
-import Language.Java.Paragon.SourcePos
 import Language.Java.Paragon.Error (Error)
-import Language.Java.Paragon.Syntax (Name)
+import Language.Java.Paragon.SyntaxTTG (Name)
 import Language.Java.Paragon.Pretty
 
 import Language.Java.Paragon.TypeCheck.Types
+
+import Language.Java.Paragon.Decorations.PaDecoration
 
 import Language.Java.Paragon.PolicyLang.Actors
 import Language.Java.Paragon.PolicyLang.Locks
@@ -62,16 +63,16 @@ type ActorPolicy
     = MetaPolicy
         MetaVarRep
         PolicyVarRep
-        (Name SourcePos)
+        (Name PA)
         ActorSetRep
 
 type PrgPolicy
     = VarPolicy
         PolicyVarRep
-        (Name SourcePos)
+        (Name PA)
         ActorSetRep
 
-type BasePolicy = Policy (Name SourcePos) ActorSetRep
+type BasePolicy = Policy (Name PA) ActorSetRep
 
 thisP :: PrgPolicy
 thisP = PolicyVar ThisVar
@@ -98,22 +99,22 @@ substThis :: BasePolicy
           -> PrgPolicy
 substThis x = substVarPolicy ThisVar x
 
-type TcLock = LockSpec -- Lock (Name SourcePos) ActorIdSpec
-type TcLockSet = LockSet (Name SourcePos) TypedActorIdSpec
-type TcLockDelta = LockDelta (Name SourcePos) TypedActorIdSpec
+type TcLock = LockSpec -- Lock (Name x) ActorIdSpec
+type TcLockSet = LockSet (Name PA) TypedActorIdSpec
+type TcLockDelta = LockDelta (Name PA) TypedActorIdSpec
 
-type TcClause = Clause (Name SourcePos) ActorSetRep
+type TcClause = Clause (Name PA) ActorSetRep
 
-type LockProp = DatalogClause (Name SourcePos) ActorSetRep
+type LockProp = DatalogClause (Name PA) ActorSetRep
 
 type TcActor = ActorSetRep
 
-type TcAtom = Atom (Name SourcePos)
+type TcAtom = Atom (Name PA)
 
-type GlobalPol = GlobalPolicy (Name SourcePos) ActorSetRep
+type GlobalPol = GlobalPolicy (Name PA) ActorSetRep
 
 type TcConstraint =
-    Constraint MetaVarRep PolicyVarRep (Name SourcePos) ActorSetRep TypedActorIdSpec
+    Constraint MetaVarRep PolicyVarRep (Name PA) ActorSetRep TypedActorIdSpec
 
 type ConstraintWMsg = (TcConstraint, Error)
 
@@ -121,7 +122,7 @@ data ActorPolicyBounds
     = KnownPolicy ActorPolicy
     -- | Invariant: For 'PolicyBounds p q', p <= q
     | PolicyBounds ActorPolicy ActorPolicy
-  deriving (Eq, Show, Data, Typeable)
+  deriving (Eq, Ord, Show, Data, Typeable)
 
 instance HasSubTyping m =>
     PartialOrder m ActorPolicyBounds where
@@ -153,7 +154,7 @@ instance HasSubTyping m =>
       PolicyBounds <$> lb1 `glb` lb2 <*> ub1 `glb` ub2
 
   bottomM = return $ KnownPolicy $ VarPolicy $ ConcretePolicy $
-                     Policy [Clause (TypedActor (TcClsRefT objectT) $ B.pack "x") [] []]
+                     Policy [Clause (TypedActor (TcClassRefType objectT) $ B.pack "x") [] []]
 
 
 instance Pretty ActorPolicyBounds where
