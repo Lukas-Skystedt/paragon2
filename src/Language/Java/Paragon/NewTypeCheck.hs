@@ -27,7 +27,7 @@ typeCheck = error "typeCheck placeholder evaluated"
 
 typeCheckTd :: BaseName -> Maybe (Name PA) -> TypeCheck TcDeclM TypeDecl
 typeCheckTd baseName mpkg (ClassTypeDecl     _ cdecl)
-    = CtClassTypeDecl <$> typeCheckCd baseName mpkg cdecl
+    = TcClassTypeDecl <$> typeCheckCd baseName mpkg cdecl
 typeCheckTd baseName mpkg (InterfaceTypeDecl _ idecl)
   = error "typeCheckTd: not implemented"
 

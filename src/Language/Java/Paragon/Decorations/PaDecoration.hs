@@ -20,6 +20,9 @@ data PA deriving Data
 
 
 type instance XTypeArgumentExp PA = PaDecTypeArg
+type instance XRefTypeArrayType PA = (SourcePos, [Maybe (Policy PA)])
+
+pattern PaArrayType sp typ pol = ArrayType (sp,pol) typ
 
 -- | Extension constructors for 'TypeArg PA'.
 --
@@ -40,7 +43,10 @@ deriving instance Typeable PaDecTypeArg
 pattern PaWildcard sp mwb = TypeArgumentExp (Wildcard sp mwb)
 pattern PaActualArg sp nwta = TypeArgumentExp (ActualArg sp nwta)
 
+
+  
 -- Derive type instances on the form
 -- > type instance XCompilationUnit PA = SourcePos
 -- for all extension fields.
-$(makeTypeInsts ''PA ''SourcePos (allFamilies \\ [''XTypeArgumentExp]))
+$(makeTypeInsts ''PA ''SourcePos
+  (allFamilies \\ [''XTypeArgumentExp, ''XRefTypeArrayType]))

@@ -31,11 +31,10 @@ import Data.Data (Data, Typeable)
 import Prelude hiding ((<>))
 import qualified Control.Monad.Fail as Fail
 
-
 -- Make pattern synonyms on the form
 -- > pattern TcCompilationUnit typ mpd id td = CompilationUnit typ mpd id td
 $(makePatternSyns "Tc"
-  (allDataConstructors \\ ['ActualType, 'ActualLockState])
+  (allDataConstructors \\ ['ActualType, 'ActualLockState, 'ArrayType, 'VoidType])
   [p| () |])
 
 
@@ -47,7 +46,6 @@ typesModule = typeCheckerBase ++ ".Types"
 -- types.
 data T = ParagonType (Type TC)
        | JavaType (Type TC)
-  -- deriving (Eq, Ord, Show, Data, Typeable)
 
 deriving instance Eq T
 deriving instance Ord T
@@ -57,15 +55,21 @@ deriving instance Typeable T
 
 -- | Where annotation is not applicable, replace with Nothing.
 notAppl :: Functor f => f a -> f T
-notAppl = fmap (const Nothing)
+notAppl = error "notAppl: not implemented. TOOD: figure out Maybe T vs T"--fmap (const Nothing)
 
 -- | Converts a statetype to an annotated AST type as being a non-native type,
 -- having removed the state information.
 toT :: TcStateType -> T
-toT sty = Just (unStateType sty, False)
+toT sty = JavaType (unStateType sty)
 
 setNative :: Bool -> T -> T
-setNative b = fmap $ \(t,_) -> (t,b)
+-- setNative b = fmap $ \(t,_) -> (t,b)
+
+setNative b t = case b of
+                  True  -> ParagonType (getType t)
+                  False -> JavaType    (getType t)
+  where getType (JavaType t)    = t
+        getType (ParagonType t) = t
 
 
 data TcStateType
@@ -82,77 +86,16 @@ deriving instance Show TcStateType
 deriving instance Data TcStateType
 deriving instance Typeable TcStateType
 
--- data TcType
---     = TcPrimType (PrimType SourcePos)
---     | TcRefType TcRefType
---     | TcVoidT
---   deriving (Eq, Ord, Show, Data, Typeable)
+instance Pretty TcStateType where
+  pretty tcst =
+      case tcst of
+        --TcActorIdT aid -> text "actor[" <> pretty aid <> text "]"
+        TcPolicyPolT p -> text "policy[" <> pretty p <> text "]"
+        TcLockT ls -> (hsep $ text "lock[" : punctuate (text ",") (map pretty ls)) <> text "]"
+        TcInstance ct aid aids _ -> pretty ct <> char '@' <> pretty aid <>
+                                 (hsep $ char '{' : punctuate (char ',') (map pretty aids)) <> char '}' --TODOY prettyprint nulltype
+        TcTypeNT ty nt -> pretty ty <> pretty nt
 
--- data TcRefType
---     = TcClsRefT TcClassType
---     | TcArrayType TcType ActorPolicy
---     | TcTypeVariable B.ByteString
---     | TcNullT
---   deriving (Eq, Ord, Show, Data, Typeable)
-
--- data TcClassType
---     = TcClassT (Name SourcePos) [TcTypeArg]
---   deriving (Eq, Ord, Show, Data, Typeable)
-
--- data TcTypeArg
---     = TcActualType TcRefType
---     | TcActualPolicy ActorPolicy
---     | TcActualActor TypedActorIdSpec
---     | TcActualLockState [TcLock]
---   deriving (Eq, Ord, Show, Data, Typeable)
-
-
--- Not var in VarPolicy
--- apEq :: ActorPolicy -> ActorPolicy -> Bool
--- apEq (VarPolicy (ConcretePolicy (Policy [Clause actset1 _ [atom1]])))
---      (VarPolicy (ConcretePolicy (Policy [Clause actset2 _ [atom2]]))) = atom1==atom2
-
--- instance Eq (XName PA) => Eq TcRefType where
---  (TcClsRefT a1)   == (TcClsRefT b1)   = a1 == b1
---  (TcArrayType a1 a2) == (TcArrayType b1 b2) = a1 == b1 && a2 `apEq` b2
---  (TcTypeVariable a1)   == (TcTypeVariable b1)   = a1 == b1
---  TcNullT          == TcNullT          = True
---  _                == _                = False
-
-
-
-{-- The Ord instances are only ever used in order to have types
--- as keys for Maps, specifically for method/constructor
--- dispatch. The ordering thus only serves to make the
--- Map efficient, so we don't much care about the
--- exact details of it.
-instance Ord TcTypeArg where
-  compare (TcActualType      rt1)  (TcActualType rt2)
-      = compare rt1 rt2
-  compare (TcActualPolicy    p1)   (TcActualPolicy p2)
-      | leq p1 p2
-        && leq p2 p1 = EQ
-      | leq p1 p2 = LT
-      | leq p2 p1 = GT
-      | otherwise =
-  compare (TcActualActor     aid1) (TcActualActor aid2)
-      = compare aid1 aid2
-  compare (TcActualLockState ls1)  (TcActualLockState ls2)
-      | all (`elem` ls2) ls1
-        && all (`elem` ls1) ls2 = EQ
-      | all (`elem` ls2) ls1 = LT
-      | all (`elem` ls1) ls2 = GT
-      | otherwise = compare ls1 ls2
-
-  compare (TcActualType _) _   = LT
-  compare _ (TcActualType _)   = GT
-
-  compare (TcActualPolicy _) _ = LT
-  compare _ (TcActualPolicy _) = GT
-
-  compare (TcActualActor _) _  = LT
-  compare _ (TcActualActor _)  = GT
--}
 ------------------------------------
 -- Constructors
 
@@ -203,7 +146,7 @@ setNullInStateType tcst nt = case tcst of
                                TcTypeNT           t _ -> TcTypeNT t nt
                                st                     -> st
 
-nullT, voidT :: (Type TC)
+nullT, voidT :: Type TC
 nullT    = TcRefType TcNullT
 voidT    = TcVoidType
 
@@ -224,10 +167,10 @@ clsTypeWArg :: Name () -> [TcTypeArg] -> (Type TC)
 clsTypeWArg n = TcClassT n
 -}
 
-clsType :: Ident PA -> ClassType TC
+clsType :: Ident TC -> ClassType TC
 clsType = qualClsType . return
 
-qualClsType :: [Ident PA] -> ClassType TC
+qualClsType :: [Ident TC] -> ClassType TC
 qualClsType is = TcClassType (mkName_ TName PName is) []
 
 --nameToClsType :: Name () -> TcClassType
@@ -262,13 +205,13 @@ mkArrayType = foldr (flip arrayType)
 -- Destructors
 
 -- Invariant: First argument is a class type
-typeName :: (Type TC) -> Maybe (Name PA)
+typeName :: (Type TC) -> Maybe (Name TC)
 typeName (TcRefType (TcClassRefType (TcClassType n tas))) =
 --         let (is, args) = unzip pn in
          if null tas then Just (mkUniformName_ AmbName $ flattenName n) else Nothing
 typeName _ = Nothing
 
-typeName_ :: (Type TC) -> Name PA
+typeName_ :: (Type TC) -> Name TC
 typeName_ (TcRefType (TcClassRefType (TcClassType n _tas))) = mkUniformName_ AmbName $ flattenName n
 --    let (is, _) = unzip pn in mkUniformName_ AmbName is
 typeName_ t = error $ "typeName_: Not a class type: " ++ show t
@@ -294,7 +237,7 @@ mRefType _ = Nothing
 isPrimType (TcTypeNT (TcPrimType _) _) = True
 isPrimType _ = False
 
-mNameRefType :: (RefType TC) -> Maybe (Name PA)
+mNameRefType :: (RefType TC) -> Maybe (Name TC)
 mNameRefType (TcClassRefType (TcClassType n as)) =
     if null as then Just (mkUniformName_ AmbName $ flattenName n) else Nothing
 mNameRefType _ = Nothing
@@ -391,7 +334,7 @@ box pt = let mkClassType str spos =
               DoubleT  spos -> mkClassType "Double" spos
               _ -> Nothing
 
-unbox :: ClassType TC -> Maybe (PrimType PA)
+unbox :: ClassType TC -> Maybe (PrimType TC)
 unbox (TcClassType n@(Name spos _ _ _) _) =
     case map (B.unpack . unIdent) $ flattenName n of
       ["java", "lang", "Boolean"  ] -> Just $ BooleanT spos
@@ -406,16 +349,9 @@ unbox (TcClassType n@(Name spos _ _ _) _) =
 --unbox TcNullT = Nothing
 
 
-unboxType :: TcStateType -> Maybe (PrimType PA)
+unboxType :: TcStateType -> Maybe (PrimType TC)
 unboxType sty | TcRefType (TcClassRefType ct) <- unStateType sty = unbox ct
 unboxType _ = Nothing
-
-{-
-unIdent :: Ident a -> String
-unIdent (Ident _ x) = B.unpack x
-unIdent (AntiQIdent _ str) = panic (typesModule ++ ".unIdent")
-  $ "AntiQIdent should not appear in AST being typechecked: " ++ str
--}
 
 isNumConvertible :: TcStateType -> Bool
 isNumConvertible sty =
@@ -436,13 +372,13 @@ isBoolConvertible t = unStateType t == booleanT -- includes lock types
                       || unboxType t == Just (BooleanT defaultPos)
 
 
-unaryNumPromote :: TcStateType -> Maybe (PrimType PA)
+unaryNumPromote :: TcStateType -> Maybe (PrimType TC)
 unaryNumPromote sty
     | TcPrimType pt <- unStateType sty  = numPromote pt
     | Just    pt <- unboxType   sty  = numPromote pt
     | otherwise = Nothing
 
-    where numPromote :: PrimType PA -> Maybe (PrimType PA)
+    where numPromote :: PrimType TC -> Maybe (PrimType TC)
           numPromote pt
               | pt `elem` map ($ aOfPrimType pt) [LongT, FloatT, DoubleT] = Just pt
               | pt `elem` map ($ aOfPrimType pt) [ByteT, ShortT, IntT, CharT] = Just $ IntT (aOfPrimType pt)
@@ -451,7 +387,7 @@ unaryNumPromote sty
 unaryNumPromote_ :: TcStateType -> TcStateType
 unaryNumPromote_ = stateType . TcPrimType . fromJust . unaryNumPromote
 
-binaryNumPromote :: TcStateType -> TcStateType -> Maybe (PrimType PA)
+binaryNumPromote :: TcStateType -> TcStateType -> Maybe (PrimType TC)
 binaryNumPromote t1 t2 = do
     pt1 <- unaryNumPromote t1
     pt2 <- unaryNumPromote t2
@@ -523,35 +459,75 @@ class (Functor m, Applicative m, Monad m, Fail.MonadFail m) => HasSubTyping m wh
 -- ppArgs :: Pretty a => [a] -> Doc
 -- ppArgs = parens . hsep . punctuate comma . map pretty
 
+-- | Convert a 'Name PA' to 'Name TC'. TODO: These *should* be the same type; we
+-- should need to convert.
+namePaToTc :: Name PA -> Name TC
+namePaToTc (Name sp nt mn i) = Name sp nt (namePaToTc <$> mn) (identPaToTc i)
+namePaToTc (AntiQName sp s) = AntiQName sp s
+
+-- | Convert an 'Ident PA' to 'Ident TC'.
+identPaToTc :: Ident PA -> Ident TC
+identPaToTc (Ident sp bs) = Ident sp bs
+identPaToTc (AntiQIdent sp bs) = AntiQIdent sp bs
+
+-- | Convert a 'Name PA' to 'Name TC'. TODO: These *should* be the same type; we
+-- should need to convert.
+nameTcToPa :: Name TC -> Name PA
+nameTcToPa (Name sp nt mn i) = Name sp nt (nameTcToPa <$> mn) (identTcToPa i)
+nameTcToPa (AntiQName sp s) = AntiQName sp s
+
+-- | Convert an 'Ident PA' to 'Ident TC'.
+identTcToPa :: Ident TC -> Ident PA
+identTcToPa (Ident sp bs) = Ident sp bs
+identTcToPa (AntiQIdent sp bs) = AntiQIdent sp bs
+
+primTypePaToTc :: PrimType PA -> PrimType TC
+primTypePaToTc (BooleanT sp) = BooleanT sp
+primTypePaToTc (ByteT    sp) = ByteT    sp
+primTypePaToTc (ShortT   sp) = ShortT   sp
+primTypePaToTc (IntT     sp) = IntT     sp
+primTypePaToTc (LongT    sp) = LongT    sp
+primTypePaToTc (CharT    sp) = CharT    sp
+primTypePaToTc (FloatT   sp) = FloatT   sp
+primTypePaToTc (DoubleT  sp) = DoubleT  sp
+primTypePaToTc (ActorT   sp) = ActorT   sp
+primTypePaToTc (PolicyT  sp) = PolicyT  sp
+
 --------------------------------------------------------------------------------
 -- Old Decoration file below
 --------------------------------------------------------------------------------
 
 -- | Type checking. AST type index for the result of the type checking phase.
-data TC
+data TC deriving Data
 
 -- | Extension constructors for 'TypeArg TC'.
 --
--- This type should not be used outside of this module. Instead, the pattern
--- synonyms:
+-- This type should not be used outside of this module. Instead, use the
+-- following pattern synonyms:
 -- * 'TcActualType',
 -- * 'TcActualPolicy',
 -- * 'TcActualActor', and
--- * 'TcActualLockState'
--- should be used instead.
+-- * 'TcActualLockState'.
 data TcDecTypeArg
   = TcDecActualType (RefType TC)
   | TcDecActualPolicy ActorPolicy
   | TcDecActualActor TypedActorIdSpec
   | TcDecActualLockState [TcLock]
 
-type instance XType         TC = NoFieldExt
-type instance XPrimType     TC = SourcePos
-type instance XRefType      TC = NoFieldExt
-type instance XClassType    TC = NoFieldExt
+deriving instance Eq TcDecTypeArg
+deriving instance Ord TcDecTypeArg
+deriving instance Show TcDecTypeArg
+deriving instance Data TcDecTypeArg
+deriving instance Typeable TcDecTypeArg
 
-type instance XName         TC = UD
-type instance XTypeArgument TC = TypeArgument TC
+type instance XType            TC = NoFieldExt
+type instance XPrimType        TC = SourcePos
+type instance XRefType         TC = NoFieldExt
+type instance XClassType       TC = NoFieldExt
+
+type instance XIdent           TC = SourcePos
+type instance XName            TC = SourcePos
+type instance XTypeArgumentExp TC = TcDecTypeArg
 
 pattern TcActualType rt      = TypeArgumentExp (TcDecActualType rt)
 pattern TcActualPolicy ap    = TypeArgumentExp (TcDecActualPolicy ap)
@@ -560,7 +536,14 @@ pattern TcActualLockState ls = TypeArgumentExp (TcDecActualLockState ls)
 
 type instance XRefTypeExp TC = NoFieldExt
 
+-- Note: Not 'Void', it is used for representing the Paragon type void
+type instance XTypeExt TC = NoFieldExt
+pattern TcVoidType = TypeExt ()
+
 pattern TcNullT = RefTypeExp ()
+
+type instance XRefTypeArrayType TC = ActorPolicy
+pattern TcArrayType typ pol = ArrayType pol typ
 
 -- Derive type instances on the form
 -- > type instance XCompilationUnit PTE = NoFieldExt
@@ -574,7 +557,7 @@ pattern TcNullT = RefTypeExp ()
 $(makeTypeInsts ''TC ''NoFieldExt
   [ ''XCompilationUnit, ''XPackageDecl, ''XImportDecl, ''XTypeDecl, ''XClassDecl
   , ''XClassBody, ''XEnumBody, ''XEnumConstant, ''XInterfaceDecl, ''XInterfaceBody
-  , ''XDecl, ''XType, ''XClassType, ''XRefType
+  , ''XDecl, ''XType, {-''XClassType,--} ''XRefType, ''XReturnType, ''XVarInit
   ])
 
 
@@ -584,8 +567,8 @@ $(makeTypeInsts ''TC ''T
   , ''XStm, ''XCatch, ''XSwitchBlock, ''XSwitchLabel, ''XForInit
   , ''XExceptionSpec, ''XExp, ''XLiteral, ''XOp, ''XAssignOp, ''XLhs
   , ''XArrayIndex, ''XFieldAccess, ''XMethodInvocation, ''XArrayInit
-  , ''XReturnType, ''XNonWildTypeArgument, ''XWildcardBound, ''XTypeParam
+  , ''XNonWildTypeArgument, ''XWildcardBound, ''XTypeParam
   , ''XPolicyExp, ''XLockProperties, ''XClause, ''XClauseVarDecl, ''XClauseHead
-  , ''XLClause, ''XActor, ''XActorName, ''XAtom, ''XLock, ''XIdent
+  , ''XLClause, ''XActor, ''XActorName, ''XAtom, ''XLock
   ]
   )

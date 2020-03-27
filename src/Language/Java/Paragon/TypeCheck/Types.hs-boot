@@ -2,6 +2,7 @@
 module Language.Java.Paragon.TypeCheck.Types where
 
 import Language.Java.Paragon.Pretty
+import Language.Java.Paragon.SyntaxTTG
 
 import Control.Applicative
 
@@ -13,14 +14,16 @@ import Data.Generics (Data(..),Typeable(..))
 
 import qualified Control.Monad.Fail as Fail
 
-data TcRefType
+data TC
+instance Data TC
+-- data TcRefType
 
-instance Eq TcRefType
-instance Ord TcRefType
-instance Show TcRefType
-instance Data TcRefType
--- instance Typeable TcRefType
-instance Pretty TcRefType
+-- instance Eq TcRefType
+-- instance Ord TcRefType
+-- instance Show TcRefType
+-- instance Data TcRefType
+-- -- instance Typeable TcRefType
+-- instance Pretty TcRefType
 
 class (Functor m, Applicative m, Monad m, Fail.MonadFail m) => HasSubTyping m where
-  subTypeOf :: TcRefType -> TcRefType -> m Bool
+  subTypeOf :: RefType TC -> RefType TC -> m Bool

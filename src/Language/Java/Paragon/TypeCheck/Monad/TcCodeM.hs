@@ -423,7 +423,7 @@ lookupPrefixName n@(Name _ nt mPre i) = do
 --            check (null tps) $
 --                      "Type " ++ prettyPrint n ++ " expects " ++
 --                      show (length tps) ++ " but has been given none."
-            return (Just . stateType . TcRefT $ tType tsig, tMembers tsig, prePol, mStatFld)
+            return (Just . stateType . TcRefType $ tType tsig, tMembers tsig, prePol, mStatFld)
 
     PName -> case Map.lookup (unIdent i) $ packages preTm of
                Nothing -> do liftTcDeclM $ fetchPkg n
@@ -532,14 +532,14 @@ startState = updateState $ \s -> s { lockMods = noMods, exnS = Map.empty }
 -- information.
 getStateType :: Maybe (Name PA)          -- ^ field/var name (if decidable)
              -> Maybe TcStateType        -- ^ containing object state type
-             -> TcType                   -- ^ field/var/cell type
+             -> Type TC                  -- ^ field/var/cell type
              -> TcCodeM TcStateType
 getStateType mn mtyO ty
 --    | ty == actorT   = do actorIdT <$> getActorId mn mtyO
     | ty == policyT  = do policyPolT <$> getPolicyBounds mn mtyO
     | Just ct <- mClassType ty = do
                    (aid, as, nt) <- getInstanceActors ct mn mtyO
-                   return $ instanceT (TcClsRefT ct) aid as nt
+                   return $ instanceT (TcClassRefType ct) aid as nt
     | otherwise = return $ stateType ty
 
 {-
@@ -600,20 +600,20 @@ getPolicyBounds mn ms = panic (tcCodeMModule ++ ".getPolicyBounds")
                         $ show (mn, ms)
 
 
-getInstanceActors :: TcClassType
+getInstanceActors :: ClassType TC
                   -> Maybe (Name PA)
                   -> Maybe TcStateType
                   -> TcCodeM (TypedActorIdSpec, [TypedActorIdSpec], NullType)
-getInstanceActors ct@(TcClassT tyN _) Nothing Nothing = do
+getInstanceActors ct@(TcClassType tyN _) Nothing Nothing = do
   (iaps, _) <- lookupTypeOfType (clsTypeToType ct)
-  aid <- TypedActorIdSpec (TcClsRefT ct) . ConcreteActorId <$> unknownActorId
+  aid <- TypedActorIdSpec (TcClassRefType ct) . ConcreteActorId <$> unknownActorId
   ac <- mapM (\(rt,s) -> do
                 rTy <- evalSrcRefType genBot rt
-                aid <- instanceActorId $ Name defaultPos EName (Just tyN) $ Ident defaultPos s
+                aid <- instanceActorId $ Name defaultPos EName (Just (nameTcToPa tyN)) $ Ident defaultPos s
                 return $ TypedActorIdSpec rTy $ ConcreteActorId aid) iaps
   return (aid, ac, (MaybeNull, Free))
 
-getInstanceActors ct@(TcClassT tyN _) (Just (Name sp EName mPre i)) mstyO = do
+getInstanceActors ct@(TcClassType tyN _) (Just (Name sp EName mPre i)) mstyO = do
   vm <- getPrefix mPre -- Prefix guaranteed to exist
   let ist = instanceSt vm
   debugPrint $ "Instance state: " ++ show ist
@@ -633,17 +633,17 @@ getInstanceActors ct@(TcClassT tyN _) (Just (Name sp EName mPre i)) mstyO = do
                 (iaps, _) <- lookupTypeOfType ty
                 aid  <- case Map.lookup (unIdent i) $ actors tm of
                           Just a -> return a
-                          Nothing -> TypedActorIdSpec (TcClsRefT ct) . ConcreteActorId <$> unknownActorId
+                          Nothing -> TypedActorIdSpec (TcClassRefType ct) . ConcreteActorId <$> unknownActorId
                 aids <- mapM (\(rt,s) -> do
                                 rTy <- evalSrcRefType genBot rt
-                                aid <- instanceActorId $ Name sp EName (Just tyN) $ Ident sp s
+                                aid <- instanceActorId $ Name sp EName (Just (nameTcToPa tyN)) $ Ident sp s
                                 return $ TypedActorIdSpec rTy $ ConcreteActorId aid) iaps
                 return (fin, aid, aids)
               Nothing -> do
                 --debugPrint $ prettyPrint tm
                 panic (tcCodeMModule ++ ".getInstanceActors")
                           $ "No such field: " ++ prettyPrint ct ++ "." ++ prettyPrint i
-        let ii = II (TcClsRefT ct) stab False -- TODO: Freshness
+        let ii = II (TcClassRefType ct) stab False -- TODO: Freshness
                    aid aids emptyVM (MaybeNull, Free)    --TODO: Really ?
         --debugPrint $ "Forced to touch"
         (_, upd) <- touchPrefix mPre
@@ -671,7 +671,7 @@ throwNull = do
 
 
 updateStateType :: Maybe (Name PA, Bool) -- field/var name and stability (if decidable)
-                -> TcType                -- field/var/cell type
+                -> Type TC               -- field/var/cell type
                 -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
                 -> TcCodeM TcStateType
 --updateStateType mN tyV mRhsSty
@@ -682,7 +682,7 @@ updateStateType mN tyV mRhsSty
     | Just ct <- mClassType tyV = do
                    debugPrint $ "updateStateType[instance]: " ++ show mN
                    (aid, as, nt) <- updateInstanceActors ct mN mRhsSty
-                   return $ instanceT (TcClsRefT ct) aid as nt
+                   return $ instanceT (TcClassRefType ct) aid as nt
 updateStateType _ tyV _ = return $ stateType tyV
 {-
 updateActorId :: Maybe (Name SourcePos, Bool) -- field/var name and stability (if decidable)
@@ -726,7 +726,7 @@ updatePolicyBounds mn _ = panic (tcCodeMModule ++ ".updatePolicyBounds")
                           $ show mn
 
 
-updateInstanceActors :: TcClassType
+updateInstanceActors :: ClassType TC
                      -> Maybe (Name PA, Bool) -- field/var name and stability (if decidable)
 --                     -> Maybe TcStateType     -- containing type
                      -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
@@ -738,16 +738,16 @@ updateInstanceActors ct Nothing (Just rhsSty) = do
       Nothing | isNullType rhsSty -> getInstanceActors ct Nothing Nothing
       Nothing -> panic (tcCodeMModule ++ ".updateInstanceActors")
                  $ "Non-instance rhs for class type field: " ++ show rhsSty
-updateInstanceActors ct@(TcClassT tyN _) (Just (_n@(Name _ EName mPre i), stab)) mRhsSty = do
+updateInstanceActors ct@(TcClassType tyN _) (Just (_n@(Name _ EName mPre i), stab)) mRhsSty = do
   debugPrint $ "updateInstanceActors Just: " ++ show (prettyPrint _n, stab, prettyPrint ct, fmap prettyPrint mRhsSty)
   (vm, upd) <- touchPrefix mPre
   (aid, iaas, iint) <- case mRhsSty of
             Nothing -> do
               (iaps, _) <- lookupTypeOfType (clsTypeToType ct)
-              aid <- TypedActorIdSpec (TcClsRefT ct) . ConcreteActorId <$> unknownActorId
+              aid <- TypedActorIdSpec (TcClassRefType ct) . ConcreteActorId <$> unknownActorId
               as <- mapM (\(rt,s) -> do
                             rTy <- evalSrcRefType genBot rt
-                            aid <- instanceActorId $ Name defaultPos EName (Just tyN) $ Ident defaultPos s
+                            aid <- instanceActorId $ Name defaultPos EName (Just (nameTcToPa tyN)) $ Ident defaultPos s
                             return $ TypedActorIdSpec rTy $ ConcreteActorId aid) iaps
               return (aid, as, (MaybeNull, Free))
             Just sty | Just (_, aid, aids, nt) <- mInstanceType sty -> return (aid, aids, nt)
@@ -759,7 +759,7 @@ updateInstanceActors ct@(TcClassT tyN _) (Just (_n@(Name _ EName mPre i), stab))
   ii <- case Map.lookup (unIdent i) ist of
           Just ii -> return ii { iNull = iint }
           Nothing ->
-            return $ II (TcClsRefT ct) stab False -- TODO: Freshness
+            return $ II (TcClassRefType ct) stab False -- TODO: Freshness
                          aid iaas emptyVM iint
 
   setState $ upd $ vm { instanceSt = Map.insert (unIdent i) ii ist }
@@ -767,7 +767,7 @@ updateInstanceActors ct@(TcClassT tyN _) (Just (_n@(Name _ EName mPre i), stab))
 updateInstanceActors _ mn _ = panic (tcCodeMModule ++ ".updateInstanceActors")
                                 $ show mn
 
-lookupExn :: TcType -> TcCodeM (ActorPolicy, ActorPolicy)
+lookupExn :: Type TC -> TcCodeM (ActorPolicy, ActorPolicy)
 lookupExn tyX = do
   debugPrint ":: In lookupExn"
   exnMap <- exnsE <$> getEnv
@@ -775,13 +775,13 @@ lookupExn tyX = do
     Just ps -> return ps
     Nothing -> fail $ "lookupExn: Unregistered exception type: " ++ prettyPrint tyX
 
-registerExn_ :: TcType -> PrgPolicy -> PrgPolicy -> TcCodeM a -> TcCodeM a
+registerExn_ :: Type TC -> PrgPolicy -> PrgPolicy -> TcCodeM a -> TcCodeM a
 registerExn_ tyX rX wX = registerExn tyX (VarPolicy rX) (VarPolicy wX)
 
-registerExn :: TcType -> ActorPolicy -> ActorPolicy -> TcCodeM a -> TcCodeM a
+registerExn :: Type TC -> ActorPolicy -> ActorPolicy -> TcCodeM a -> TcCodeM a
 registerExn tyX rX wX = registerExns [(tyX, (rX,wX))]
 
-registerExns :: [(TcType, (ActorPolicy, ActorPolicy))] -> TcCodeM a -> TcCodeM a
+registerExns :: [(Type TC, (ActorPolicy, ActorPolicy))] -> TcCodeM a -> TcCodeM a
 registerExns tysPols =
     withEnv $ \env ->
         let oldMap = exnsE env
@@ -827,7 +827,7 @@ getCurrentPC ent = do
   bt <- bottomM
   foldM lub bt (bpcs ++ epcs)
 
-registerParamType :: Ident PA -> TcType -> TcCodeM ()
+registerParamType :: Ident PA -> Type TC -> TcCodeM ()
 registerParamType i ty = registerStateType i ty True Nothing
 
 --------------------------------------------
@@ -875,8 +875,8 @@ constraintPC bpcs pW msgf = mapM_ (uncurry constraintPC_) bpcs
 
 
 
-exnConsistent :: Either (Name PA) TcClassType
-              -> TcType -> (ActorPolicy, ActorPolicy) -> TcCodeM ()
+exnConsistent :: Either (Name PA) (ClassType TC)
+              -> Type TC -> (ActorPolicy, ActorPolicy) -> TcCodeM ()
 exnConsistent caller exnTy (rX,wX) = do
     exnMap <- exnsE <$> getEnv
     --debugTc $ "Using exnMap: " ++ show exnMap
@@ -966,7 +966,7 @@ closeLock l = applyLockMods $ close $ skolemizeLock l
 
 
 registerStateType :: Ident PA               -- Entity to register
-                  -> TcType                 -- Its type
+                  -> Type TC                -- Its type
                   -> Bool                   -- Its stability
                   -> Maybe TcStateType      -- rhs state type (Nothing if no initialiser)
                   -> TcCodeM ()

@@ -544,9 +544,9 @@ rnRefType :: Resolve RefType
 rnRefType rt =
     case rt of
       ClassRefType pos ct -> ClassRefType pos <$> rnClassType ct
-      ArrayType pos t dims -> do
+      PaArrayType pos t dims -> do
               t' <- rnType t
-              ArrayType pos t' <$> mapM (mapM rnExp) dims
+              PaArrayType pos t' <$> mapM (mapM rnExp) dims
       _ -> return rt
 
 rnClassType :: Resolve ClassType

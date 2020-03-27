@@ -1256,7 +1256,7 @@ refType = checkNoExtraEnd refTypeE
 
 refTypeE :: P (RefType PA, Int)
 refTypeE = {- trace "refTypeE" -} (
-    (do typ <- setPos ArrayType <*>
+    (do typ <- setPos PaArrayType <*>
                (setPos PrimType <*> primType) <*>
                list1 arrPols
         return (typ, 0))
@@ -1269,7 +1269,7 @@ refTypeE = {- trace "refTypeE" -} (
            mps <- list arrPols
            case mps of
              [] -> return (baseType, e)
-             _  -> do typ <- setPos ArrayType <*>
+             _  -> do typ <- setPos PaArrayType <*>
                              (setPos RefType <*> pure baseType) <*> pure mps
                       return (typ, 0)
          else return (baseType, e)

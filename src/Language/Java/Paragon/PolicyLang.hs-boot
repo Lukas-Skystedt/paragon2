@@ -45,6 +45,7 @@ type GlobalPol = GlobalPolicy (Name PA) ActorSetRep
 
 data ActorPolicyBounds
 instance Eq ActorPolicyBounds
+instance Ord ActorPolicyBounds
 instance Show ActorPolicyBounds
 instance Data ActorPolicyBounds
 --instance Typeable ActorPolicyBounds

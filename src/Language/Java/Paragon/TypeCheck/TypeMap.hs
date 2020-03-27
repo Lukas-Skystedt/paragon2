@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, FlexibleContexts, TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Language.Java.Paragon.TypeCheck.TypeMap where
 
@@ -25,7 +25,7 @@ typeMapModule = typeCheckerBase ++ ".TypeMap"
 
 
 data VarFieldSig = VSig {
-      varType   :: TcType,
+      varType   :: Type TC,
       varPol    :: ActorPolicy,
       varParam  :: Bool,
       varStatic :: Bool,
@@ -35,7 +35,7 @@ data VarFieldSig = VSig {
   deriving (Show, Data, Typeable)
 
 data MethodSig = MSig {
-      mRetType   :: TcType,
+      mRetType   :: Type TC,
       mModifiers :: [Modifier UD],
       mRetPol    :: ActorPolicy,
       mPars      :: [B.ByteString],
@@ -43,7 +43,7 @@ data MethodSig = MSig {
       mWrites    :: ActorPolicy,
       mExpects   :: [TcLock],
       mLMods     :: TcLockDelta,
-      mExns      :: [(TcType, ExnSig)],
+      mExns      :: [(Type TC, ExnSig)],
       mNNPars    :: [B.ByteString],
       mIsNative  :: Bool
     }
@@ -62,7 +62,7 @@ data ConstrSig = CSig {
       cWrites    :: ActorPolicy,
       cExpects   :: [TcLock],
       cLMods     :: TcLockDelta,
-      cExns      :: [(TcType, ExnSig)],
+      cExns      :: [(Type TC, ExnSig)],
       cNNPars    :: [B.ByteString],
       cIsNative  :: Bool
     }
@@ -71,17 +71,17 @@ data ConstrSig = CSig {
 data LockSig = LSig {
       lPol     :: ActorPolicy,
       -- lArity   :: Int,
-      lArgs    :: [TcRefType],
+      lArgs    :: [RefType TC],
       lProps   :: GlobalPol
     }
   deriving (Show, Data, Typeable)
 
 data TypeSig = TSig {
-      tType       :: TcRefType,
+      tType       :: RefType TC,
       tIsClass    :: Bool,
       tIsFinal    :: Bool,
-      tSupers     :: [TcClassType],
-      tImpls      :: [TcClassType],
+      tSupers     :: [ClassType TC],
+      tImpls      :: [ClassType TC],
       tMembers    :: TypeMap
     }
   deriving (Show, Data, Typeable)
@@ -89,8 +89,8 @@ data TypeSig = TSig {
 
 type Map = Map.Map
 
-type MethodMap = Map ([TypeParam PA], [TcType], Bool) MethodSig
-type ConstrMap = Map ([TypeParam PA], [TcType], Bool) ConstrSig
+type MethodMap = Map ([TypeParam PA], [Type TC], Bool) MethodSig
+type ConstrMap = Map ([TypeParam PA], [Type TC], Bool) ConstrSig
 
 data TypeMap = TypeMap {
       -- signatures
@@ -122,14 +122,14 @@ emptyTM = TypeMap {
                 packages    = Map.empty
               }
 
-hardCodedArrayTM :: TcType -> ActorPolicy -> TypeSig
+hardCodedArrayTM :: Type TC -> ActorPolicy -> TypeSig
 hardCodedArrayTM ty p =
     let memTM = emptyTM {
                   fields = Map.fromList [(B.pack "length", VSig intT (VarPolicy thisP) False False True False)]
                 , methods = Map.fromList [] -- TODO
                 }
     in TSig {
-             tType = TcArrayT ty p,
+             tType = TcArrayType ty p,
              tIsClass = False,
              tIsFinal = False,
              tSupers  = [], -- TODO: what's the super type of an array?
@@ -235,7 +235,8 @@ extendTypeMapN = go . map unIdent . flattenName
 --------------------------------------
 
 -- TODO: This is an anomaly!!!
-lookupNamed :: (TypeMap -> Map B.ByteString a) -> Name PA -> TypeMap -> Maybe a
+-- The @XName x ~ SourcePos@ part is to allow this function to work with both @Name PA@ and @Name TC@.
+lookupNamed :: XName x ~ SourcePos => (TypeMap -> Map B.ByteString a) -> Name x -> TypeMap -> Maybe a
 lookupNamed recf (Name _ _ Nothing i) tm = Map.lookup (unIdent i) (recf tm)
 lookupNamed recf nam@(Name _ _ (Just pre) i) tm = do
     newTm <- case nameType pre of
@@ -260,7 +261,7 @@ lookupNamed _ _ _ = panic (typeMapModule ++ ".lookupNamed")
 
 
 lookupTypeOfStateT :: TcStateType -> TypeMap -> Either (Maybe String) TypeSig
-lookupTypeOfStateT (TcInstance (TcClsRefT (TcClassT n tas)) _ iaas _) startTm =
+lookupTypeOfStateT (TcInstance (TcClassRefType (TcClassType n tas)) _ iaas _) startTm =
     case n of
       Name _ TName _ _ ->
           let mSig = lookupNamed types n startTm
@@ -281,7 +282,7 @@ lookupTypeOfStateT (TcInstance (TcClsRefT (TcClassT n tas)) _ iaas _) startTm =
       Name _ _ _ _ -> Left Nothing
       _ -> panic (typeMapModule ++ ".lookupTypeOfT") $ show n
 
-lookupTypeOfStateT (TcType (TcRefT (TcClsRefT (TcClassT n _tas))) _) startTm =
+lookupTypeOfStateT (TcTypeNT (TcRefType (TcClassRefType (TcClassType n _tas))) _) startTm =
     case n of
       Name _ TName _ _ ->
           let mSig = lookupNamed types n startTm
@@ -292,7 +293,7 @@ lookupTypeOfStateT (TcType (TcRefT (TcClsRefT (TcClassT n _tas))) _) startTm =
       --Name _ _ _ _ -> Left Nothing
       _ -> panic (typeMapModule ++ ".lookupTypeOfT") $ show n
 
-lookupTypeOfStateT (TcType t _) tm =
+lookupTypeOfStateT (TcTypeNT t _) tm =
     case lookupTypeOfT t tm of
       Right (is, tsig) | null is -> Right tsig
                        | otherwise -> panic (typeMapModule ++ ".lookupTypeOfStateT")
@@ -306,16 +307,16 @@ lookupTypeOfStateT _ _ = Left Nothing
 --   Left denotes an error, which wraps:
 --   * If T is not a refType, return Nothing
 --   * If T is given the wrong number of type arguments, return Just errorMessage.
-lookupTypeOfT :: TcType -> TypeMap -> Either (Maybe String) ([(RefType PA, B.ByteString)], TypeSig)
-lookupTypeOfT (TcRefT refT) = lookupTypeOfRefT refT
+lookupTypeOfT :: Type TC -> TypeMap -> Either (Maybe String) ([(RefType PA, B.ByteString)], TypeSig)
+lookupTypeOfT (TcRefType refT) = lookupTypeOfRefT refT
 lookupTypeOfT _ = const $ Left Nothing
 
-lookupTypeOfRefT :: TcRefType -> TypeMap -> Either (Maybe String) ([(RefType PA, B.ByteString)], TypeSig)
-lookupTypeOfRefT (TcArrayT ty pol) _ = Right ([], hardCodedArrayTM ty pol)
-lookupTypeOfRefT (TcTypeVar _ ) _ = panic (typeMapModule ++ ".lookupTypeOfRefT")
-                                    "TcTypeVar should have been instantiated"
+lookupTypeOfRefT :: RefType TC -> TypeMap -> Either (Maybe String) ([(RefType PA, B.ByteString)], TypeSig)
+lookupTypeOfRefT (TcArrayType ty pol) _ = Right ([], hardCodedArrayTM ty pol)
+lookupTypeOfRefT (TcTypeVariable _ ) _ = panic (typeMapModule ++ ".lookupTypeOfRefT")
+                                    "TcTypeVariable should have been instantiated"
 lookupTypeOfRefT TcNullT _ = Left $ Just "Cannot dereference null"
-lookupTypeOfRefT _rt@(TcClsRefT (TcClassT n tas)) startTm =
+lookupTypeOfRefT _rt@(TcClassRefType (TcClassType n tas)) startTm =
     case n of
       Name _ TName _ _ ->
           let mSig = lookupNamed types n startTm
@@ -338,14 +339,14 @@ lookupTypeOfRefT _rt@(TcClsRefT (TcClassT n tas)) startTm =
 --   Type argument instantiation    --
 --------------------------------------
 
-instantiate :: Data a => [(TypeParam PA,TcTypeArg)] -> a -> a
+instantiate :: Data a => [(TypeParam PA,TypeArgument TC)] -> a -> a
 instantiate pas = transformBi instT
                      . transformBi instA
                      . transformBi instP
                      . transformBi instLs
-    where instT :: TcRefType -> TcRefType
-          instT tv@(TcTypeVar i) =
-              case lookup i typs of
+    where instT :: RefType TC -> RefType TC
+          instT tv@(TcTypeVariable i) =
+              case lookup (unIdent i) typs of
                 Just rt -> rt
                 Nothing -> tv
           instT rt = rt
@@ -395,10 +396,10 @@ instantiate pas = transformBi instT
                 Nothing -> [lv]
           instL l = [l]
 
-          typs = [ (unIdent i, rt) | (TypeParam    _ i _, TcActualType      rt) <- pas ]
+          typs = [ (unIdent i, rt) | (TypeParam      _ i _,   TcActualType      rt) <- pas ]
           as   = [ (unIdent i, n ) | (ActorParam     _ _rt i, TcActualActor      n) <- pas ]
-          ps   = [ (unIdent i, p ) | (PolicyParam    _ i, TcActualPolicy     p) <- pas ]
-          locs = [ (unIdent i, ls) | (LockStateParam _ i, TcActualLockState ls) <- pas ]
+          ps   = [ (unIdent i, p ) | (PolicyParam    _ i,     TcActualPolicy     p) <- pas ]
+          locs = [ (unIdent i, ls) | (LockStateParam _ i,     TcActualLockState ls) <- pas ]
 
 
 --instThis :: (Functor  m, Data a) => ActorPolicy -> a -> m a
@@ -466,7 +467,7 @@ instance Pretty TypeSig where
                              vcat [text "tMembers: ", pretty mems]],
               char '}']
 
-instance Pretty ([TypeParam a], [TcType], Bool) where
+instance Pretty ([TypeParam a], [Type TC], Bool) where
     pretty (tps, tys, b) = hcat [char '(',
                                  pretty tps,
                                  char ',',

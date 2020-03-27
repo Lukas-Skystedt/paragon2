@@ -19,6 +19,8 @@ module Language.Java.Paragon.PolicyLang.Policy (
 --import Language.Java.Paragon.Syntax (Name)
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.TypeCheck.Types
+-- TODO: It's not very nice that 'Policy' imports 'SyntaxTTG'
+import Language.Java.Paragon.SyntaxTTG (RefType)
 --import Language.Java.Paragon.Error()
 import Language.Java.Paragon.Decorations.NoDecoration
 import Language.Java.Paragon.PolicyLang.Actors
@@ -92,7 +94,7 @@ data PolicyVarRep
 
 
 data ActorSetRep
-    = TypedActor TcRefType B.ByteString
+    = TypedActor (RefType TC) B.ByteString
     | SingletonActor TypedActorIdSpec
     | NoActor
   deriving (Ord, Show, Data, Typeable)
@@ -148,7 +150,7 @@ instance HasSubTyping m =>
 
 instance HasSubTyping m =>
           Lattice m ActorSetRep where
-    bottomM = return $ TypedActor (TcClsRefT objectT) $ B.pack "x"
+    bottomM = return $ TypedActor (TcClassRefType objectT) $ B.pack "x"
 
     NoActor `glb` a = return a
     a `glb` NoActor = return a

@@ -40,8 +40,8 @@ data InterpretM a
     | GetVariable (Name  PA) (Value -> InterpretM a)
     | SetVariable (Ident PA) Value (InterpretM a)
     | CallMethod (Name PA) [Value] (Value -> InterpretM a)
-    | EvalType (RefType PA) (TcRefType -> InterpretM a)
-    | SubTypeOf TcRefType TcRefType (Bool -> InterpretM a)
+    | EvalType (RefType PA) (RefType TC -> InterpretM a)
+    | SubTypeOf (RefType TC) (RefType TC) (Bool -> InterpretM a)
   deriving Functor
 
 instance Show (InterpretM a) where
@@ -103,7 +103,7 @@ interpretActorId lokup n@(Name spos _ _ _) =
   runInterpretM lokup $ iActorName (ActorName spos n)
 
 interpretActor :: forall m . (EvalPolicyM m) =>
-                  (Name PA -> m Value) -> [(Ident PA, TcRefType)] -> Actor PA -> m PL.ActorSetRep
+                  (Name PA -> m Value) -> [(Ident PA, RefType TC)] -> Actor PA -> m PL.ActorSetRep
 interpretActor lokup tys act =
   runInterpretM lokup $ iActor tys act -- TODO: Where is this ever used?
 
@@ -264,14 +264,14 @@ iClause (Clause _ cvds chead atoms) = do
                --cheadToActor (ClauseDeclHead _ (ClauseVarDecl _ rt i)) =
                --    undefined
 
-iClauseVarDecl :: ClauseVarDecl PA -> InterpretM (Ident PA, TcRefType)
+iClauseVarDecl :: ClauseVarDecl PA -> InterpretM (Ident PA, RefType TC)
 iClauseVarDecl (ClauseVarDecl _ rt i) = do
   rTy <- iRefType rt
   return (i, rTy)
 
-iClauseHead :: [(Ident PA, TcRefType)]
+iClauseHead :: [(Ident PA, RefType TC)]
             -> ClauseHead PA
-            -> InterpretM (Actor PA, PL.TcActor, [(Ident PA, TcRefType)])
+            -> InterpretM (Actor PA, PL.TcActor, [(Ident PA, RefType TC)])
 iClauseHead iTys (ClauseDeclHead n (ClauseVarDecl _ rt i)) = do
   rTy <- iRefType rt
   return (Var n i, PL.TypedActor rTy (unIdent i), (i,rTy):iTys)
@@ -279,7 +279,7 @@ iClauseHead iTys (ClauseVarHead _ act) = do
   hAct <- iActor iTys act
   return (act, hAct, iTys)
 
-iRefType :: RefType PA -> InterpretM TcRefType
+iRefType :: RefType PA -> InterpretM (RefType TC)
 iRefType rt = EvalType rt ReturnM
 
 --iClauseHead :: ClauseHead SourcePos -> InterpretM PL.TcActor
@@ -304,7 +304,7 @@ generalizeAtom actMap (Atom _ n as) = PL.Atom n $ map convertActor as
 --iActorRep actMap (Actor _ aname)
 
 
-iActor :: [(Ident PA, TcRefType)] -> Actor PA -> InterpretM PL.TcActor
+iActor :: [(Ident PA, RefType TC)] -> Actor PA -> InterpretM PL.TcActor
 iActor iTys (Actor _ aname) = PL.SingletonActor <$> iActorName aname
 iActor iTys (Var _ i) = do
     let Just rTy = lookup i iTys -- We will know the types for all Vars

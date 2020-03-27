@@ -7,7 +7,7 @@ import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.Decorations.NoDecoration
 
-import Language.Java.Paragon.TypeCheck.Types (TcRefType)
+import Language.Java.Paragon.TypeCheck.Types (TC)--(TcRefType)
 
 import Security.InfoFlow.Policy.FlowLocks.Actor
 
@@ -53,7 +53,7 @@ data ActorIdSpec
 
 data TypedActorIdSpec
     = TypedActorIdSpec {
-        actorType :: TcRefType,
+        actorType :: RefType TC,
         actorSpec :: ActorIdSpec
       }
       deriving (Show, Eq, Ord, Data, Typeable)

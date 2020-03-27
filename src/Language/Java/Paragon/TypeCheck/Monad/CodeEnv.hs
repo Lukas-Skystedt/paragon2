@@ -23,8 +23,8 @@ codeEnvModule = typeCheckerBase ++ ".Monad.CodeEnv"
 data CodeEnv = CodeEnv  {
       vars      :: [Map B.ByteString VarFieldSig],
       lockstate :: TcLockSet,
-      returnI   :: Maybe (TcType, ActorPolicy),
-      exnsE     :: Map TcType (ActorPolicy, ActorPolicy),
+      returnI   :: Maybe (Type TC, ActorPolicy),
+      exnsE     :: Map (Type TC) (ActorPolicy, ActorPolicy),
       branchPCE :: (Map Entity [(ActorPolicy, String)], [(ActorPolicy, String)]),
       parBounds :: [(B.ByteString, ActorPolicy)], -- TODO: maybe convert to `Map`?
       compileTime :: Bool,
@@ -49,7 +49,7 @@ simpleEnv brPol compT str statCtx =
 
 data Entity = VarEntity (Name PA)
             | ThisFieldEntity B.ByteString
-            | ExnEntity TcType
+            | ExnEntity (Type TC)
             | LockEntity (Name PA)
             | BreakE | ContinueE | ReturnE | NullE
   deriving (Show, Eq, Ord, Data, Typeable)
@@ -58,7 +58,7 @@ varE, lockE :: Name PA -> Entity
 varE = VarEntity
 lockE = LockEntity
 
-exnE :: TcType -> Entity
+exnE :: Type TC -> Entity
 exnE = ExnEntity
 
 thisFE :: B.ByteString -> Entity

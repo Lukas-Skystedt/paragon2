@@ -81,7 +81,7 @@ lookupTypeOfStateType _sty@(TcType ty) = liftTcDeclM $ do
     Right (is, tsig) -> do
       ias <- mapM (instanceActorId . Name PA EName
 -}
-lookupTypeOfType :: MonadTcDeclM m => TcType -> m ([(RefType PA, B.ByteString)], TypeSig)
+lookupTypeOfType :: MonadTcDeclM m => Type TC -> m ([(RefType PA, B.ByteString)], TypeSig)
 lookupTypeOfType ty = liftTcDeclM $ do
   tm <- getTypeMap
 --  debugPrint $ "lookupTypeOfType -- TypeMap:\n" ++ prettyPrint tm
@@ -122,9 +122,9 @@ fetchType n@(Name pos _ _ typName) = do
                            --(identPos cuName)
                            pos
                  withFoldMap withTypeParam tps $ do
-                   superTys <- --map (TcRefT . TcClsRefT) <$>
+                   superTys <- --map (TcRefType . TcClassRefType) <$>
                                 mapM (evalSrcClsType genBot) (maybeToList mSuper)
-                   implsTys  <- --map (TcRefT . TcClsRefT) <$>
+                   implsTys  <- --map (TcRefType . TcClassRefType) <$>
                                 mapM (evalSrcClsType genBot) impls
 
                    -- Remove this line, and set tMembers to emptyTM,
@@ -140,7 +140,7 @@ fetchType n@(Name pos _ _ typName) = do
 
                    let tnam = Name pos TName (fmap (\(PackageDecl _ pn) -> pn) pkg) typName
                        tsig = TSig {
-                                tType = TcClsRefT $ TcClassT tnam [],
+                                tType = TcClassRefType $ TcClassType (namePaToTc tnam) [],
                                 tIsClass = True,
                                 tIsFinal = Final pos `elem` ms,
                                 tSupers  = superTys,
@@ -193,7 +193,7 @@ fetchType n@(Name pos _ _ typName) = do
          InterfaceTypeDecl _ (InterfaceDecl _ ms cuName tps supers (InterfaceBody _ mDs)) -> do
                     check (typName == cuName) $
                           toUndef $ "File name " ++ prettyPrint typName  ++ " does not match class name " ++ prettyPrint cuName
-                    superTys <- --map (TcRefT . TcClsRefT) <$>
+                    superTys <- --map (TcRefType . TcClassRefType) <$>
                                    mapM (evalSrcClsType genBot) supers
 
                     -- Remove this line, and set tMembers to emptyTM,
@@ -203,7 +203,7 @@ fetchType n@(Name pos _ _ typName) = do
 
                     let tnam = Name defaultPos TName (fmap (\(PackageDecl _ pn) -> pn) pkg) typName
                         tsig = TSig {
-                                 tType = TcClsRefT $ TcClassT tnam [],
+                                 tType = TcClassRefType $ TcClassType (namePaToTc tnam) [],
                                  tIsClass = False,
                                  tIsFinal = Final defaultPos `elem` ms,
                                  tSupers  = superTys,
@@ -296,7 +296,7 @@ fetchActors n mDecls tdra = do
                  rTy <- evalSrcRefType genBot rt
                  a <- PL.TypedActorIdSpec rTy . PL.ConcreteActorId <$> freshActorId (prettyPrint i)
                  p <- PL.VarPolicy <$> getReadPolicy ms
-                 let vti = VSig (TcRefT rTy) p False
+                 let vti = VSig (TcRefType rTy) p False
                             (Static defaultPos `elem` ms) (Final defaultPos `elem` ms) False
                  return ((unIdent i,a),(unIdent i,vti))
                spawnActorVd (_, _, VarDecl _ arvid _) =
@@ -306,7 +306,7 @@ fetchActors n mDecls tdra = do
                  rTy <- evalSrcRefType genBot rt
                  let a = PL.TypedActorIdSpec rTy $ PL.ActorTPVar $ unIdent i
                  p <- PL.VarPolicy <$> getReadPolicy ms
-                 let vti = VSig (TcRefT rTy) p False
+                 let vti = VSig (TcRefType rTy) p False
                            (Static defaultPos `elem` ms) (Final defaultPos `elem` ms) False
                  return ((unIdent i,a),(unIdent i,vti))
                paramActorVd (_, _, VarDecl _ arvid _) =
@@ -326,7 +326,7 @@ fetchActors n mDecls tdra = do
                evalActorVd (ms, rt, VarDecl _ (VarId _ i) mInit) = do
                  rTy <- evalSrcRefType genBot rt
 --                 p <- PL.VarPolicy <$> getReadPolicy ms
---                 let vti = VSig (TcRefT rTy) p False
+--                 let vti = VSig (TcRefType rTy) p False
 --                           (Static defaultPos `elem` ms) (Final defaultPos `elem` ms) False
                  a <- case mInit of
                         Just (InitExp _ e) -> do
@@ -392,7 +392,7 @@ getLockModProps mTypN lockI ms = do
 
 
 anyActor :: B.ByteString -> PL.ActorSetRep
-anyActor b = PL.TypedActor (TcClsRefT objectT) b
+anyActor b = PL.TypedActor (TcClassRefType objectT) b
 
 -- end locks
 
@@ -599,7 +599,7 @@ fetchSignatures isNative n memDs = do
                    _ -> go cm mds
 
 
-   eSpecToSig :: ExceptionSpec PA -> TcDeclM (TcType, ExnSig)
+   eSpecToSig :: ExceptionSpec PA -> TcDeclM (Type TC, ExnSig)
    eSpecToSig (ExceptionSpec _ ms eType) = do
           ty <- evalSrcType genBot (RefType defaultPos eType) -- should use evalSrcRefType
           rPol <- getReadPolicy ms
@@ -615,7 +615,7 @@ fetchSignatures isNative n memDs = do
                      }
           return (ty, esig)
 
-   paramInfo :: FormalParam PA -> TcDeclM (TcType, B.ByteString, PL.PrgPolicy, Maybe B.ByteString)
+   paramInfo :: FormalParam PA -> TcDeclM (Type TC, B.ByteString, PL.PrgPolicy, Maybe B.ByteString)
    paramInfo (FormalParam _ ms ty _ (VarId _ i)) = do
           pPol <- getParamPolicy (unIdent i) ms
           pTy  <- evalSrcType genBot ty
@@ -630,7 +630,7 @@ withTypeParam tp tcba =
       ActorParam _ rt i -> do
           topp <- PL.topM
           rTy <- evalSrcRefType genBot rt
-          let vti = VSig (TcRefT rTy) topp False False True False
+          let vti = VSig (TcRefType rTy) topp False False True False
               bI  = unIdent i
           withCurrentTypeMap (\tm ->
               return $ tm { actors = Map.insert bI (PL.TypedActorIdSpec rTy $ PL.ActorTPVar bI) (actors tm),
@@ -720,7 +720,7 @@ fetchSignature memDecl tcba = do
       LockDecl {} -> fail "Lock properties not yet supported"
       _ -> fail "Inner classes not yet supported"
 
-  where eSpecToSig :: ExceptionSpec PA -> TcDeclM (TcType, ExnSig)
+  where eSpecToSig :: ExceptionSpec PA -> TcDeclM (Type TC, ExnSig)
         eSpecToSig (ExceptionSpec _ ms eType) = do
           ty <- evalSrcType (RefType () eType) -- should use evalSrcRefType
           rPol <- getReadPolicy ms
@@ -734,7 +734,7 @@ fetchSignature memDecl tcba = do
                      }
           return (ty, esig)
 
-        paramInfo :: FormalParam PA -> TcDeclM (TcType, TcPolicy)
+        paramInfo :: FormalParam PA -> TcDeclM (Type TC, TcPolicy)
         paramInfo (FormalParam _ ms ty _ (VarId _ i)) = do
           pPol <- getParamPolicy i ms
           pTy  <- evalSrcType ty
@@ -797,22 +797,21 @@ getReturnPolicy mods pPols =
 class (HasSubTyping m, MonadTcDeclM m) => EvalPolicyM m where
   evalPolicy :: Exp PA -> m PL.PrgPolicy
   evalActorId :: Name PA -> m PL.TypedActorIdSpec
-  evalActor :: [(Ident PA, TcRefType)] -> Actor PA -> m PL.ActorSetRep
+  evalActor :: [(Ident PA, (RefType TC))] -> Actor PA -> m PL.ActorSetRep
   evalLock :: Lock PA -> m PL.TcLock
 
 instance HasSubTyping TcDeclM where
- --subTypeOf :: TcRefType -> TcRefType -> TcDeclM Bool
  subTypeOf TcNullT _ = return True
  subTypeOf rt1 rt2 | rt1 == rt2 = return True
- subTypeOf rt1 rt2 = (rt2 `elem`) <$> ([TcClsRefT objectT] ++) <$> superTypes rt1
-  where superTypes ::  TcRefType -> TcDeclM [TcRefType]
+ subTypeOf rt1 rt2 = (rt2 `elem`) <$> ([TcClassRefType objectT] ++) <$> superTypes rt1
+  where superTypes ::  RefType TC -> TcDeclM [RefType TC]
         superTypes rt = do
           tm <- getTypeMap
           tsig <- case lookupTypeOfRefT rt tm of
                     Left Nothing -> do
                           case rt of
-                            TcClsRefT (TcClassT n tas) -> do
-                               (tps, _iaps, tsig) <- fetchType n
+                            TcClassRefType (TcClassType n tas) -> do
+                               (tps, _iaps, tsig) <- fetchType (nameTcToPa n)
                                return $ instantiate (zip tps tas) tsig
                             _ -> panic (tcDeclMModule ++ ".subTypeOf")
                                  $ show rt
@@ -822,7 +821,7 @@ instance HasSubTyping TcDeclM where
                     Right (_,tsig) -> return tsig
           let sups  = tSupers tsig
               impls = tImpls tsig
-              allS  = map TcClsRefT $ sups ++ impls
+              allS  = map TcClassRefType $ sups ++ impls
           supsups <- mapM superTypes allS
           return $ concat $ allS:supsups
 
@@ -834,28 +833,28 @@ instance EvalPolicyM TcDeclM where
   evalActor = evalActorD
   evalLock = evalLockD
 
-evalReturnType :: EvalPolicyM m => m PL.ActorPolicy -> ReturnType PA -> m TcType
+evalReturnType :: EvalPolicyM m => m PL.ActorPolicy -> ReturnType PA -> m (Type TC)
 evalReturnType _ (VoidType _) = return voidT
 evalReturnType _ (LockType _) =
     fail "lock as return type not yet implemented" -- return TcLockRetT
 evalReturnType gp (Type _ t)   = evalSrcType gp t
 
-evalSrcType :: EvalPolicyM m => m PL.ActorPolicy -> Type PA -> m TcType
-evalSrcType _ (PrimType _ pt) = return $ TcPrimT pt
-evalSrcType gp (RefType  _ rt) = TcRefT <$> evalSrcRefType gp rt
+evalSrcType :: EvalPolicyM m => m PL.ActorPolicy -> Type PA -> m (Type TC)
+evalSrcType _ (PrimType _ pt) = return $ TcPrimType (primTypePaToTc pt)
+evalSrcType gp (RefType  _ rt) = TcRefType <$> evalSrcRefType gp rt
 evalSrcType _ _ = panic (tcDeclMModule ++ ".evalSrcType")
                   "AntiQType should not appear in AST being type-checked"
 
-evalSrcRefType :: EvalPolicyM m => m PL.ActorPolicy -> RefType PA -> m TcRefType
-evalSrcRefType _ (TypeVariable _ i) = return $ TcTypeVar $ unIdent i
-evalSrcRefType genPol (ArrayType _ t mps) = do
+evalSrcRefType :: EvalPolicyM m => m PL.ActorPolicy -> RefType PA -> m (RefType TC)
+evalSrcRefType _ (TypeVariable _ i) = return $ TcTypeVariable $ identPaToTc i
+evalSrcRefType genPol (PaArrayType _ t mps) = do
   ty <- evalSrcType genPol t
   pols <- mapM (maybe genPol (\p -> PL.VarPolicy <$> evalPolicy p)) mps
-  let (TcRefT arrTy) = mkArrayType ty pols
+  let (TcRefType arrTy) = mkArrayType ty pols
   return arrTy
-evalSrcRefType gp (ClassRefType _ ct) = TcClsRefT <$> evalSrcClsType gp ct
+evalSrcRefType gp (ClassRefType _ ct) = TcClassRefType <$> evalSrcClsType gp ct
 
-evalSrcClsType :: EvalPolicyM m => m PL.ActorPolicy -> ClassType PA -> m TcClassType
+evalSrcClsType :: EvalPolicyM m => m PL.ActorPolicy -> ClassType PA -> m (ClassType TC)
 evalSrcClsType gp _ct@(ClassType _ n tas) = do
 --  debugPrint $ "Evaluating class type: " ++ show _ct
   baseTm <- getTypeMap
@@ -868,19 +867,19 @@ evalSrcClsType gp _ct@(ClassType _ n tas) = do
 --  debugPrint $ "Type found"
   tArgs <- zipWithM (evalSrcTypeArg gp) tps tas
 --  debugPrint "Type arguments evaluated"
-  return $ TcClassT n tArgs
+  return $ TcClassType (namePaToTc n) tArgs
 
 
 evalSrcTypeArg :: EvalPolicyM m =>
-                  m PL.ActorPolicy -> TypeParam PA -> TypeArgument PA -> m TcTypeArg
-evalSrcTypeArg gp tp (ActualArg _ a) = evalSrcNWTypeArg gp tp a
+                  m PL.ActorPolicy -> TypeParam PA -> TypeArgument PA -> m (TypeArgument TC)
+evalSrcTypeArg gp tp (PaActualArg _ a) = evalSrcNWTypeArg gp tp a
 evalSrcTypeArg _ _ _ = fail "evalSrcTypeArg: Wildcards not yet supported"
 
 evalSrcNWTypeArg :: EvalPolicyM m =>
-                    m PL.ActorPolicy -> TypeParam PA -> NonWildTypeArgument PA -> m TcTypeArg
+                    m PL.ActorPolicy -> TypeParam PA -> NonWildTypeArgument PA -> m (TypeArgument TC)
 -- Types may be names or types -- TODO: Check bounds
 evalSrcNWTypeArg gp TypeParam{} (ActualName _ n) = do
-    TcActualType . TcClsRefT <$> evalSrcClsType gp (ClassType defaultPos n [])
+    TcActualType . TcClassRefType <$> evalSrcClsType gp (ClassType defaultPos n [])
 evalSrcNWTypeArg gp TypeParam{} (ActualType _ rt) =
     TcActualType <$> evalSrcRefType gp rt
 -- Actors may only be names -- TODO: must be final
@@ -908,7 +907,7 @@ evalSrcNWTypeArg (ActualLockState _ ls) = TcActualLockState <$> mapM evalLock ls
 evalPolicyD :: Exp PA -> TcDeclM PL.PrgPolicy
 evalPolicyD = interpretPolicy lookupFieldD
 
-evalActorD :: [(Ident PA, TcRefType)] -> Actor PA -> TcDeclM PL.ActorSetRep
+evalActorD :: [(Ident PA, RefType TC)] -> Actor PA -> TcDeclM PL.ActorSetRep
 evalActorD = interpretActor lookupFieldD
 
 evalActorIdD :: Name PA -> TcDeclM PL.TypedActorIdSpec
@@ -1047,7 +1046,7 @@ evalLClause i (LClause _ cvds h atoms) = do
       where extractActors :: Atom PA -> [Actor PA]
             extractActors (Atom _ _ as) = as
 
-evalClauseVarDecl :: ClauseVarDecl PA -> TcDeclM (Ident PA, TcRefType)
+evalClauseVarDecl :: ClauseVarDecl PA -> TcDeclM (Ident PA, RefType TC)
 evalClauseVarDecl (ClauseVarDecl _ rt i) = do
   rTy <- evalSrcRefType genBot rt
   return (i, rTy)
@@ -1058,11 +1057,11 @@ evalClauseVarDecl (ClauseVarDecl _ rt i) = do
 
 evalSimpleAtom :: [(Actor PA, PL.ActorRep)] -> Ident PA -> Atom PA -> TcDeclM PL.TcAtom
 evalSimpleAtom actMap i a@(Atom _ n _) = do
-  TcClassT thisTypeName _tas <- getThisType
+  TcClassType thisTypeName _tas <- getThisType
   debugPrint $ show thisTypeName
   case n of
     (Name _ _ mPre aI)
-        | aI == i && (mPre == Nothing || mPre == Just thisTypeName)
+        | aI == i && (mPre == Nothing || mPre == Just (nameTcToPa thisTypeName))
             -> return $ evalAtom actMap a
     _ -> fail $ "Lock property head does not match lock name: " ++
                 "\nExpected name: " ++ prettyPrint i ++
@@ -1185,7 +1184,7 @@ withTypeMapAlways tmf (TcDeclM f) = TcDeclM $ \k -> do
                                       withTypeMap tmf $ f k
 -}
 
-skolemTypeDecl :: TypeDecl PA -> (TypeDecl PA, TcClassType)
+skolemTypeDecl :: TypeDecl PA -> (TypeDecl PA, ClassType TC)
 skolemTypeDecl td =
     case td of
       ClassTypeDecl sp (ClassDecl csp ms i tps sup impl cb) ->
@@ -1203,16 +1202,16 @@ skolemTypeDecl td =
 
 
 
-skolemType :: Ident PA -> [TypeParam PA] -> (TcClassType, [(TypeParam PA, TcTypeArg)])
+skolemType :: Ident PA -> [TypeParam PA] -> (ClassType TC, [(TypeParam PA, TypeArgument TC)])
 skolemType i tps =
     let args = map skolemParam tps
-    in (TcClassT (mkSimpleName TName i) args, zip tps args)
+    in (TcClassType (mkSimpleName TName (identPaToTc i)) args, zip tps args)
 
-skolemParam :: TypeParam PA -> TcTypeArg
+skolemParam :: TypeParam PA -> TypeArgument TC
 skolemParam tp =
     case tp of
       TypeParam _ i _    ->
-          TcActualType (TcClsRefT (TcClassT (mkSimpleName TName i) []))
+          TcActualType (TcClassRefType (TcClassType (mkSimpleName TName (identPaToTc i)) []))
       ActorParam  _ _rt i    ->
           TcActualActor (PL.TypedActorIdSpec undefined $ PL.ActorTPVar $ unIdent i)
           -- It's actually fine to use undefined here, as we will always force a type
@@ -1226,9 +1225,9 @@ skolemParam tp =
 -----------------------------------------------
 -- Underlying non-cont'ed monad
 
-newtype TcDeclM a = TcDeclM (TypeMap -> TypeMap -> TcClassType -> PiReader (a, TypeMap) )
+newtype TcDeclM a = TcDeclM (TypeMap -> TypeMap -> ClassType TC -> PiReader (a, TypeMap) )
 
-runTcDeclM :: TcClassType -> TcDeclM a -> PiReader a
+runTcDeclM :: ClassType TC -> TcDeclM a -> PiReader a
 runTcDeclM ty (TcDeclM f) = fst <$> f emptyTM emptyTM ty
 
 instance Fail.MonadFail TcDeclM where
@@ -1284,10 +1283,10 @@ extendGlobalTypeMap = liftTcDeclM . extendGlobalTypeMapTB
 getTypeMap :: MonadTcDeclM m => m TypeMap
 getTypeMap = liftTcDeclM getTypeMapTB
 
-getThisType :: MonadTcDeclM m => m TcClassType
+getThisType :: MonadTcDeclM m => m (ClassType TC)
 getThisType = liftTcDeclM getThisTypeTB
 
-withThisType :: TcClassType -> TcDeclM a -> TcDeclM a
+withThisType :: ClassType TC -> TcDeclM a -> TcDeclM a
 withThisType ct (TcDeclM f) =
     TcDeclM $ \ctm gtm _oldty -> f ctm gtm ct
 
@@ -1297,11 +1296,11 @@ getThisStateType = do
   (is, tsig) <- lookupTypeOfType $ clsTypeToType ct
   -- We assume here that the TypedActorIdSpec points to the correct refType already
   let aids = mapMaybe (\(_,i) -> Map.lookup i $ actors $ tMembers tsig) is
-      thisId = PL.TypedActorIdSpec (TcClsRefT ct) PL.ThisId
-  return $ instanceT (TcClsRefT ct) thisId aids (NotNull, Committed) --Is it correct ?
+      thisId = PL.TypedActorIdSpec (TcClassRefType ct) PL.ThisId
+  return $ instanceT (TcClassRefType ct) thisId aids (NotNull, Committed) --Is it correct ?
 
 
-getSuperType :: MonadTcDeclM m => m TcClassType
+getSuperType :: MonadTcDeclM m => m (ClassType TC)
 getSuperType = do
   thisTy <- getThisType
   (_, thisSig) <- lookupTypeOfType (clsTypeToType thisTy)
@@ -1322,7 +1321,7 @@ getLocalTypeMap = liftTcDeclM $
 getTypeMapTB :: TcDeclM TypeMap
 getTypeMapTB = TcDeclM $ \ctm gtm _ -> return (ctm `merge` gtm, gtm)
 
-getThisTypeTB :: TcDeclM TcClassType
+getThisTypeTB :: TcDeclM (ClassType TC)
 getThisTypeTB = TcDeclM $ \_ gtm ty -> return (ty, gtm)
 
 withCurrentTypeMapTB ::  (TypeMap -> Either Error TypeMap) -> TcDeclM a -> TcDeclM a

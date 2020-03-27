@@ -122,7 +122,7 @@ data ActorPolicyBounds
     = KnownPolicy ActorPolicy
     -- | Invariant: For 'PolicyBounds p q', p <= q
     | PolicyBounds ActorPolicy ActorPolicy
-  deriving (Eq, Show, Data, Typeable)
+  deriving (Eq, Ord, Show, Data, Typeable)
 
 instance HasSubTyping m =>
     PartialOrder m ActorPolicyBounds where
@@ -154,7 +154,7 @@ instance HasSubTyping m =>
       PolicyBounds <$> lb1 `glb` lb2 <*> ub1 `glb` ub2
 
   bottomM = return $ KnownPolicy $ VarPolicy $ ConcretePolicy $
-                     Policy [Clause (TypedActor (TcClsRefT objectT) $ B.pack "x") [] []]
+                     Policy [Clause (TypedActor (TcClassRefType objectT) $ B.pack "x") [] []]
 
 
 instance Pretty ActorPolicyBounds where
