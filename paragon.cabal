@@ -110,7 +110,7 @@ Executable parac
                       , Language.Java.Paragon.SourcePos
                       , Language.Java.Paragon.Lexer
                       , Language.Java.Paragon.LockStateEval
-                      , Language.Java.Paragon.NewTypeCheck
+                      , Language.Java.Paragon.TypeCheck
                       , Language.Java.Paragon.PolicyConstraintGen
                       , Language.Java.Paragon.PolicyConstraintSolver
                       , Language.Java.Paragon.PolicyTypeEval

@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances #-}
+{-# LANGUAGE CPP, DeriveDataTypeable, FlexibleInstances #-}
 module Language.Java.Paragon.TypeCheck.NullAnalysis
     (
      NullType, NullAnnot(..), NullModif(..),
@@ -7,7 +7,11 @@ module Language.Java.Paragon.TypeCheck.NullAnalysis
     ) where
 import Language.Java.Paragon.Pretty
 
+#ifdef BASE4
 import Data.Data
+#else
+import Data.Generics (Data(..),Typeable(..))
+#endif
 
 import Prelude hiding ((<>))
 

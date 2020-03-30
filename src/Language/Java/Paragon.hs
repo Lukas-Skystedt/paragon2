@@ -31,7 +31,7 @@ import Text.ParserCombinators.Parsec as PS (errorPos)
 import Text.ParserCombinators.Parsec.Error (messageString, errorMessages)
 import System.Console.GetOpt
 
-import Language.Java.Paragon.NewTypeCheck as NTc
+import Language.Java.Paragon.TypeCheck as NTc
 import Language.Java.Paragon.PolicyTypeEval
 import Language.Java.Paragon.LockStateEval
 import Language.Java.Paragon.PolicyConstraintGen
