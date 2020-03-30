@@ -10,7 +10,7 @@
 module Language.Java.Paragon.Decorations.NoDecoration where
 
 import Language.Java.Paragon.Decorations.DecorationTypes
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 
 import Data.Data (Data)
 

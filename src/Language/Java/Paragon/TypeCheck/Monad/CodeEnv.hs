@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP, DeriveDataTypeable, RelaxedPolyRec #-}
 module Language.Java.Paragon.TypeCheck.Monad.CodeEnv where
 
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.SourcePos
 

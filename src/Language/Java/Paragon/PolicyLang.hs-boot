@@ -7,7 +7,7 @@ module Language.Java.Paragon.PolicyLang
     ) where
 
 import Language.Java.Paragon.SourcePos
-import Language.Java.Paragon.SyntaxTTG (Name)
+import Language.Java.Paragon.Syntax (Name)
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Decorations.PaDecoration
 

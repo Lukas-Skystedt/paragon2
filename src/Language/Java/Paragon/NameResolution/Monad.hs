@@ -21,7 +21,7 @@ module Language.Java.Paragon.NameResolution.Monad
 
     ) where
 
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Monad.PiReader
 import Language.Java.Paragon.Decorations.PaDecoration
 

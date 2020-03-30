@@ -3,7 +3,7 @@ module Language.Java.Paragon.TypeCheck.Interpreter where
 
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.Error
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.SourcePos
 
@@ -355,7 +355,7 @@ iMethodInv (MethodCallOrLockQuery _ n as) =
 -- return type will be 'policy', which during type-checking
 -- means a PolicyCT.
 
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Pretty
 
 --import qualified Language.Java.Paragon.TypeChecker.PriorityMap as PM

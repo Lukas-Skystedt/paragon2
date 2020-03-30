@@ -4,7 +4,7 @@
 module Language.Java.Paragon.Decorations.LseDecoration where
 
 import Language.Java.Paragon.Decorations.DecorationTypes
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 
 -- | Lock State Evaluation. AST type index for the result of the lock state
 -- evaluation phase.

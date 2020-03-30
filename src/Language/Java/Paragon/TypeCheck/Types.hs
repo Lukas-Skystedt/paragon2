@@ -9,7 +9,7 @@ module Language.Java.Paragon.TypeCheck.Types where
 
 import Security.InfoFlow.Policy.FlowLocks.Policy (MetaPolicy(..),VarPolicy(..),Clause(..),Atom(..),Policy(..))
 
-import Language.Java.Paragon.SyntaxTTG hiding (Clause(..))
+import Language.Java.Paragon.Syntax hiding (Clause(..))
 import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.Decorations.NoDecoration
 import Language.Java.Paragon.Decorations.PaDecoration

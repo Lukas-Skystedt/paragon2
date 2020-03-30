@@ -2,7 +2,7 @@
 module Language.Java.Paragon.TypeCheck.Types where
 
 import Language.Java.Paragon.Pretty
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 
 import Control.Applicative
 

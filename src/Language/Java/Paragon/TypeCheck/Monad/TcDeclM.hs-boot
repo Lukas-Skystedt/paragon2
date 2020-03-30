@@ -10,7 +10,7 @@ module Language.Java.Paragon.TypeCheck.Monad.TcDeclM (
 import Language.Java.Paragon.Monad.PiReader
 
 import Language.Java.Paragon.Error
-import Language.Java.Paragon.SyntaxTTG (Ident, Name, TypeParam, Exp, Actor, Lock, RefType, ClassType)
+import Language.Java.Paragon.Syntax (Ident, Name, TypeParam, Exp, Actor, Lock, RefType, ClassType)
 import Language.Java.Paragon.Pretty()
 import Language.Java.Paragon.Interaction()
 import Language.Java.Paragon.NameResolution()

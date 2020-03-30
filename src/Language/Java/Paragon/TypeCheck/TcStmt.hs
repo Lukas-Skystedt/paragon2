@@ -1,7 +1,7 @@
 {-# LANGUAGE TupleSections, BangPatterns #-}
 module Language.Java.Paragon.TypeCheck.TcStmt where
 
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.Error

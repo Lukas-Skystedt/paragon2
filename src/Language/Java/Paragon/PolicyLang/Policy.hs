@@ -19,8 +19,8 @@ module Language.Java.Paragon.PolicyLang.Policy (
 --import Language.Java.Paragon.Syntax (Name)
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.TypeCheck.Types
--- TODO: It's not very nice that 'Policy' imports 'SyntaxTTG'
-import Language.Java.Paragon.SyntaxTTG (RefType)
+-- TODO: It's not very nice that 'Policy' imports 'Syntax'
+import Language.Java.Paragon.Syntax (RefType)
 --import Language.Java.Paragon.Error()
 import Language.Java.Paragon.Decorations.NoDecoration
 import Language.Java.Paragon.PolicyLang.Actors

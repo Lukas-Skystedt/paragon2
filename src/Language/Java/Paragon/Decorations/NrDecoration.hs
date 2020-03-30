@@ -5,7 +5,7 @@ module Language.Java.Paragon.Decorations.NrDecoration where
 
 import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.Decorations.PaDecoration
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 
 -- | Name Resolution. AST type index for the result of the name resolver phase.
 data NR

@@ -8,7 +8,7 @@ module Language.Java.Paragon.Decorations.PaDecoration where
 
 import Language.Java.Paragon.Decorations.DecorationTypes
 import Language.Java.Paragon.SourcePos
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.SyntaxInstances
 
 

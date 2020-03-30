@@ -4,7 +4,7 @@ module Language.Java.Paragon.PolicyLang.Locks where
 
 --import Data.List (intersect, union, (\\) )
 
-import Language.Java.Paragon.SyntaxTTG (Name(..), Ident(..), NameType(LName), XName)
+import Language.Java.Paragon.Syntax (Name(..), Ident(..), NameType(LName), XName)
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.SourcePos(defaultPos)
 import Language.Java.Paragon.Decorations.NoDecoration

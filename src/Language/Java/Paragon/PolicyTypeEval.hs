@@ -2,7 +2,7 @@
 -- and is followed by lock state evaluation.
 module Language.Java.Paragon.PolicyTypeEval where
 
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.TypeCheck.Types
 import Language.Java.Paragon.Decorations.PteDecoration
 -- import Language.Java.Paragon.TypeCheck.Monad.TcCodeM

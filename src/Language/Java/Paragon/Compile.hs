@@ -4,7 +4,7 @@ module Language.Java.Paragon.Compile (compileTransform) where
 compileTransform :: a
 compileTransform = error "compileTransform is not yet implemented"
 
--- import Language.Java.Paragon.SyntaxTTG
+-- import Language.Java.Paragon.Syntax
 -- import Language.Java.Paragon.Pretty
 -- import Language.Java.Paragon.Error()
 -- import Language.Java.Paragon.TypeCheck.Types

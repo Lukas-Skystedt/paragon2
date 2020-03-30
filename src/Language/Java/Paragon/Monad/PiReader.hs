@@ -14,7 +14,7 @@ module Language.Java.Paragon.Monad.PiReader
 
     ) where
 
-import Language.Java.Paragon.SyntaxTTG (Name(..), NameType(..), CompilationUnit, Ident(..))
+import Language.Java.Paragon.Syntax (Name(..), NameType(..), CompilationUnit, Ident(..))
 import Language.Java.Paragon.Decorations.PaDecoration (PA)
 import Language.Java.Paragon.Pretty (prettyPrint)
 import Language.Java.Paragon.Parser (parser, compilationUnit)

@@ -45,7 +45,7 @@ module Language.Java.Paragon.Parser (
     ) where
 
 import Language.Java.Paragon.Lexer (L(..), Token(..), lexer)
-import Language.Java.Paragon.SyntaxTTG as AST
+import Language.Java.Paragon.Syntax as AST
 import Language.Java.Paragon.Decorations.PaDecoration as D
 import Language.Java.Paragon.Decorations.NoDecoration
 

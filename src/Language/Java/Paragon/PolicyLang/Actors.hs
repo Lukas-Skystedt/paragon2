@@ -2,7 +2,7 @@
 module Language.Java.Paragon.PolicyLang.Actors where
 
 
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.Decorations.NoDecoration

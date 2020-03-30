@@ -4,7 +4,7 @@ module Main where
 
 -- Note: for the time being I converted most of this to explicit exports
 -- to get a better overview what is where /jens
-import Language.Java.Paragon.SyntaxTTG (CompilationUnit)
+import Language.Java.Paragon.Syntax (CompilationUnit)
 -- import Language.Java.Paragon.Decorations.PaDecoration (PA)
 import Language.Java.Paragon.Parser (compilationUnit, parser, ParseError)
 import Language.Java.Paragon.Pretty (prettyPrint)

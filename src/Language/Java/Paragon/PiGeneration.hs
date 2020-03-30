@@ -1,7 +1,7 @@
 {-# LANGUAGE PatternGuards #-}
 module Language.Java.Paragon.PiGeneration where
 
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Interaction
 
 import Data.Generics.Uniplate.Data

@@ -13,7 +13,7 @@ import Data.Char (toLower)
 import Control.Arrow (first)
 import Prelude hiding ((<>))
 
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Decorations.PaDecoration -- (PaArrayType, PA) -- Only using these two, however, importing pattern synonyms seem to work in a different way.
 
 import qualified Data.ByteString.Char8 as B

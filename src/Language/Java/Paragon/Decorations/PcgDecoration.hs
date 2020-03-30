@@ -4,7 +4,7 @@
 module Language.Java.Paragon.Decorations.PcgDecoration where
 
 import Language.Java.Paragon.Decorations.DecorationTypes
-import Language.Java.Paragon.SyntaxTTG
+import Language.Java.Paragon.Syntax
 
 -- | Policy Constraint Generation. AST type index for the result of the policy
 -- constraint generation phase.

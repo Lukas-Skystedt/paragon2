@@ -10,9 +10,9 @@
 -- functions that operate on it. The types are constructed using (a variation
 -- on) the /Trees That Grow/ idiom (see
 -- <http://www.jucs.org/jucs_23_1/trees_that_grow/jucs_23_01_0042_0062_najd.pdf>).
-module Language.Java.Paragon.SyntaxTTG where
+module Language.Java.Paragon.Syntax where
   -- (
-  --   module Language.Java.Paragon.SyntaxTTG,
+  --   module Language.Java.Paragon.Syntax,
   --   module Language.Java.Paragon.Annotated
   --                                   )
 
