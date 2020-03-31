@@ -18,3 +18,6 @@ data PA deriving Data
 -- > type instance XCompilationUnit PA = SourcePos
 -- for all extension fields.
 $(makeTypeInsts ''PA ''SourcePos allFamilies)
+$(makeTypeInsts ''() ''() allFamilies)
+
+
