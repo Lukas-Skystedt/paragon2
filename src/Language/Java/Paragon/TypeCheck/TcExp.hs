@@ -32,7 +32,7 @@ tcExpModule = typeCheckerBase ++ ".TcExp"
 --    Types of literal values    --
 -----------------------------------
 
-litType :: Literal PA -> TcType
+litType :: Literal PA -> Type TC
 litType (Int     _ _) = intT
 litType (Word    _ _) = longT
 litType (Float   _ _) = floatT
@@ -51,7 +51,7 @@ litType (Null    _  ) = nullT
 -- expression, and a typechecked expression.
 -- Encapsulated in the TcCodeM monad gives access to the code environment,
 -- state, allows it to fail, add error messages and policy contraints.
-tcExp :: Exp PA -> TcCodeM (TcStateType, ActorPolicy, Exp T)
+tcExp :: Exp PA -> TcCodeM (TcStateType, ActorPolicy, Exp TC)
 
 -- Rule PAREN
 -- Expressions in parantheses are simply relayed
@@ -187,7 +187,7 @@ tcExp ex@(Assign exSp lhs _op rhs) = do
       ArrayLhs sp (ArrayIndex _ arrE iE) -> do
             (tyA, pA, arrE') <- tcExp arrE
             case unStateType tyA of
-              TcRefT (TcArrayT tyElem pElem) -> do
+              TcRefType (TcArrayType tyElem pElem) -> do
                 (tyI, pI, iE') <- tcExp iE
                 -- array index has to be an integer
                 check (isIntConvertible tyI) $ mkError
@@ -417,12 +417,12 @@ tcExp (ArrayCreate sp bt dimEsPs dimImplPs) = do
           ArrayCreate (Just (ty, False)) btT dimEsPsT dimImplPsT)
 
       where checkDimExprs :: [ActorPolicy]   -- ^ Policies of earlier dimensions
-                          -> [Maybe (Policy T)]      -- ^ Annotated policy expressions of earlier dimensions
-                          -> [Exp T]         -- ^ Annotated expressions
+                          -> [Maybe (Policy TC)]      -- ^ Annotated policy expressions of earlier dimensions
+                          -> [Exp TC]         -- ^ Annotated expressions
                           -> [(Exp PA, Maybe (Policy PA))]
                                              -- ^ Remaining dimexprs/pols
                           -> PA       -- ^ Source location
-                          -> (ActorPolicy, Maybe (Policy T))     -- ^ Policy and rewritten term of previous dimension
+                          -> (ActorPolicy, Maybe (Policy TC))     -- ^ Policy and rewritten term of previous dimension
                           -> TcCodeM ([ActorPolicy], [Maybe (Policy T)], [Exp T])
             checkDimExprs accP accPE accE [] _ (pPrev, pePrev) =
               return (reverse (pPrev:accP), reverse (pePrev:accPE), reverse accE)
@@ -458,7 +458,7 @@ tcExp (ArrayCreateInit _ bt dimImplPs arrInit) = do
 tcExp (ArrayAccess spA (ArrayIndex spI arrE iE)) = do
   (tyA, pA, arrE') <- tcExp arrE
   case unStateType tyA of
-    TcRefT (TcArrayT tyElem pElem) -> do
+    TcRefType (TcArrayType tyElem pElem) -> do
       (tyI, pI, iE') <- tcExp iE
       check (isIntConvertible tyI) $ mkError (NonIntIndex (prettyPrint tyI)) spI
       styElem <- getStateType Nothing Nothing tyElem
@@ -477,7 +477,7 @@ tcExp e = failE $ mkError (NotSupported "expression" (prettyPrint e)) defaultPos
 --------------------------
 -- Array initializers
 
-tcArrayInit :: TcType -> [ActorPolicy] -> TypeCheck TcCodeM ArrayInit
+tcArrayInit :: Type TC -> [ActorPolicy] -> TypeCheck TcCodeM ArrayInit
 tcArrayInit baseType (pol1:pols) (ArrayInit sp inits) = do
   (ps, inits') <- unzip <$> mapM (tcVarInit baseType pols) inits
   mapM_ (\(p,e) -> constraintLS p pol1 $ mkError
@@ -486,7 +486,7 @@ tcArrayInit baseType (pol1:pols) (ArrayInit sp inits) = do
   return $ ArrayInit Nothing inits'
 tcArrayInit _ [] _ = fail "Array initializer has too many dimensions"
 
-tcVarInit :: TcType -> [ActorPolicy] -> VarInit PA -> TcCodeM (ActorPolicy, VarInit T)
+tcVarInit :: Type TC -> [ActorPolicy] -> VarInit PA -> TcCodeM (ActorPolicy, VarInit T)
 tcVarInit baseType pols (InitExp _ e) = do
 --  debugPrint $ "Pols: " ++ show pols
 --  debugPrint $ "Exp:  " ++ show e
@@ -528,9 +528,9 @@ tcFieldAccess fa = error $ "Unsupported field access: " ++ prettyPrint fa
 --------------------------
 -- Instance creation
 
-tcCreate :: TcClassType -> [TypeArgument PA] -> [Argument PA]
+tcCreate :: ClassType TC -> [TypeArgument PA] -> [Argument PA]
          -> TcCodeM (TcStateType, ActorPolicy, [TypeArgument T], [Argument T],Bool)
-tcCreate ctyT@(TcClassT tyN@(Name _ _ _ tyI) _) tas args = do
+tcCreate ctyT@(TcClassType tyN@(Name _ _ _ tyI) _) tas args = do
   resP <- newMetaPolVar tyI
   (tysArgs, psArgs, args') <- unzip3 <$> mapM tcExp args
   (tps,iaps,genCti) <- lookupConstr ctyT tas resP (map unStateType tysArgs) psArgs
@@ -952,20 +952,20 @@ tcSrcClsType _ct@(ClassType _ n tas) = do
   return $ TcClassT n tArgs
 
 -}
-tcSrcType :: TcCodeM ActorPolicy -> Type PA -> TcCodeM (TcType, Type T)
-tcSrcType _  (PrimType _ pt) = return (TcPrimT pt, PrimType Nothing (notAppl pt))
+tcSrcType :: TcCodeM ActorPolicy -> Type PA -> TcCodeM (Type TC, Type TC)
+tcSrcType _  (PrimType _ pt) = return (TcPrimType pt, TcPrimType (notAppl pt))
 tcSrcType gp (RefType  _ rt) = do
   (tyR, rtT) <- tcSrcRefType gp rt
-  return (TcRefT tyR, RefType Nothing rtT)
+  return (TcRefType tyR, RefType Nothing rtT)
 
 tcSrcType _ _ = panic (tcExpModule ++ ".tcSrcType")
                 "AntiQType should not appear in AST being type-checked"
 
 
-tcSrcRefType :: TcCodeM ActorPolicy -> RefType PA -> TcCodeM (TcRefType, RefType T)
+tcSrcRefType :: TcCodeM ActorPolicy -> RefType PA -> TcCodeM (RefType TC, RefType TC)
 tcSrcRefType _ (TypeVariable _ i) =
     return (TcTypeVar $ unIdent i, TypeVariable Nothing (notAppl i))
-tcSrcRefType genPol (ArrayType _ t mps) = do
+tcSrcRefType genPol (TcArrayType _ t mps) = do
   (ty, tT) <- tcSrcType genPol t
   (pols, mpsT) <- unzip <$> mapM
                   (\mp -> case mp of
@@ -977,14 +977,14 @@ tcSrcRefType genPol (ArrayType _ t mps) = do
                               check (isPolicyType sty) $ toUndef $ "Not a policy type: " ++ prettyPrint sty
                               pol <- tcPolicy p
                               return (pol, Just pT)) mps
-  let (TcRefT arrTy) = mkArrayType ty pols
+  let (TcRefType arrTy) = mkArrayType ty pols
   return (arrTy, ArrayType Nothing tT mpsT)
 tcSrcRefType gp (ClassRefType _ ct) = do
   (tyC, ctT) <- tcSrcClsType gp ct
   return (TcClsRefT tyC, ClassRefType Nothing ctT)
 
 
-tcSrcClsType :: TcCodeM ActorPolicy -> ClassType PA -> TcCodeM (TcClassType, ClassType T)
+tcSrcClsType :: TcCodeM ActorPolicy -> ClassType PA -> TcCodeM (ClassType TC, ClassType TC)
 tcSrcClsType gp (ClassType _ n tas) = do
   baseTm <- liftTcDeclM getTypeMap
   -- debugPrint $ "Current type map: " ++ show baseTm
@@ -993,18 +993,18 @@ tcSrcClsType gp (ClassType _ n tas) = do
                                     -- fail $ "Unknown type: " ++ prettyPrint n
                          Just res -> return res
   (tArgs, tasT) <- unzip <$> zipWithM (tcSrcTypeArg gp) tps tas
-  return (TcClassT n tArgs, ClassType Nothing (notAppl n) tasT)
+  return (TcClassType n tArgs, ClassType Nothing (notAppl n) tasT)
 
-tcSrcTypeArg :: TcCodeM ActorPolicy -> TypeParam PA -> TypeArgument PA -> TcCodeM (TcTypeArg, TypeArgument T)
+tcSrcTypeArg :: TcCodeM ActorPolicy -> TypeParam PA -> TypeArgument PA -> TcCodeM (TypeArgument TC, TypeArgument TC)
 tcSrcTypeArg gp tp (ActualArg _ a) = do
   (tArg, aT) <- tcSrcNWTypeArg gp tp a
   return (tArg, ActualArg Nothing aT)
 tcSrcTypeArg _ _ _ = fail "tcSrcTypeArg: Wildcards not yet supported"
 
-tcSrcNWTypeArg :: TcCodeM ActorPolicy -> TypeParam PA -> NonWildTypeArgument PA -> TcCodeM (TcTypeArg, NonWildTypeArgument T)
+tcSrcNWTypeArg :: TcCodeM ActorPolicy -> TypeParam PA -> NonWildTypeArgument PA -> TcCodeM (TypeArgument TC, NonWildTypeArgument TC)
 tcSrcNWTypeArg gp TypeParam{} an@(ActualName nPos n) = do
   (tyC, _) <- tcSrcClsType gp (ClassType nPos n [])
-  return (TcActualType $ TcClsRefT tyC, notAppl an)
+  return (TcActualType $ TcClassRefType tyC, notAppl an)
 
 tcSrcNWTypeArg gp TypeParam{} (ActualType _ rt) = do
     (tyR, rtT) <- tcSrcRefType gp rt
@@ -1012,7 +1012,7 @@ tcSrcNWTypeArg gp TypeParam{} (ActualType _ rt) = do
 tcSrcNWTypeArg _ ActorParam{} (ActualName _ n) = do
     aid@(PL.TypedActorIdSpec rTy _) <- evalActorId n
     return (TcActualActor aid,
-              ActualName Nothing $ amap (const $ Just (TcRefT rTy, False)) $ notAppl n)
+              ActualName Nothing $ amap (const $ Just (TcRefType rTy, False)) $ notAppl n)
 
 -- Policies may be names, or special expressions -- TODO: names must be final
 tcSrcNWTypeArg _ PolicyParam{} (ActualName nPos n) = do

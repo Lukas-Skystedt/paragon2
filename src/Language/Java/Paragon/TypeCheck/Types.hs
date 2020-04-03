@@ -503,6 +503,18 @@ primTypePaToTc (DoubleT  sp) = DoubleT  sp
 primTypePaToTc (ActorT   sp) = ActorT   sp
 primTypePaToTc (PolicyT  sp) = PolicyT  sp
 
+primTypeTcToPa :: PrimType TC -> PrimType PA
+primTypeTcToPa (BooleanT a) = BooleanT a
+primTypeTcToPa (ByteT    a) = ByteT    a
+primTypeTcToPa (ShortT   a) = ShortT   a
+primTypeTcToPa (IntT     a) = IntT     a
+primTypeTcToPa (LongT    a) = LongT    a
+primTypeTcToPa (CharT    a) = CharT    a
+primTypeTcToPa (FloatT   a) = FloatT   a
+primTypeTcToPa (DoubleT  a) = DoubleT  a
+primTypeTcToPa (ActorT   a) = ActorT   a
+primTypeTcToPa (PolicyT  a) = PolicyT  a
+
 --------------------------------------------------------------------------------
 -- Old Decoration file below
 --------------------------------------------------------------------------------
