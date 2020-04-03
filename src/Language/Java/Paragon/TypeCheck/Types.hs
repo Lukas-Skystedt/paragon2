@@ -64,8 +64,8 @@ deriving instance Data T
 deriving instance Typeable T
 
 -- | Where annotation is not applicable, replace with Nothing.
-notAppl :: Functor f => f a -> f T
-notAppl = error "notAppl: not implemented. TOOD: figure out Maybe T vs T"--fmap (const Nothing)
+notAppl :: f a -> f TC
+notAppl = error "notAppl: not implemented. TODO: figure out Maybe T vs T"--fmap (const Nothing)
 
 -- | Converts a statetype to an annotated AST type as being a non-native type,
 -- having removed the state information.
@@ -584,14 +584,14 @@ $(makeTypeInsts ''TC ''NoFieldExt
   [ ''XCompilationUnit, ''XPackageDecl, ''XImportDecl, ''XTypeDecl, ''XClassDecl
   , ''XClassBody, ''XEnumBody, ''XEnumConstant, ''XInterfaceDecl, ''XInterfaceBody
   , ''XDecl, {-''XType,-} {-''XClassType,--} ''XRefType, ''XReturnType, ''XVarInit
-  , ''XTypeRefType
+  , ''XTypeRefType, ''XStm, ''XBlockStm, ''XBlock, ''XMethodBody, ''XMemberDecl
   ])
 
 
 $(makeTypeInsts ''TC ''T
-  [ ''XMemberDecl, ''XVarDecl, ''XVarDeclId, ''XFormalParam, ''XMethodBody
-  , ''XConstructorBody, ''XExplConstrInv, ''XMod, ''XBlock, ''XBlockStm
-  , ''XStm, ''XCatch, ''XSwitchBlock, ''XSwitchLabel, ''XForInit
+  [ ''XVarDecl, ''XVarDeclId, ''XFormalParam
+  , ''XConstructorBody, ''XExplConstrInv, ''XMod
+  , ''XCatch, ''XSwitchBlock, ''XSwitchLabel, ''XForInit
   , ''XExceptionSpec, ''XExp, ''XLiteral, ''XOp, ''XAssignOp, ''XLhs
   , ''XArrayIndex, ''XFieldAccess, ''XMethodInvocation, ''XArrayInit
   , ''XNonWildTypeArgument, ''XWildcardBound, ''XTypeParam

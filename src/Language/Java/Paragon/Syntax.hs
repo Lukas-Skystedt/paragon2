@@ -244,8 +244,9 @@ data Modifier x
     | Expects (XMod x) [Lock x]
 type family XMod x
 
--- isMethodStatic :: (XMod -> a) -> [Modifier x] -> Bool
--- isMethodStatic f ms = Static () ()  `elem` removeAnnotationMany ms
+ -- Check if 'Static' is member of 'ms'. We don't use 'elem' to manage AST decorations.
+isMethodStatic :: [Modifier x] -> Bool
+isMethodStatic ms = not $ null [() | Static _ <- ms]
 
 -----------------------------------------------------------------------
 -- Statements

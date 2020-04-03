@@ -50,7 +50,7 @@ Library
                         -- Remove for production build:
                       , haskell-src-exts
   cpp-options:          -DBASE4
-  GHC-options:          -Wall
+  GHC-options:          -Wall -O0
 
   -- This list is outdated
   Exposed-modules:      Language.Java.Paragon.Parser
@@ -170,7 +170,7 @@ Executable parac
                         -- Remove for production build:
                       , haskell-src-exts
   cpp-options:          -DBASE4
-  GHC-options:          -Wall -rtsopts
+  GHC-options:          -Wall -rtsopts -O0
 
 test-suite bad
   Default-Language:    Haskell2010

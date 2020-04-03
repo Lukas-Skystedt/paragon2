@@ -6,13 +6,18 @@ import Language.Java.Paragon.Interaction
 import Language.Java.Paragon.Error
 import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Pretty
+import Language.Java.Paragon.SourcePos(defaultPos)
 
 import Language.Java.Paragon.TypeCheck.Types
 import Language.Java.Paragon.TypeCheck.TcStmt
 import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.TypeCheck.Monad.TcCodeM
 
+import qualified Language.Java.Paragon.PolicyLang as PL
+
 import qualified Data.ByteString.Char8 as B
+import qualified Data.Map as Map
+import Data.Map (Map)
 
 
 -- | Base name of a file being type checked.
@@ -49,15 +54,26 @@ typeCheckCd baseName mpkg (ClassDecl sp ms i tps mSuper _impls (ClassBody _ decl
         inits       = [ idecl | idecl@InitDecl {}   <- decls ]
         supers      = maybe [objectType] (:[]) mSuper
 
-    return $ TcClassBody <$> do
-      let inits' = [] -- TODO
-          mDs' = typeCheckMemberDecls memberDecls
-      -- inits' <- typeCheckInitDecls staticWPol constrWPol inits
-      -- mDs'   <- typeCheckMemberDecls staticWPol constrWPol memberDecls
-      return (inits' ++ map TcMemberDecl mDs')
+    --  Declarations from class body
+    decls <- do
+          let inits' = [] -- TODO
+          mDs' <- typeCheckMemberDecls memberDecls
+          return (inits' ++ map TcMemberDecl mDs')
 
+    return $ TcClassDecl (map notAppl ms)
+                         (notAppl i)
+                         (map notAppl tps)
+                         (fmap notAppl mSuper)
+                         (map notAppl _impls)
+                         (TcClassBody decls)
 typeCheckCd _ _ _ = panic (typeCheckerBase ++ ".typeCheckCd")
                   "Enum decls not yet supported"
+
+
+objectType :: ClassType PA
+objectType = ClassType defaultPos -- TODO defaultPos
+              (mkName_ TName PName $
+               map (Ident defaultPos . B.pack) ["java","lang","Object"]) []
 
 typeCheckActorFields :: [MemberDecl PA] -> TcDeclM a -> TcDeclM a
 typeCheckActorFields mDecls tcba = do
@@ -99,14 +115,31 @@ typeCheckFieldDecl st (FieldDecl _ ms _t vds) = error "typeCheckFieldDecl: not i
 typeCheckMethodDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckMethodDecl st (MethodDecl _ ms tps rt i ps exs mb) = do
   withErrCtxt (MethodContext (prettyPrint i)) $ do
-    mb' <- tcMethodBody mb
-    let ms'  = error "ms not type checked"
-        tps' = error "tps not type checked"
-        rt'  = error "rt not type checked"
-        i'   = error "i not type checked"
-        ps'  = error "ps not type checked"
-        exs' = error "exs not type checked"
-    return $ TcMethodDecl ms' tps' rt' i' ps' exs' mb'
+    withFoldMap withTypeParam tps $ do
+      
+      let env = CodeEnv
+                { vars = [emptyVarMap] -- TODO
+                , lockstate = PL.LockSet [] -- TODO
+                , returnI = Nothing -- TODO
+                , exnsE = Map.empty -- TODO
+                , branchPCE = (Map.empty, []) -- TODO
+                , parBounds = [] -- TODO
+                , compileTime = False
+                , staticContext = isMethodStatic ms
+                }
+      -- This little thing is what actually checks the body
+      ((mb', endSt),cs) <- runTcCodeM env st $ do
+        mb' <- tcMethodBody mb
+        endSt <- getState
+        return (mb', endSt)
+        
+      let ms'  = error "ms not type checked"
+          tps' = error "tps not type checked"
+          rt'  = error "rt not type checked"
+          i'   = error "i not type checked"
+          ps'  = error "ps not type checked"
+          exs' = error "exs not type checked"
+      return $ TcMethodDecl ms' tps' rt' i' ps' exs' mb'
 
 
 typeCheckConstrDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
@@ -116,8 +149,3 @@ typeCheckConstrDecl st (ConstructorDecl _ ms tps ci ps _exs cb) = error "typeChe
 tcMethodBody :: TypeCheck TcCodeM MethodBody
 tcMethodBody (MethodBody _ mBlock) =
     TcMethodBody <$> maybe (return Nothing) ((Just <$>) . tcBlock) mBlock
-
-
-4
-lukasCantBeBelowHere = id
-lukasCannotBeContained = error "Moahahaha!"
