@@ -13,6 +13,8 @@ import Language.Java.Paragon.TypeCheck.TcStmt
 import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.TypeCheck.Monad.TcCodeM
 
+import Language.Java.Paragon.TypeCheck.NotAppl
+
 import qualified Language.Java.Paragon.PolicyLang as PL
 
 import qualified Data.ByteString.Char8 as B

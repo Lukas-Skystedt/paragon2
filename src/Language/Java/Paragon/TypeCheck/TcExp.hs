@@ -17,6 +17,8 @@ import Language.Java.Paragon.TypeCheck.Types
 import Language.Java.Paragon.TypeCheck.TypeMap
 import Language.Java.Paragon.TypeCheck.NullAnalysis
 
+import Language.Java.Paragon.TypeCheck.NotAppl
+
 import Data.List ((\\))
 import Data.Maybe (fromJust, fromMaybe)
 import qualified Data.Map as Map

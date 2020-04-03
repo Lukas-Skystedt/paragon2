@@ -71,7 +71,7 @@ Library
                       , Language.Java.Paragon.Decorations.PcgDecoration
                       , Language.Java.Paragon.Decorations.NoDecoration
                       , Language.Java.Paragon.Decorations.PteDecoration
-                      -- , Language.Java.Paragon.TypeCheck
+                      , Language.Java.Paragon.TypeCheck.NotAppl
                       -- , Language.Java.Paragon.TypeCheck.Interpreter
                       -- , Language.Java.Paragon.TypeCheck.Monad
                       -- , Language.Java.Paragon.TypeCheck.Monad.TcCodeM
@@ -127,6 +127,7 @@ Executable parac
                       , Language.Java.Paragon.Decorations.PcgDecoration
                       , Language.Java.Paragon.Decorations.NoDecoration
                       , Language.Java.Paragon.Decorations.PteDecoration
+                      , Language.Java.Paragon.TypeCheck.NotAppl
                       -- , Language.Java.Paragon.TypeCheck
                       -- , Language.Java.Paragon.TypeCheck.Interpreter
                       -- , Language.Java.Paragon.TypeCheck.Monad
