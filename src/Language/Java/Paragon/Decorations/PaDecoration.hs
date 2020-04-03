@@ -44,7 +44,7 @@ pattern PaWildcard sp mwb = TypeArgumentExp (Wildcard sp mwb)
 pattern PaActualArg sp nwta = TypeArgumentExp (ActualArg sp nwta)
 
 
-  
+
 -- Derive type instances on the form
 -- > type instance XCompilationUnit PA = SourcePos
 -- for all extension fields.

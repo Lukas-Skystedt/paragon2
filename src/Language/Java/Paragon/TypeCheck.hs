@@ -8,6 +8,7 @@ import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Pretty
 
 import Language.Java.Paragon.TypeCheck.Types
+import Language.Java.Paragon.TypeCheck.TcStmt
 import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.TypeCheck.Monad.TcCodeM
 
@@ -48,12 +49,12 @@ typeCheckCd baseName mpkg (ClassDecl sp ms i tps mSuper _impls (ClassBody _ decl
         inits       = [ idecl | idecl@InitDecl {}   <- decls ]
         supers      = maybe [objectType] (:[]) mSuper
 
-    return $ ClassBody Nothing <$> do
-      let inits' = [] -- TODO 
-          mDs' = [] -- TODO
+    return $ TcClassBody <$> do
+      let inits' = [] -- TODO
+          mDs' = typeCheckMemberDecls memberDecls
       -- inits' <- typeCheckInitDecls staticWPol constrWPol inits
       -- mDs'   <- typeCheckMemberDecls staticWPol constrWPol memberDecls
-      return (inits' ++ map (MemberDecl Nothing) mDs')
+      return (inits' ++ map TcMemberDecl mDs')
 
 typeCheckCd _ _ _ = panic (typeCheckerBase ++ ".typeCheckCd")
                   "Enum decls not yet supported"
@@ -70,35 +71,53 @@ typeCheckActorFields mDecls tcba = do
     --            ]
 
 
-typeCheckInitDecls :: ActorPolicy -> ActorPolicy -> [Decl PA] -> TcDeclM [Decl TC]
-typeCheckInitDecls sLim cLim is = error "typeCheckInitDecls: not implemented"
+typeCheckInitDecls :: [Decl PA] -> TcDeclM [Decl TC]
+typeCheckInitDecls is = error "typeCheckInitDecls: not implemented"
 
 --------------------------------------------------------------------------------
 -- Bodies
 --------------------------------------------------------------------------------
 
-typeCheckMemberDecls :: ActorPolicy
-                     -> ActorPolicy
-                     -> [MemberDecl PA] -> TcDeclM [MemberDecl TC]
-typeCheckMemberDecls sLim cLim ms = do
+typeCheckMemberDecls :: [MemberDecl PA] -> TcDeclM [MemberDecl TC]
+typeCheckMemberDecls ms = do
   st <- setupStartState
-  mapM (typeCheckMemberDecl sLim cLim st) ms
+  mapM (typeCheckMemberDecl st) ms
 
 
-typeCheckMemberDecl :: ActorPolicy -> ActorPolicy -> CodeState -> TypeCheck TcDeclM MemberDecl
-typeCheckMemberDecl sLim cLim st fd@FieldDecl{} =
-    typeCheckFieldDecl sLim cLim st fd
-typeCheckMemberDecl _ _ st md@MethodDecl{} =
+typeCheckMemberDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
+typeCheckMemberDecl     st fd@FieldDecl{} =
+    typeCheckFieldDecl  st fd
+typeCheckMemberDecl     st md@MethodDecl{} =
     typeCheckMethodDecl st md
-typeCheckMemberDecl _ _ st cd@ConstructorDecl{} =
+typeCheckMemberDecl     st cd@ConstructorDecl{} =
     typeCheckConstrDecl st cd
-typeCheckMemberDecl _ _ _ md = return $ {-notAppl-} md
+typeCheckMemberDecl     _  md = error "typeCheckMemberDecl: not implemented (last case)" --return $ {-notAppl-} md
 
-typeCheckFieldDecl :: ActorPolicy -> ActorPolicy -> CodeState -> TypeCheck TcDeclM MemberDecl
-typeCheckFieldDecl staticLim constrLim st (FieldDecl _ ms _t vds) = error "typeCheckFieldDecl: not implemented"
+typeCheckFieldDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
+typeCheckFieldDecl st (FieldDecl _ ms _t vds) = error "typeCheckFieldDecl: not implemented"
 
 typeCheckMethodDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
-typeCheckMethodDecl st (MethodDecl _ ms tps _rt i ps _exs mb) = error "typeCheckMethodDecl: not implemented"
+typeCheckMethodDecl st (MethodDecl _ ms tps rt i ps exs mb) = do
+  withErrCtxt (MethodContext (prettyPrint i)) $ do
+    mb' <- tcMethodBody mb
+    let ms'  = error "ms not type checked"
+        tps' = error "tps not type checked"
+        rt'  = error "rt not type checked"
+        i'   = error "i not type checked"
+        ps'  = error "ps not type checked"
+        exs' = error "exs not type checked"
+    return $ TcMethodDecl ms' tps' rt' i' ps' exs' mb'
+
 
 typeCheckConstrDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckConstrDecl st (ConstructorDecl _ ms tps ci ps _exs cb) = error "typeCheckConstrDecl: not implemented"
+
+
+tcMethodBody :: TypeCheck TcCodeM MethodBody
+tcMethodBody (MethodBody _ mBlock) =
+    TcMethodBody <$> maybe (return Nothing) ((Just <$>) . tcBlock) mBlock
+
+
+4
+lukasCantBeBelowHere = id
+lukasCannotBeContained = error "Moahahaha!"

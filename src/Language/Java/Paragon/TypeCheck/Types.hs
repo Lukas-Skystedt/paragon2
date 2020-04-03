@@ -25,17 +25,27 @@ import qualified Data.ByteString.Char8 as B
 import Data.Maybe (isJust, fromJust)
 import Control.Applicative (Applicative, (<$>), (<*>))
 import Data.List ((\\))
+import Data.Void (Void)
 
 import Data.Data (Data, Typeable)
 
 import Prelude hiding ((<>))
 import qualified Control.Monad.Fail as Fail
 
+------------------------------------------------------------------------------------
+-- Template Haskell stuff that needs to come first in the file
+------------------------------------------------------------------------------------
+
 -- Make pattern synonyms on the form
 -- > pattern TcCompilationUnit typ mpd id td = CompilationUnit typ mpd id td
 $(makePatternSyns "Tc"
   (allDataConstructors \\ ['ActualType, 'ActualLockState, 'ArrayType, 'VoidType])
   [p| () |])
+
+------------------------------------------------------------------------------------
+-- End of Template Haskell stuff
+------------------------------------------------------------------------------------
+
 
 
 typesModule :: String
@@ -316,7 +326,7 @@ widenNarrowConvert :: PrimType PA -> [PrimType PA]
 widenNarrowConvert (ByteT pos) = [CharT pos]
 widenNarrowConvert _           = []
 
-box :: --XName TC ~ XIdent PA =>
+box :: --XPrimType x ~ XClassType y =>
   PrimType PA -> Maybe (ClassType TC)
 box pt = let mkClassType str spos =
                  Just $ TcClassType
@@ -520,10 +530,13 @@ deriving instance Show TcDecTypeArg
 deriving instance Data TcDecTypeArg
 deriving instance Typeable TcDecTypeArg
 
-type instance XType            TC = NoFieldExt
 type instance XPrimType        TC = SourcePos
 type instance XRefType         TC = NoFieldExt
 type instance XClassType       TC = NoFieldExt
+
+
+type instance XTypePrimType    TC = NoFieldExt
+--pattern TcPrimType pt = PrimType pt
 
 type instance XIdent           TC = SourcePos
 type instance XName            TC = SourcePos
@@ -545,6 +558,8 @@ pattern TcNullT = RefTypeExp ()
 type instance XRefTypeArrayType TC = ActorPolicy
 pattern TcArrayType typ pol = ArrayType pol typ
 
+type instance XTypeAntiQType TC = Void
+
 -- Derive type instances on the form
 -- > type instance XCompilationUnit PTE = NoFieldExt
 -- or
@@ -553,11 +568,11 @@ pattern TcArrayType typ pol = ArrayType pol typ
 --
 -- The former is for types that don't have Paragon types, the latter for types
 -- that do.
-
 $(makeTypeInsts ''TC ''NoFieldExt
   [ ''XCompilationUnit, ''XPackageDecl, ''XImportDecl, ''XTypeDecl, ''XClassDecl
   , ''XClassBody, ''XEnumBody, ''XEnumConstant, ''XInterfaceDecl, ''XInterfaceBody
-  , ''XDecl, ''XType, {-''XClassType,--} ''XRefType, ''XReturnType, ''XVarInit
+  , ''XDecl, {-''XType,-} {-''XClassType,--} ''XRefType, ''XReturnType, ''XVarInit
+  , ''XTypeRefType
   ])
 
 

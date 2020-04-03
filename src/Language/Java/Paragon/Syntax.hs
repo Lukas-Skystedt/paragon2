@@ -533,14 +533,17 @@ type family XReturnType x
 -- | There are two kinds of types in the Java programming language: primitive types and reference types.
 -- type families: XType
 data Type x
-    = PrimType (XType x) (PrimType x)
-    | RefType (XType x) (RefType x)
-    | AntiQType (XType x) String
+    = PrimType (XTypePrimType x) (PrimType x)
+    | RefType (XTypeRefType x) (RefType x)
+    | AntiQType (XTypeAntiQType x) String
     -- ^ TODO: maybe this should be in the extension constructor
     | TypeExt (XTypeExt x)
 
-type family XType x
-type family XTypeExt x
+--type family XType x
+type family XTypePrimType  x -- TODO naming
+type family XTypeRefType   x -- TODO naming
+type family XTypeAntiQType x -- TODO naming
+type family XTypeExt       x
 
 -- | There are three kinds of reference types: class types, interface types, and array types.
 --   Reference types may be parameterized with type arguments.
@@ -851,27 +854,27 @@ instance Show (Name a) where
 -- > Eq (XCompilationUnit x), Eq(XPackageDecl x), ...
 -- where 'x' is some type index.
 type ForallXFamilies (f :: * -> Constraint) x =
-  (
-    f(XCompilationUnit x), f(XPackageDecl x), f(XImportDecl x),
-    f(XImportDecl x), f(XTypeDecl x), f(XClassDecl x), f(XClassBody x),
-    f(XEnumBody x), f(XEnumConstant x), f(XInterfaceDecl x),
-    f(XInterfaceBody x), f(XDecl x), f(XMemberDecl x), f(XVarDecl x),
-    f(XVarDeclId x), f(XFormalParam x), f(XMethodBody x),
-    f(XConstructorBody x), f(XExplConstrInv x), f(XMod x), f(XBlock x),
-    f(XBlockStm x), f(XStm x), f(XCatch x), f(XSwitchBlock x),
-    f(XSwitchBlock x), f(XSwitchLabel x), f(XForInit x),
-    f(XExceptionSpec x), f(XExp x), f(XLiteral x), f(XOp x),
-    f(XAssignOp x), f(XLhs x), f(XArrayIndex x), f(XFieldAccess x),
-    f(XMethodInvocation x), f(XArrayInit x), f(XReturnType x), f(XType x),
-    f(XRefType x), f(XClassType x), f(XTypeArgumentExp x),
-    f(XNonWildTypeArgument x), f(XWildcardBound x), f(XPrimType x),
-    f(XTypeParam x), f(XPolicyExp x), f(XLockProperties x), f(XClause x),
-    f(XClauseVarDecl x), f(XClauseHead x), f(XLClause x), f(XActor x),
-    f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XVarDecl x),
-    f(XVarInit x), f (XName x),
+  ( f(XCompilationUnit x), f(XPackageDecl x), f(XImportDecl x)
+  , f(XImportDecl x), f(XTypeDecl x), f(XClassDecl x), f(XClassBody x)
+  , f(XEnumBody x), f(XEnumConstant x), f(XInterfaceDecl x)
+  , f(XInterfaceBody x), f(XDecl x), f(XMemberDecl x), f(XVarDecl x)
+  , f(XVarDeclId x), f(XFormalParam x), f(XMethodBody x)
+  , f(XConstructorBody x), f(XExplConstrInv x), f(XMod x), f(XBlock x)
+  , f(XBlockStm x), f(XStm x), f(XCatch x), f(XSwitchBlock x)
+  , f(XSwitchBlock x), f(XSwitchLabel x), f(XForInit x)
+  , f(XExceptionSpec x), f(XExp x), f(XLiteral x), f(XOp x)
+  , f(XAssignOp x), f(XLhs x), f(XArrayIndex x), f(XFieldAccess x)
+  , f(XMethodInvocation x), f(XArrayInit x), f(XReturnType x) {-f(XType x),-}
+  , f(XTypePrimType x), f(XTypeRefType x), f(XTypeAntiQType x)
+  , f(XRefType x), f(XClassType x), f(XTypeArgumentExp x), f(XTypeAntiQType x)
     -- Nested tuple below to circumvent the constraint tuple max size of 62.
-    (f(XRefTypeExp x), f(XTypeArgumentExp x),  f(XRefTypeArrayType x),
-     f(XTypeExt x))
+  , ( f(XNonWildTypeArgument x), f(XWildcardBound x), f(XPrimType x)
+    , f(XTypeParam x), f(XPolicyExp x), f(XLockProperties x), f(XClause x)
+    , f(XClauseVarDecl x), f(XClauseHead x), f(XLClause x), f(XActor x)
+    , f(XActorName x), f(XAtom x), f(XLock x), f(XIdent x), f(XVarDecl x)
+    , f(XVarInit x), f (XName x)
+    , f(XRefTypeExp x), f(XTypeArgumentExp x),  f(XRefTypeArrayType x)
+    , f(XTypeExt x))
   )
 
 -- | Extension of 'ForallXFamilies' that includes 'Data', 'Typeable' and the
@@ -897,13 +900,13 @@ allFamilies =
   , ''XExplConstrInv, ''XMod, ''XBlock, ''XBlockStm, ''XStm, ''XCatch
   , ''XSwitchBlock, ''XSwitchLabel, ''XForInit, ''XExceptionSpec, ''XExp
   , ''XLiteral, ''XOp, ''XAssignOp, ''XLhs, ''XArrayIndex, ''XFieldAccess
-  , ''XMethodInvocation, ''XArrayInit, ''XReturnType, ''XType, ''XRefType
+  , ''XMethodInvocation, ''XArrayInit, ''XReturnType, {-''XType,-} ''XRefType
   , ''XClassType, ''XNonWildTypeArgument, ''XWildcardBound
   , ''XPrimType, ''XTypeParam, ''XPolicyExp, ''XLockProperties, ''XClause
   , ''XClauseVarDecl, ''XClauseHead, ''XLClause, ''XActor, ''XActorName
   , ''XAtom, ''XLock, ''XIdent, ''XName
   -- Extra field extensions
-  , ''XRefTypeArrayType
+  , ''XRefTypeArrayType, ''XTypePrimType, ''XTypeRefType, ''XTypeAntiQType
   -- Extension constructors
   , ''XRefTypeExp, ''XTypeArgumentExp, ''XTypeExt
   ]
