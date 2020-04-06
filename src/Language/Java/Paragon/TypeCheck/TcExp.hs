@@ -33,7 +33,7 @@ tcExpModule = typeCheckerBase ++ ".TcExp"
 --    Checking expressions       --
 -----------------------------------
 
--- TODO: This documentation is outdated!!!
+  -- TODO: This documentation is outdated!!!
 -- | Typechecks a term that is parsed as some expression and returns a triple
 -- consisting of the (state) type of that expression, the policy on the
 -- expression, and a typechecked expression.
@@ -80,6 +80,7 @@ tcExp (ExpName _ n) =
              let ty = lockT [PL.ConcreteLock $ PL.Lock n []]
              return (ty, ExpName (toT ty) (notAppl n))
       Name sp EOrLName mPre i -> do
+             detailPrint "case EOrLName"
              tryCatch (tcExp $ ExpName sp $ Name sp LName mPre i)
                 (\ec ->tcExp $ ExpName sp $ Name sp EName mPre i)
 

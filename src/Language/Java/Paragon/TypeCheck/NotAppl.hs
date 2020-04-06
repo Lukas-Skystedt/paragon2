@@ -18,8 +18,8 @@ class NotAppl a where
   notAppl :: a PA -> a TC
 
 -- | Alias for removing annotations inside lists
-fRem :: Functor f => NotAppl a => f (a x) -> f (a TC)
-fRem = fRem
+fRem :: (Functor f, NotAppl a) => f (a PA) -> f (a TC)
+fRem = fmap notAppl
 
 -- Instances for the data types that currently needs to remove
 -- annotations.
