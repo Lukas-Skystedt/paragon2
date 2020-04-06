@@ -690,6 +690,14 @@ isAssignableTo t1 t2 = do
       b <- liftTcDeclM $ t1 `widensTo` t2 -- widening conversion
       return $ if b then Just [] else Nothing
 
+-- TODO: This is a replacement for 'isAssignableTo' (or rather, =<:) for the typecheck phase.
+-- TODO: We use 'TcCodeM' for now. A "weaker" version may be sufficient.
+isAssignableToTc :: Type TC -> Type TC -> TcCodeM Bool
+isAssignableToTc t1 t2 = do 
+    let b1 = t1 `equivToTc` t2 -- identity conversion
+    b2 <- liftTcDeclM $ t1 `widensTo` t2 -- widening conversion
+    return $ b1 || b2
+
 (=<:) :: Type TC -> TcStateType -> TcCodeM (Maybe [(ActorPolicy, ActorPolicy)])
 lhs =<: rhs = isAssignableTo (unStateType rhs) lhs
 
@@ -716,6 +724,28 @@ equivTo (TcRefType rt1) (TcRefType rt2) = equivRefT rt1 rt2
         equivTypeArg a1 a2 = if a1 == a2 then return [] else Nothing
 
 equivTo t1 t2 = if t1 == t2 then return [] else Nothing
+
+equivToTc :: Type TC -> Type TC -> Bool
+equivToTc (TcRefType rt1) (TcRefType rt2) = equivRefT rt1 rt2
+  where equivRefT :: RefType TC -> RefType TC -> Bool
+        equivRefT (TcArrayType t1 _) (TcArrayType t2 _) = t1 `equivToTc` t2
+        equivRefT (TcClassRefType ct1) (TcClassRefType ct2) = equivClsT ct1 ct2
+        equivRefT _ _ = rt1 == rt2
+
+        equivClsT :: ClassType TC -> ClassType TC -> Bool
+        equivClsT (TcClassType n1 tas1) (TcClassType n2 tas2) =
+            n1 == n2                   -- Same class name
+            && equivTypeArgs tas1 tas2 -- Same type arguments
+
+        equivTypeArgs :: [TypeArgument TC] -> [TypeArgument TC] -> Bool
+        equivTypeArgs tas1 tas2 = and $ zipWith equivTypeArg tas1 tas2
+
+        equivTypeArg :: TypeArgument TC -> TypeArgument TC -> Bool
+        equivTypeArg (TcActualPolicy _) (TcActualPolicy _) = True -- We don't check policies in this phase
+        equivTypeArg (TcActualType r1) (TcActualType r2) = equivRefT r1 r2
+        equivTypeArg a1 a2 = a1 == a2
+
+equivToTc t1 t2 = t1 == t2
 
 isCastableTo :: Type TC
              -> Type TC

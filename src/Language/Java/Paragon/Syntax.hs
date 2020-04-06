@@ -737,7 +737,6 @@ unIdent (AntiQIdent _ str) = panic (syntaxModule ++ ".unIdent")
 -- type families : XName
 data Name x = Name (XName x) NameType (Maybe (Name x)) (Ident x)
             | AntiQName (XName x) String
-   -- Show removed to get more readable debug output
 type family XName x
 data NameType
     = EName    -- ^Expression name
@@ -844,7 +843,7 @@ flattenName n = reverse $ flName n
 -- To get printout of the whole recursive name structure, comment this out and put
 -- Show in the deriving clause.
 instance Show (Name a) where
-  show (Name _ _ nextBase (Ident _ iBase)) =
+  show (Name _ nt nextBase (Ident _ iBase)) =
     show (showInner nextBase ++ B.unpack iBase)
     where
       showInner Nothing = ""

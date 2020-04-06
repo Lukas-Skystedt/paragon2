@@ -147,10 +147,10 @@ Executable parac
                       , Language.Java.Paragon.Error
                       , Language.Java.Paragon.ErrorTxt
                       , Language.Java.Paragon.ErrorEclipse
-                      -- , Language.Java.Paragon.PolicyLang
-                      -- , Language.Java.Paragon.PolicyLang.Actors
-                      -- , Language.Java.Paragon.PolicyLang.Locks
-                      -- , Language.Java.Paragon.PolicyLang.Policy
+                      , Language.Java.Paragon.PolicyLang
+                      , Language.Java.Paragon.PolicyLang.Actors
+                      , Language.Java.Paragon.PolicyLang.Locks
+                      , Language.Java.Paragon.PolicyLang.Policy
 
   Build-Tools:   alex >= 2.3
   Build-Depends:        array >= 0.1

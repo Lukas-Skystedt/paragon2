@@ -4,7 +4,7 @@ module Main where
 
 -- Note: for the time being I converted most of this to explicit exports
 -- to get a better overview what is where /jens
-import Language.Java.Paragon.Syntax (CompilationUnit)
+import Language.Java.Paragon.Syntax (CompilationUnit(..))
 -- import Language.Java.Paragon.Decorations.PaDecoration (PA)
 import Language.Java.Paragon.Parser (compilationUnit, parser, ParseError)
 import Language.Java.Paragon.Pretty (prettyPrint)
@@ -36,6 +36,8 @@ import Language.Java.Paragon.PolicyTypeEval
 import Language.Java.Paragon.LockStateEval
 import Language.Java.Paragon.PolicyConstraintGen
 import Language.Java.Paragon.PolicyConstraintSolver
+
+import Control.Exception
 
 -- | Main method, invokes the compiler
 main :: IO ()
@@ -182,9 +184,20 @@ compile flags filePath = do
            raiseErrors
            detailPrint "Name resolution complete!"
 
+--Exception e => IO a -> (e -> IO a) -> IO a
+           let myPrint :: IOException -> IO ()
+               myPrint = print
+
            -- Type checking
            ast2 <- typeCheck pDirs (takeBaseName filePath) ast1
-           normalPrint $ prettyPrint ast2
+           detailPrint "after type check (in Paragon.hs)"
+           detailPrint $ prettyPrint ast2
+           
+
+           --liftIO $ catch (normalPrint $ prettyPrint ast2) myPrint
+
+           
+           
            -- Placeholder for the new 5-phase pipeline
            -- ast2 <- NTc.typeCheck ast1
            -- ast3 <- evalPolicyTypes ast2

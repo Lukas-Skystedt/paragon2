@@ -162,6 +162,14 @@ merge tm1 tm2 = TypeMap {
                   packages    = Map.union (packages    tm1) (packages    tm2)
                 }
 
+isStatic :: [Modifier a] -> Bool
+isStatic ms = not $ null [() | Static{} <- ms]
+
+isFinal :: [Modifier a] -> Bool
+isFinal ms = not $ null [() | Final{} <- ms]
+
+isNotnull :: [Modifier a] -> Bool
+isNotnull ms = not $ null [() | Notnull{} <- ms]
 --------------------------------------------
 --       Working with extensions          --
 --------------------------------------------

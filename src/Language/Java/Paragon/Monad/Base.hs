@@ -225,8 +225,10 @@ maybeM :: Monad m => Maybe a -> (a -> m ()) -> m ()
 maybeM ma f = maybe (return ()) f ma
 
 -- | Compose given list of monadic functions
-withFold :: Monad m => [m a -> m a] -> m a -> m a
-withFold = foldr (.) id
+withFold :: Monad m => [m a -> m a] -> (m a -> m a)
+withFold fs = (\ x -> (foldr (.) id fs) x)
+-- withFold ... (.) id [f,g,h] = (\x -> (f . g . h . id) x)
+--foldr :: (a -> b -> b) -> b -> t a -> b
 
 -- | Turn list into sequence of monadic computations that is then composed
 withFoldMap :: Monad m => (a -> m b -> m b) -> [a] -> m b -> m b
