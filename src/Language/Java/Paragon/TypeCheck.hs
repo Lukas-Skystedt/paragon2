@@ -34,7 +34,13 @@ typeCheck :: PiPath   -- ^ Paths to pi files
           -> BaseName -- ^ Base name of the file
           -> CompilationUnit PA
           -> BaseM (CompilationUnit TC)
-typeCheck piDirs baseName (CompilationUnit _ pkg imps [td])= error "typeCheck placeholder evaluated"
+typeCheck piDirs baseName (CompilationUnit _ pkg imps [td]) =
+  runPiReader piDirs $ runTcDeclM (error "placeholder for ClassType") $ do
+    let mPkgPrefix = fmap (\(PackageDecl _ n) -> n) pkg
+    typedTd <- typeCheckTd baseName mPkgPrefix td
+    return $ TcCompilationUnit (fmap notAppl pkg)
+                               (map notAppl imps)
+                               [typedTd]
 typeCheck _ _ _ =
     fail $ "\n\n" ++ "Encountered multiple type declarations in the same file"
 

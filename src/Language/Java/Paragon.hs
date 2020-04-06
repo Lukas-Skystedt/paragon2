@@ -182,6 +182,9 @@ compile flags filePath = do
            raiseErrors
            detailPrint "Name resolution complete!"
 
+           -- Type checking
+           ast2 <- typeCheck pDirs (takeBaseName filePath) ast1
+           normalPrint $ prettyPrint ast2
            -- Placeholder for the new 5-phase pipeline
            -- ast2 <- NTc.typeCheck ast1
            -- ast3 <- evalPolicyTypes ast2

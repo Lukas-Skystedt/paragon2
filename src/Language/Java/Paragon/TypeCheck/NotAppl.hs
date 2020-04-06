@@ -24,18 +24,18 @@ fRem = fRem
 -- Instances for the data types that currently needs to remove
 -- annotations.
 
--- instance NotAppl PackageDecl where
---   notAppl (PackageDecl _ name) = PackageDecl () (notAppl name)
+instance NotAppl PackageDecl where
+  notAppl (PackageDecl _ name) = PackageDecl () (notAppl name)
 
--- instance NotAppl ImportDecl where
---   notAppl (SingleTypeImport     _ name) =
---     SingleTypeImport     () (notAppl name)
---   notAppl (TypeImportOnDemand   _ name) =
---     TypeImportOnDemand   () (notAppl name)
---   notAppl (SingleStaticImport   _ name ident) =
---     SingleStaticImport   () (notAppl name) (notAppl ident)
---   notAppl (StaticImportOnDemand _ name) =
---     StaticImportOnDemand () (notAppl name)
+instance NotAppl ImportDecl where
+  notAppl (SingleTypeImport     _ name) =
+    SingleTypeImport     () (notAppl name)
+  notAppl (TypeImportOnDemand   _ name) =
+    TypeImportOnDemand   () (notAppl name)
+  notAppl (SingleStaticImport   _ name ident) =
+    SingleStaticImport   () (notAppl name) (notAppl ident)
+  notAppl (StaticImportOnDemand _ name) =
+    StaticImportOnDemand () (notAppl name)
 
 -- instance NotAppl ClassDecl where
 --   notAppl (ClassDecl _ mods ident tPars cType cTypes cBody) =
