@@ -62,3 +62,22 @@ tcStmt (ExpStmt _ e) = do
 
 -- Rule BLOCK
 tcStmt (StmtBlock _ b) = TcStmtBlock <$> tcBlock b
+
+tcStmt a@IfThen{} = error "tcStmt: case IfThen not implemented"
+tcStmt a@IfThenElse{} = error "tcStmt: case IfThenElse not implemented"
+tcStmt a@While{} = error "tcStmt: case While not implemented"
+tcStmt a@BasicFor{} = error "tcStmt: case BasicFor not implemented"
+tcStmt a@EnhancedFor{} = error "tcStmt: case EnhancedFor not implemented"
+tcStmt a@Assert{} = error "tcStmt: case Assert not implemented"
+tcStmt a@Switch{} = error "tcStmt: case Switch not implemented"
+tcStmt a@Do{} = error "tcStmt: case Do not implemented"
+tcStmt a@Break{} = error "tcStmt: case Break not implemented"
+tcStmt a@Continue{} = error "tcStmt: case Continue not implemented"
+tcStmt a@Synchronized{} = error "tcStmt: case Synchronized not implemented"
+tcStmt a@Throw{} = error "tcStmt: case Throw not implemented"
+tcStmt a@Try{} = error "tcStmt: case Try not implemented"
+tcStmt a@Labeled{} = error "tcStmt: case Labeled not implemented"
+tcStmt a@Open{} = error "tcStmt: case Open not implemented"
+tcStmt a@Close{} = error "tcStmt: case Close not implemented"
+tcStmt a@OpenBlock{} = error "tcStmt: case OpenBlock not implemented"
+tcStmt a@CloseBlock{} = error "tcStmt: case CloseBlock not implemented"

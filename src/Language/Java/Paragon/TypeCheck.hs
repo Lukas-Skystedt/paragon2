@@ -34,8 +34,9 @@ typeCheck :: PiPath   -- ^ Paths to pi files
           -> BaseName -- ^ Base name of the file
           -> CompilationUnit PA
           -> BaseM (CompilationUnit TC)
-typeCheck piDirs baseName (CompilationUnit _ pkg imps [td]) =
-  runPiReader piDirs $ runTcDeclM (error "placeholder for ClassType") $ do
+typeCheck piDirs baseName (CompilationUnit _ pkg imps [td]) = do
+  let (fullTd, skoTy) = skolemTypeDecl td
+  runPiReader piDirs $ runTcDeclM skoTy $ do
     let mPkgPrefix = fmap (\(PackageDecl _ n) -> n) pkg
     typedTd <- typeCheckTd baseName mPkgPrefix td
     return $ TcCompilationUnit (fmap notAppl pkg)
@@ -115,7 +116,10 @@ typeCheckMemberDecl     st md@MethodDecl{} =
     typeCheckMethodDecl st md
 typeCheckMemberDecl     st cd@ConstructorDecl{} =
     typeCheckConstrDecl st cd
-typeCheckMemberDecl     _  md = error "typeCheckMemberDecl: not implemented (last case)" --return $ {-notAppl-} md
+typeCheckMemberDecl     st mcd@MemberClassDecl{} = 
+  typeCheckMemberClass st mcd
+typeCheckMemberDecl     st mid@MemberInterfaceDecl{} =
+  typeCheckMemberInterface st mid
 
 typeCheckFieldDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckFieldDecl st (FieldDecl _ ms _t vds) = error "typeCheckFieldDecl: not implemented"
@@ -141,18 +145,25 @@ typeCheckMethodDecl st (MethodDecl _ ms tps rt i ps exs mb) = do
         endSt <- getState
         return (mb', endSt)
         
-      let ms'  = error "ms not type checked"
-          tps' = error "tps not type checked"
-          rt'  = error "rt not type checked"
-          i'   = error "i not type checked"
-          ps'  = error "ps not type checked"
-          exs' = error "exs not type checked"
+      let ms'  = map notAppl ms
+          tps' = map notAppl tps
+          rt'  = notAppl rt
+          i'   = notAppl i
+          ps'  = map notAppl ps
+          exs' = map notAppl exs
       return $ TcMethodDecl ms' tps' rt' i' ps' exs' mb'
 
 
 typeCheckConstrDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckConstrDecl st (ConstructorDecl _ ms tps ci ps _exs cb) = error "typeCheckConstrDecl: not implemented"
 
+
+typeCheckMemberClass :: CodeState -> TypeCheck TcDeclM MemberDecl
+typeCheckMemberClass = error "typeCheckMemberClass: not implemented"
+
+
+typeCheckMemberInterface :: CodeState -> TypeCheck TcDeclM MemberDecl
+typeCheckMemberInterface = error "typeCheckMemberInterface: not implemented"
 
 tcMethodBody :: TypeCheck TcCodeM MethodBody
 tcMethodBody (MethodBody _ mBlock) =

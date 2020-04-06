@@ -70,7 +70,7 @@ instance NotAppl ImportDecl where
 --   notAppl (InitDecl _ b block) = InitDecl () b (notAppl block)
 
 -- instance NotAppl MemberDecl where
---   notAppl (FieldDecl _ mods typ vDecl) =
+--   notAppl (FieldDecl _ mods typ vDecl) =991497515
 --     FieldDecl () (fRem mods) (notAppl typ) (fRem vDecl)
 --   notAppl (MethodDecl _ mods tPars rTyp ident fPars exSpecs mBody) =
 --     MethodDecl () (fRem mods) (fRem tPars) (notAppl rTyp)
@@ -82,25 +82,25 @@ instance NotAppl ImportDecl where
 --   notAppl (MemberInterfaceDecl _ iFaceDecl) =
 --     MemberInterfaceDecl () (notAppl iFaceDecl)
 
--- -- -- Paragon specific
--- --     | LockDecl (XMemberDecl x) [Modifier x]  (Ident x) [RefType x] (Maybe (LockProperties x))
+-- -- Paragon specific
+--     | LockDecl (XMemberDecl x) [Modifier x]  (Ident x) [RefType x] (Maybe (LockProperties x))
 
 
 -- instance NotAppl VarDecl where
 --   notAppl (VarDecl _ vDeclId vInit) =
 --     VarDecl () (notAppl vDeclId) (fRem vInit)
 
--- instance NotAppl VarDeclId where
---   notAppl (VarId _ ident)          = VarId () (notAppl ident)
---   notAppl (VarDeclArray _ vDeclId) = VarDeclArray () (notAppl vDeclId)
+instance NotAppl VarDeclId where
+  notAppl (VarId _ ident)          = VarId () (notAppl ident)
+  notAppl (VarDeclArray _ vDeclId) = VarDeclArray () (notAppl vDeclId)
 
 -- instance NotAppl VarInit where
 --   notAppl (InitExp _ exp)      = InitExp () (notAppl exp)
 --   notAppl (InitArray _ arInit) = InitArray () (notAppl arInit)
 
--- instance NotAppl FormalParam where
---   notAppl (FormalParam _ mods typ b vDeclId) =
---     FormalParam () (fRem mods) (notAppl typ) b (notAppl vDeclId)
+instance NotAppl FormalParam where
+  notAppl (FormalParam _ mods typ b vDeclId) =
+    FormalParam () (fRem mods) (notAppl typ) b (notAppl vDeclId)
 
 -- instance NotAppl MethodBody where
 --   notAppl (MethodBody _ block) = MethodBody () (fRem block)
@@ -215,9 +215,9 @@ instance NotAppl Modifier where
 --   notAppl (ForInitExps _ exps) = ForInitExps () (fRem exps)
 
 
--- instance NotAppl ExceptionSpec where
---   notAppl (ExceptionSpec _ mods excTyp) =
---     ExceptionSpec () (fRem mods) (notAppl excTyp)
+instance NotAppl ExceptionSpec where
+  notAppl (ExceptionSpec _ mods excTyp) =
+    ExceptionSpec () (fRem mods) (notAppl excTyp)
 
 -- instance NotAppl Exp where
 --   notAppl (Lit _ lit)        = Lit () (notAppl lit)
@@ -352,15 +352,15 @@ instance NotAppl Literal  where
 --   notAppl (ArrayInit _ vInits) = ArrayInit () (fRem vInits)
 
 
--- instance NotAppl ReturnType where
---   notAppl (VoidType _) = VoidType ()
---   notAppl (LockType _) = LockType ()
---   notAppl (Type _ typ) = Type () (notAppl typ)
+instance NotAppl ReturnType where
+  notAppl (VoidType _) = VoidType ()
+  notAppl (LockType _) = LockType ()
+  notAppl (Type _ typ) = Type () (notAppl typ)
 
--- instance NotAppl Type where
---   notAppl (PrimType  _ pType) = PrimType  () (notAppl pType)
---   notAppl (RefType   _ rType) = RefType   () (notAppl rType)
---   notAppl (AntiQType _ s)     = AntiQType () s
+instance NotAppl Type where
+  notAppl (PrimType  _ pType) = PrimType  () (primTypePaToTc pType)
+  notAppl (RefType   _ rType) = RefType   () (notAppl rType)
+  notAppl (AntiQType _ s)     = error "AntiQType should never occur in TypeCheck phase."
 
 instance NotAppl RefType where
   notAppl (ClassRefType _ cType) = ClassRefType () (notAppl cType)

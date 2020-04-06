@@ -585,15 +585,15 @@ $(makeTypeInsts ''TC ''NoFieldExt
   , ''XClassBody, ''XEnumBody, ''XEnumConstant, ''XInterfaceDecl, ''XInterfaceBody
   , ''XDecl, {-''XType,-} {-''XClassType,--} ''XRefType, ''XReturnType, ''XVarInit
   , ''XTypeRefType, ''XStm, ''XBlockStm, ''XBlock, ''XMethodBody, ''XMemberDecl
-  , ''XLiteral, ''XTypeParam, ''XMod
+  , ''XLiteral, ''XTypeParam, ''XMod, ''XExceptionSpec, ''XFormalParam, ''XVarDeclId
   ])
 
 
 $(makeTypeInsts ''TC ''T
-  [ ''XVarDecl, ''XVarDeclId, ''XFormalParam
+  [ ''XVarDecl
   , ''XConstructorBody, ''XExplConstrInv
   , ''XCatch, ''XSwitchBlock, ''XSwitchLabel, ''XForInit
-  , ''XExceptionSpec, ''XExp,  ''XOp, ''XAssignOp, ''XLhs
+  , ''XExp,  ''XOp, ''XAssignOp, ''XLhs
   , ''XArrayIndex, ''XFieldAccess, ''XMethodInvocation, ''XArrayInit
   , ''XNonWildTypeArgument, ''XWildcardBound
   , ''XPolicyExp, ''XLockProperties, ''XClause, ''XClauseVarDecl, ''XClauseHead
