@@ -31,8 +31,10 @@ module Language.Java.Paragon.TypeCheck.Monad.TcDeclM
      newMetaPolVar,
 
      getReadPolicy, getWritePolicy, getLockPolicy,
-     getParamPolicy, getReturnPolicy, getExnReadPolicy
+     getParamPolicy, getReturnPolicy, getExnReadPolicy,
 
+     -- TC versions
+     evalSrcTypeTc
     ) where
 
 import Language.Java.Paragon.Monad.PiReader
@@ -172,7 +174,7 @@ fetchType n@(Name pos _ _ typName) = do
                        debugPrint "fetchType[fetchSignatures]"
 
                        tm <- getTypeMap
-                       debugPrint $ "fetchType[final TM]:\n" ++ prettyPrint tm
+      --               debugPrint $ "fetchType[final TM]:\n" ++ prettyPrint tm
                        case lookupNamed types n tm of
                          Just res -> do
                            debugPrint $ "Done fetching type: " ++ prettyPrint n
@@ -251,9 +253,10 @@ fetchLTPs n mDs tdma = do
 
 findImplActorParams :: [MemberDecl PA] -> [(RefType PA, B.ByteString)]
 findImplActorParams mds = [ (rt, unIdent i)
-                                | FieldDecl _ ms (RefType _ rt) vds <- mds,
-                                  Final defaultPos `elem` ms, Static defaultPos `notElem` ms,
-                                  VarDecl _ (VarId _ i) Nothing <- vds ]
+                                | FieldDecl _ ms (RefType _ rt) vds <- mds
+                                , isFinal ms
+                                , not (isStatic ms)
+                                , VarDecl _ (VarId _ i) Nothing <- vds ]
 
 -- Actors
 
@@ -787,7 +790,7 @@ getParamPolicy _i mods =
 getReturnPolicy :: [Modifier PA] -> [PL.PrgPolicy] -> TcDeclM PL.PrgPolicy
 getReturnPolicy mods pPols =
     case [pol | Reads _ pol <- mods ] of
-      [pol] -> evalPolicy pol
+      [pol] -> evalPolicy pol --extendGlobalTypeMap undefined >>= \_ ->  getTypeMap >> 
       [] -> PL.bottomM >>= \bt -> foldM PL.lub bt pPols
       _ -> fail "At most one return modifier allowed per method"
 
@@ -905,7 +908,9 @@ evalSrcNWTypeArg (ActualLockState _ ls) = TcActualLockState <$> mapM evalLock ls
 -}
 
 evalPolicyD :: Exp PA -> TcDeclM PL.PrgPolicy
-evalPolicyD = interpretPolicy lookupFieldD
+evalPolicyD exp = do
+  -- debugPrint $ "evalPolicyD: " ++ prettyPrint exp
+  interpretPolicy lookupFieldD exp
 
 evalActorD :: [(Ident PA, RefType TC)] -> Actor PA -> TcDeclM PL.ActorSetRep
 evalActorD = interpretActor lookupFieldD
@@ -1342,3 +1347,146 @@ newMetaPolVar :: MonadTcDeclM m => Ident PA -> m PL.ActorPolicy
 newMetaPolVar i = liftTcDeclM $ do
   uniq <- getFreshInt
   return $ PL.MetaVar (PL.MetaVarRep uniq $ unIdent i)
+
+
+-------------------------------------------------------------------------------
+-- Versions of some of the above functions for the type check phase
+-------------------------------------------------------------------------------
+
+
+-- TODO: We replace the old evalSrcType with this function.
+-- TODO: Maybe 'TcDeclM' should be replaced with a generic monad (EvalPolicyM).
+evalSrcTypeTc :: Type PA -> TcDeclM (Type TC)
+evalSrcTypeTc (PrimType _ pt) = return $ TcPrimType (primTypePaToTc pt)
+evalSrcTypeTc (RefType  _ rt) = TcRefType <$> evalSrcRefTypeTc rt
+evalSrcTypeTc _ = error "evalSrcTypeTc: not implemented"
+
+evalSrcRefTypeTc :: RefType PA -> TcDeclM (RefType TC)
+evalSrcRefTypeTc (TypeVariable _ i) = return $ TcTypeVariable $ identPaToTc i
+evalSrcRefTypeTc (PaArrayType _ t mps) = error "evalSrcRefTypeTc: case PaArrayType not implemented"
+evalSrcRefTypeTc (ClassRefType _ ct) = TcClassRefType <$> evalSrcClsTypeTc ct
+
+evalSrcClsTypeTc :: ClassType PA -> TcDeclM (ClassType TC)
+evalSrcClsTypeTc _ct@(ClassType _ n tas) = do
+--  debugPrint $ "Evaluating class type: " ++ show _ct
+  baseTm <- getTypeMap
+  -- debugPrint $ "Current type map: " ++ show baseTm
+  (tps,_iaps,_tsig) <- case lookupNamed types n baseTm of
+                         Nothing -> liftTcDeclM $ fetchType n
+                                    -- fail $ "Unknown type: " ++ prettyPrint n
+                         Just res -> return res
+
+--  debugPrint $ "Type found"
+  tArgs <- zipWithM (evalSrcTypeArgTc) tps tas
+--  debugPrint "Type arguments evaluated"
+  return $ TcClassType (namePaToTc n) tArgs
+
+
+fetchTypeTc :: Name PA -> TcDeclM ([TypeParam PA],[(RefType PA, B.ByteString)],TypeSig)
+fetchTypeTc n@(Name pos _ _ typName) = do
+  withFreshCurrentTypeMap $ do
+    debugPrint $ "Fetching type " ++ prettyPrint n ++ " ..."
+    isT <- doesTypeExist n
+    if not isT
+     then fail $ "No such type: " ++ prettyPrint n
+     else do
+       cUnit <- getTypeContents n
+       pp <- getPiPath
+       CompilationUnit _ pkg _ [td] <- liftBase $ resolveNames pp cUnit
+       withThisType (snd $ skolemTypeDecl td) $
+        case td of
+         ClassTypeDecl _ (ClassDecl _ ms cuName tps mSuper impls (ClassBody _ ds)) -> do
+                 check (typName == cuName) $
+                   mkError (FileClassMismatchFetchType (prettyPrint typName) (prettyPrint cuName))
+                           pos
+                 withFoldMap withTypeParam tps $ do
+                   superTys <- mapM evalSrcClsTypeTc (maybeToList mSuper)
+                   implsTys <- mapM evalSrcClsTypeTc impls    
+
+                   -- Remove this line, and set tMembers to emptyTM,
+                   -- if using "clever lookup" instead of "clever setup"
+                   debugPrint $ "fetchType[superType]: " ++ prettyPrint superTys
+                   superTm <- case superTys of
+                                [] -> return emptyTM
+                                [superTy] -> tMembers . snd <$>
+                                             lookupTypeOfType (clsTypeToType superTy)
+                                _ -> panic (tcDeclMModule ++ ".fetchType")
+                                   $ "More than one super class for class:"  ++ show superTys
+                   debugPrint $ "fetchType[superTm]:\n" ++ prettyPrint superTm
+
+                   let tnam = Name pos TName (fmap (\(PackageDecl _ pn) -> pn) pkg) typName
+                       tsig = TSig
+                              { tType = TcClassRefType $ TcClassType (namePaToTc tnam) []
+                              , tIsClass = True
+                              , tIsFinal = isFinal ms -- Final pos `elem` ms,
+                              , tSupers  = superTys
+                              , tImpls   = implsTys
+                              , tMembers = superTm -- { constrs = Map.empty }
+                              }
+                       mDs = map unMemberDecl ds
+                       iaps = findImplActorParams mDs
+                   debugPrint $ "Adding for name: " ++ prettyPrint n
+                   extendGlobalTypeMap (extendTypeMapT n tps iaps tsig)
+                   when (isJust pkg) $
+                        extendGlobalTypeMap (extendTypeMapT (mkSimpleName TName cuName) tps iaps tsig)
+
+                   debugPrint "fetchType[pkg]"
+
+                   fetchActors n mDs $ do
+
+                     debugPrint "fetchType[fetchActors]"
+                     let mDss = map (:[]) mDs
+                     withFoldMap (fetchLTPs n) mDss $ do
+
+                       debugPrint "fetchType[fetchLTPs]"
+                       fetchSignatures (Native pos `elem` ms) n mDs
+                       debugPrint "fetchType[fetchSignatures]"
+
+                       tm <- getTypeMap
+                       --debugPrint $ "fetchType[final TM]:\n" ++ prettyPrint tm
+                       case lookupNamed types n tm of
+                         Just res -> do
+                           debugPrint $ "Done fetching type: " ++ prettyPrint n
+      --                     debugPrint $ "Result: " ++ show res ++ "\n"
+                           return res
+                         Nothing  -> panic (tcDeclMModule ++ ".fetchType") $
+                                     "Just fetched type " ++ show n ++
+                                    " but now it doesn't exist!"
+      --               withTypeMapAlways (extendTypeMapT n rtps rsig) $ do
+      --                 tm <- getTypeMap
+      --                 debugPrint $ "TypeMap here: " ++ show tm ++ "\n"
+      --                 return (rtps,rsig)
+
+                where unMemberDecl :: Decl PA -> MemberDecl PA
+                      unMemberDecl (MemberDecl _ md) = md
+                      unMemberDecl _ = panic (tcDeclMModule ++ ".fetchType")
+                                       "Malformed PI-file contains initializer block"
+         InterfaceTypeDecl _ (InterfaceDecl _ ms cuName tps supers (InterfaceBody _ mDs)) ->
+            error "fetchTypeTc: case InterfaceTypeDecl not implemented"
+           
+evalSrcTypeArgTc :: TypeParam PA -> TypeArgument PA -> TcDeclM (TypeArgument TC)
+evalSrcTypeArgTc tp (PaActualArg _ a) = 
+  error "evalSrcTypeArgTc: case PaActualArg not implemented" --evalSrcNWTypeArgTc gp tp a
+evalSrcTypeArgTc _ _ = fail "evalSrcTypeArg: Wildcards not yet supported"
+
+-- evalSrcNWTypeArgTc :: TypeParam PA -> NonWildTypeArgument PA -> TcDeclM (TypeArgument TC)
+-- -- Types may be names or types -- TODO: Check bounds
+-- evalSrcNWTypeArgTc TypeParam{} (ActualName _ n) = do
+--     TcActualType . TcClassRefType <$> evalSrcClsTypeTc (ClassType defaultPos n [])
+-- evalSrcNWTypeArgTc TypeParam{} (ActualType _ rt) =
+--     TcActualType <$> evalSrcRefTypeTc rt
+-- -- Actors may only be names -- TODO: must be final
+-- evalSrcNWTypeArgTc ActorParam{} (ActualName _ n) = TcActualActor <$> evalActorId n
+-- -- Policies may be names, or special expressions -- TODO: names must be final
+-- evalSrcNWTypeArgTc PolicyParam{} (ActualName _ n) =
+--     TcActualPolicy . PL.VarPolicy <$> evalPolicy (ExpName defaultPos n) -- TODO defaultPos
+-- evalSrcNWTypeArgTc PolicyParam{} (ActualExp  _ e) =
+--     TcActualPolicy . PL.VarPolicy <$> evalPolicy e
+-- -- Lock states must be locks
+-- evalSrcNWTypeArgTc LockStateParam{} (ActualLockState _ ls) =
+--     TcActualLockState <$> mapM evalLock ls
+-- 
+-- evalSrcNWTypeArgTc tp nwta =
+--     fail $ "Trying to instantiate type parameter " ++ prettyPrint tp ++
+--            " with incompatible type argument " ++ prettyPrint nwta
+--------------------------------------------------------------------------------

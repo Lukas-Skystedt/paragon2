@@ -46,10 +46,10 @@ tcExp :: Exp PA -> TcCodeM (TcStateType, Exp TC)
 -- (we might eventually want to infer the appropriate policy instead).
 tcExp (Lit loc l) = do
   sty <- getStateType Nothing Nothing $ litType l
-  return (sty, Lit (toT sty) (notAppl l))
+  return (sty, Lit (Just $ toT sty) (notAppl l))
 
 tcExp (Paren _ e) = do (ty, e') <- tcExp e
-                       return (ty, Paren (toT ty) e')
+                       return (ty, Paren (Just $ toT ty) e')
 
 -- Rule THIS
 -- Simple wrapping, policy defaults to bottom.
@@ -72,13 +72,13 @@ tcExp (ExpName _ n) =
              staticCtx <- getStaticContext
              check (not staticCtx || fromMaybe True mStatFld) $
                mkError (NonStaticFieldReferencedFromStatic (prettyPrint i)) sp
-             return (ty, ExpName (toT ty) (notAppl n))
+             return (ty, ExpName (Just $ toT ty) (notAppl n))
       Name sp LName mPre i -> do
              LSig _pL lTys _ <- lookupLock mPre i
              check (null lTys) $
                mkError (LArityMismatch (prettyPrint n) (length lTys) 0) sp
              let ty = lockT [PL.ConcreteLock $ PL.Lock n []]
-             return (ty, ExpName (toT ty) (notAppl n))
+             return (ty, ExpName (Just $ toT ty) (notAppl n))
       Name sp EOrLName mPre i -> do
              tryCatch (tcExp $ ExpName sp $ Name sp LName mPre i)
                 (\ec ->tcExp $ ExpName sp $ Name sp EName mPre i)
@@ -98,7 +98,7 @@ tcExp ex@(Assign exSp lhs _op rhs) = error "tcExp: case Assign not implemented"
 -- Redirected into separate function
 tcExp (MethodInv _ mi) = do
   (ty, mi') <- tcMethodOrLockInv mi
-  return (ty, MethodInv (toT ty) mi')
+  return (ty, MethodInv (Just $ toT ty) mi')
 
 -- Rule NEW
 -- Redirected into separate function
@@ -112,7 +112,10 @@ tcExp (Cond sp c e1 e2) = error "tcExp: case Cond not implemented"
 
 -- Rule POLICYEXP
 -- Redirected into separate function
-tcExp (PolicyExp _ pl) = error "tcExp: case PolicyExp not implemented"
+tcExp (PolicyExp _ pl) = do
+  debugPrint $ "tcExp[PolicyExp]: " ++ prettyPrint pl
+  let ty = policyPolT (error "placeholder value in tcExp, case PolicyExp") -- $ KnownPolicy $ PL.VarPolicy pRep -- What does this do?
+  return (ty, PolicyExp (Just $ toT ty) (notAppl pl))
 
 -- Rule POST/PRE-INCREMENT/DECREMENT
 -- Basically only check that operator is used on numeric type
@@ -129,7 +132,7 @@ tcExp (Cast sp t e)  = error "cExp: case Cast not implemented"
 -- Redirected into separate function
 tcExp (FieldAccess _ fa) = do
   (ty, fa') <- tcFieldAccess fa
-  return (ty, FieldAccess (toT ty) fa')
+  return (ty, FieldAccess (Just $ toT ty) fa')
 
 ----------
 -- Arrays
@@ -143,7 +146,6 @@ tcExp (ArrayCreateInit _ bt dimImplPs arrInit) = error "tcExp: case ArrayCreateI
 
 -- Rule ARRAYACCESS
 tcExp (ArrayAccess spA (ArrayIndex spI arrE iE)) =  error "tcExp: case ArrayAccess not implemented"
-
 
 tcFieldAccess :: FieldAccess PA -> TcCodeM (TcStateType, FieldAccess TC)
 tcFieldAccess (PrimaryFieldAccess _ e fi) = error "tcFieldAccess not implemented"
@@ -172,3 +174,38 @@ litType (Boolean _ _) = booleanT
 litType (Char    _ _) = charT
 litType (String  _ _) = clsTypeToType stringT
 litType (Null    _  ) = nullT
+
+-----------------------------------
+-- Policy expressions
+-----------------------------------
+-- Treat them as pure compile-time for now
+
+-- tcPolicyExp :: PolicyExp PA -> TcCodeM PL.PrgPolicy
+-- tcPolicyExp pe@(PolicyOf _ i) =
+--    error "tcPolicyExp: case PolicyOf not implemented"
+-- --  do
+-- -- (_, _, param, _) <- lookupVar Nothing i
+-- -- check param $
+-- --           toUndef $ "policyof may only be used on parameters: " ++ prettyPrint pe
+-- -- ct <- isCompileTime
+-- -- check ct $
+-- --       toUndef $ "policyof may only be used in signatures and policy modifiers: "
+-- --               ++ prettyPrint pe
+-- -- return $ PL.PolicyVar $ PL.PolicyOfVar (unIdent i)
+-- tcPolicyExp (PolicyTypeVar _ i) = error "tcPolicyExp: case PolicyTypeVar not implemented"
+-- --  do
+-- -- _ <- lookupVar Nothing i
+-- -- return $ PL.PolicyVar $ PL.PolicyTypeParam (unIdent i)
+-- tcPolicyExp pe = do
+--  debugPrint $ "tcPolicyExp[Lit/This]: " ++ prettyPrint pe
+--  tm <- getTypeMap
+--  tcEvalPolicy pe -- Lit or This
+--  
+-- 
+-- tcEvalPolicy :: PolicyExp PA -> TcCodeM PL.PrgPolicy
+-- tcEvalPolicy pe@(PolicyThis pos) = evalPolicy (PolicyExp pos pe)
+-- tcEvalPolicy pe@(PolicyLit pos cs) = do
+-- --  mapM_ tcClause cs
+--   pol <- evalPolicy (PolicyExp pos pe)
+--   tcPrgPolicy pol
+--   return pol -- pol pol pol pol, hey pol, hey pol, hey pol https://www.youtube.com/watch?v=7yh9i0PAjck

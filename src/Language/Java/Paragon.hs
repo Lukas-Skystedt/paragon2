@@ -184,6 +184,8 @@ compile flags filePath = do
            raiseErrors
            detailPrint "Name resolution complete!"
 
+           --detailPrint $ show ast1
+
            -- Type checking
            ast2 <- typeCheck pDirs (takeBaseName filePath) ast1
            detailPrint "Type checking complete!"

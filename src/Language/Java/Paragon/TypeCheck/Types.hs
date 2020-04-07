@@ -586,16 +586,14 @@ $(makeTypeInsts ''TC ''NoFieldExt
   , ''XDecl, {-''XType,-} {-''XClassType,--} ''XRefType, ''XReturnType, ''XVarInit
   , ''XTypeRefType, ''XStm, ''XBlockStm, ''XBlock, ''XMethodBody, ''XMemberDecl
   , ''XLiteral, ''XTypeParam, ''XMod, ''XExceptionSpec, ''XFormalParam, ''XVarDeclId
-  , ''XVarDecl
+  , ''XVarDecl, ''XAssignOp, ''XLhs, ''XFieldAccess, ''XArrayIndex, ''XOp
+  , ''XMethodInvocation, ''XNonWildTypeArgument, ''XLock, ''XActorName, ''XArrayInit
+  , ''XSwitchLabel, ''XCatch, ''XLockProperties, ''XSwitchBlock, ''XForInit
+  , ''XWildcardBound, ''XConstructorBody, ''XExplConstrInv, ''XPolicyExp
+  , ''XClause, ''XClauseVarDecl, ''XClauseHead , ''XLClause, ''XActor, ''XAtom
   ])
 
+type instance XExp TC = Maybe T
 
 $(makeTypeInsts ''TC ''T
-  [ ''XConstructorBody, ''XExplConstrInv
-  , ''XCatch, ''XSwitchBlock, ''XSwitchLabel, ''XForInit
-  , ''XExp,  ''XOp, ''XAssignOp, ''XLhs
-  , ''XArrayIndex, ''XFieldAccess, ''XMethodInvocation, ''XArrayInit
-  , ''XNonWildTypeArgument, ''XWildcardBound
-  , ''XPolicyExp, ''XLockProperties, ''XClause, ''XClauseVarDecl, ''XClauseHead
-  , ''XLClause, ''XActor, ''XActorName, ''XAtom, ''XLock
-  ])
+  [ ])
