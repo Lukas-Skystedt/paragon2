@@ -138,8 +138,6 @@ typeCheckFieldDecl st (FieldDecl _ ms t vds) = do
 typeCheckVarDecl :: CodeState -> TypeCheck TcDeclM VarDecl
 typeCheckVarDecl st vd@(VarDecl _ (VarId _ i) mInit) = do
   withErrCtxt (FallbackContext ("When checking initializer of field " ++ prettyPrint i)) $ do
-    tm <- getTypeMap
-    detailPrint $ prettyPrint $ fields tm
     Just (VSig fieldTy fieldPol _ fieldStatic _ _) <- Map.lookup (unIdent i) . fields <$> getTypeMap
     -- Cases for initialization. Either no init, an expression or an array.
     case mInit of

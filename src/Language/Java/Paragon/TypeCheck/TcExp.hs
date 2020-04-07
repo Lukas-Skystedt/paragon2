@@ -80,7 +80,6 @@ tcExp (ExpName _ n) =
              let ty = lockT [PL.ConcreteLock $ PL.Lock n []]
              return (ty, ExpName (toT ty) (notAppl n))
       Name sp EOrLName mPre i -> do
-             detailPrint "case EOrLName"
              tryCatch (tcExp $ ExpName sp $ Name sp LName mPre i)
                 (\ec ->tcExp $ ExpName sp $ Name sp EName mPre i)
 

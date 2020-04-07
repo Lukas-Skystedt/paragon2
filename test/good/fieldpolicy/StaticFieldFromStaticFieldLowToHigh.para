@@ -1,0 +1,11 @@
+
+public class StaticFieldFromStaticFieldLowToHigh {
+    private static final Object lowObserver;
+    private static final Object highObserver;
+   
+    public static final policy high = { highObserver : }; 
+    public static final policy low  = { lowObserver : 
+                                      ; highObserver : };
+    private static ?low int x = 1;
+    private static ?high int y = x;
+}

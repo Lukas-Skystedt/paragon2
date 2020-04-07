@@ -1,0 +1,9 @@
+
+public class StaticFieldFromStaticFieldSamePolicy {
+    private static final Object highObserver;
+   
+    public static final policy high = { highObserver : }; 
+    
+    private static ?high int x = 1;
+    private static ?high int y = x;
+}

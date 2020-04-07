@@ -173,29 +173,21 @@ compile flags filePath = do
 
    where withDefaultErrCtxt = withErrCtxt EmptyContext
          compilationStages pDirs fc = do
+
            -- Converting to abstract syntax tree
            ast <- liftEitherMB . convertParseToErr $ parser compilationUnit fc
            raiseErrors
            detailPrint "Parsing complete!"
-           detailPrint $ show ast
 
            -- Name resolution
            ast1 <- resolveNames pDirs ast
            raiseErrors
            detailPrint "Name resolution complete!"
 
---Exception e => IO a -> (e -> IO a) -> IO a
-           let myPrint :: IOException -> IO ()
-               myPrint = print
-
            -- Type checking
            ast2 <- typeCheck pDirs (takeBaseName filePath) ast1
-           detailPrint "after type check (in Paragon.hs)"
+           detailPrint "Type checking complete!"
            detailPrint $ prettyPrint ast2
-           
-
-           --liftIO $ catch (normalPrint $ prettyPrint ast2) myPrint
-
            
            
            -- Placeholder for the new 5-phase pipeline
@@ -233,6 +225,7 @@ getPIPATH = do
   -- argument, i.e. the exception is ignored).
   return $ splitSearchPath $ either (const []) id ePpStr
 
+
 -- | Generate .pi and .java files
 genFiles :: [Flag] -> FilePath -> CompilationUnit x -> IO ()
 genFiles flags filePath ast  = let -- create .java ast
@@ -250,6 +243,7 @@ genFiles flags filePath ast  = let -- create .java ast
                              java      = prettyPrint astC
                              -- pifile    = prettyPrint astPi
                          in do createDirectoryIfMissing True outdir
+                               detailPrint $ "Writing .java-file to " ++ javaPath
                                writeFile javaPath java
                                -- >> writeFile piPath pifile
   where getOutdir []               = "."
