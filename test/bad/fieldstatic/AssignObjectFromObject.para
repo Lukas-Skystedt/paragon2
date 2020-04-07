@@ -1,0 +1,4 @@
+public class AssignObjectFromObject {
+  private Object x;
+  private String y = x;
+}

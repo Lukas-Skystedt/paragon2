@@ -1,0 +1,4 @@
+public class AssignPrimitiveFromObject {
+  private Object x;
+  private int y = x;
+}

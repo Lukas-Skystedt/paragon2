@@ -1,0 +1,4 @@
+
+public class StaticFieldFromStaticFieldLowToHigh {
+    public static final policy high = 1;
+}

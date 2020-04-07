@@ -153,7 +153,8 @@ typeCheckVarDecl st vd@(VarDecl _ (VarId _ i) mInit) = do
           False  -- Not compile time
           ("field initializer " ++ prettyPrint e) fieldStatic) st $ do
                      (rhsTy, e') <- tcExp e -- TODO: Can we get rid of TcStateType?
-                     mps <- fieldTy `isAssignableToTc` (unStateType rhsTy) -- TODO: unStateType is temporary
+                     --debugPrint $ "Trying to assign " ++ prettyPrint rhsTy ++ " to " ++ prettyPrint fieldTy
+                     mps <- (unStateType rhsTy) `isAssignableToTc` fieldTy -- TODO: unStateType is temporary
                       -- TODO: is there a function for this? (MonadFail m => Bool -> String -> m ())
                      if mps then return e' else fail "typeCheckVarDecl: type mismatch"
                        

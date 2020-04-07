@@ -1,0 +1,5 @@
+public class AssignObjectFromPrimitive {
+  //Correct due to boxing
+  private int x;
+  private Object y = x;
+}

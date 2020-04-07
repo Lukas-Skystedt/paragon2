@@ -1,0 +1,5 @@
+
+public class StaticFieldPolicyFromNonPolicy {
+    public static final int x = 3;
+    public static final policy high = x;
+}
