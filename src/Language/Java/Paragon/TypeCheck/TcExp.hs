@@ -113,7 +113,7 @@ tcExp (Cond sp c e1 e2) = error "tcExp: case Cond not implemented"
 -- Rule POLICYEXP
 -- Redirected into separate function
 tcExp (PolicyExp _ pl) = do
-  debugPrint $ "tcExp[PolicyExp]: " ++ prettyPrint pl
+  --debugPrint $ "tcExp[PolicyExp]: " ++ prettyPrint pl
   let ty = policyPolT (error "placeholder value in tcExp, case PolicyExp") -- $ KnownPolicy $ PL.VarPolicy pRep -- What does this do?
   return (ty, PolicyExp (Just $ toT ty) (notAppl pl))
 

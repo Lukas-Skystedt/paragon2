@@ -381,8 +381,10 @@ evalAddPolicyInit st (i, InitExp _ eInit) tcba = do
         "Cannot initialize policy field " ++ prettyPrint i ++
         " with non-policy expression " ++ prettyPrint eInit ++ " of type " ++ prettyPrint tyInit
   withCurrentTypeMap (\tm -> return $ tm 
-    { policies = Map.insert (unIdent i)
-                            (error "using error value for policy in evalAddPolicyInit")
+    { policies = 
+      -- TODO: We don't add anything to the map. This needs to be resolved!
+      --Map.insert (unIdent i)
+                            --(error "using error value for policy in evalAddPolicyInit")
                             (policies tm) })
     tcba
 evalAddPolicyInit _ (i, arrInit) _ =
