@@ -264,8 +264,8 @@ instance NotAppl Exp where
     Assign Nothing (notAppl lhs) (notAppl aOp) (notAppl exp)
 
 -- -- Paragon specific
---     | PolicyExp (XExp x) (PolicyExp x)
---     | LockExp (XExp x) (Lock x)
+  notAppl (PolicyExp _ pe) = PolicyExp Nothing (notAppl pe)
+  notAppl (LockExp _ l) = LockExp Nothing (notAppl l)
 
 -- -- Quasi-quotation
 --     | AntiQExp (XExp x) String
