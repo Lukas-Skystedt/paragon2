@@ -2,7 +2,7 @@
 --  constraint generation and is followed by the compilation phase.
 module Language.Java.Paragon.PolicyConstraintSolver where
 import Language.Java.Paragon.Syntax
--- import Language.Java.Paragon.TypeCheck.Monad.TcCodeM
+-- import Language.Java.Paragon.TypeCheck.Monad.CodeM
 
 -- | Top level function in the policy constraint solving phase.
 solvePolicyConstraints :: a

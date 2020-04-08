@@ -59,7 +59,7 @@ module Language.Java.Paragon.TypeCheck.Monad
      evalPolicy, evalPolicyExp,
      evalLock, evalActor,
 -}
-     module Language.Java.Paragon.TypeCheck.Monad.TcCodeM,
+     module Language.Java.Paragon.TypeCheck.Monad.CodeM,
      module Language.Java.Paragon.TypeCheck.Monad,
 
 {-     debug, debugTc,
@@ -76,7 +76,7 @@ import Language.Java.Paragon.SourcePos
 
 import Language.Java.Paragon.Decorations.PaDecoration
 import Language.Java.Paragon.TypeCheck.Monad.TcDeclM
-import Language.Java.Paragon.TypeCheck.Monad.TcCodeM
+import Language.Java.Paragon.TypeCheck.Monad.CodeM
 
 import Language.Java.Paragon.TypeCheck.Types
 import Language.Java.Paragon.TypeCheck.TypeMap
@@ -97,7 +97,7 @@ import qualified Data.ByteString.Char8 as B
 --debug :: String -> TcDeclM ()
 --debug str = liftIO $ finePrint $ "DEBUG: " ++ str
 
---debugTc :: String -> TcCodeM ()
+--debugTc :: String -> CodeM ()
 --debugTc = liftTcDeclM . debug
 
 -- TODO BART fail -> failE
@@ -111,12 +111,12 @@ monadModule = typeCheckerBase ++ ".Monad"
 
 -- this
 
---getThisType :: TcCodeM Type TC
+--getThisType :: CodeM Type TC
 --getThisType = liftCont getThisT
 
 -- returns
 
-getReturn :: TcCodeM (Type TC, ActorPolicy)
+getReturn :: CodeM (Type TC, ActorPolicy)
 getReturn = do
   mRet <- returnI <$> getEnv
   case mRet of
@@ -124,31 +124,31 @@ getReturn = do
     Just ret -> return ret
 
 {-
-registerReturn :: Type TC -> TcPolicy -> TcCodeM r a -> TcCodeM r a
+registerReturn :: Type TC -> TcPolicy -> CodeM r a -> CodeM r a
 registerReturn ty p = withEnv $ \env -> env { returnI = (ty,p) }
 -}
 -- lookup entities
 
---fieldEnvToVars :: TcCodeM r a -> TcCodeM r a
+--fieldEnvToVars :: CodeM r a -> CodeM r a
 --fieldEnvToVars = withEnv $ \env -> env { vars = fields (typemap env) }
 
 
-extendVarEnvList :: [(B.ByteString, VarFieldSig)] -> TcCodeM a -> TcCodeM a
+extendVarEnvList :: [(B.ByteString, VarFieldSig)] -> CodeM a -> CodeM a
 extendVarEnvList vs = withEnv $ \env ->
   let (oldVmap:oldVmaps) = vars env
       newVmap = foldl (\m (i,vti) -> Map.insert i vti m) oldVmap vs
   in return $ env { vars = newVmap : oldVmaps }
 
-extendVarEnv :: B.ByteString -> VarFieldSig -> TcCodeM a -> TcCodeM a
+extendVarEnv :: B.ByteString -> VarFieldSig -> CodeM a -> CodeM a
 --extendVarEnv i = extendVarEnvN i
---extendVarEnvN :: Ident -> VarFieldSig -> TcCodeM a -> TcCodeM a
+--extendVarEnvN :: Ident -> VarFieldSig -> CodeM a -> CodeM a
 extendVarEnv i vti = withEnv $ \env -> do
   let (oldVmap:oldVmaps) = vars env
   if Map.notMember i oldVmap
     then return $ env { vars = Map.insert i vti oldVmap : oldVmaps }
     else failE $ mkErrorFromInfo $ VariableAlreadyDefined (B.unpack i)
 
-lookupActorName :: ActorName PA -> TcCodeM (TcStateType, ActorPolicy)
+lookupActorName :: ActorName PA -> CodeM (TcStateType, ActorPolicy)
 lookupActorName (ActorName _ nam@(Name _ nt mPre i))
     | nt == EName =
         do (ty, pol, _, _) <- lookupVar mPre i
@@ -174,7 +174,7 @@ findBestMethod
     -> [Type TC]
     -> [ActorPolicy]
     -> [Sig]  -- Works for both methods and constrs
-    -> TcCodeM [(Sig, APPairs)]
+    -> CodeM [(Sig, APPairs)]
 findBestMethod tArgs argTys argPs candidates = do
   --debugPrint $ "findBestMethod: "
   --debugPrint $ "  Candidates: "
@@ -187,7 +187,7 @@ findBestMethod tArgs argTys argPs candidates = do
   return res
   -- findBestFit =<< filterM isApplicable candidates
 
-  where isApplicable :: Sig -> TcCodeM (Maybe APPairs)
+  where isApplicable :: Sig -> CodeM (Maybe APPairs)
         isApplicable (tps, pIs, pTys, isVA) = do
           b1 <- checkArgs tps tArgs
           if b1 then do
@@ -203,16 +203,16 @@ findBestMethod tArgs argTys argPs candidates = do
                   return ps
            else return Nothing
 
-        checkArgs :: [TypeParam PA] -> [TypeArgument PA] -> TcCodeM Bool
+        checkArgs :: [TypeParam PA] -> [TypeArgument PA] -> CodeM Bool
         checkArgs [] [] = return True
         checkArgs (tp:tps) (ta:tas) = (&&) <$> checkArg tp ta <*> checkArgs tps tas
         checkArgs _ _ = return False
 
-        -- this needs to be done in TcCodeM, to account for local variables.
-        checkArg :: TypeParam PA -> TypeArgument PA -> TcCodeM Bool
+        -- this needs to be done in CodeM, to account for local variables.
+        checkArg :: TypeParam PA -> TypeArgument PA -> CodeM Bool
         checkArg tp ta = isRight <$> tryM (evalSrcTypeArg genBot tp ta)
 
-        checkTys :: Bool -> [Type TC] -> [Type TC] -> TcCodeM (Maybe APPairs)
+        checkTys :: Bool -> [Type TC] -> [Type TC] -> CodeM (Maybe APPairs)
         checkTys _ [] [] = return $ Just []
         checkTys b ps as
             | not b && length ps /= length as = return Nothing
@@ -234,11 +234,11 @@ findBestMethod tArgs argTys argPs candidates = do
             Nothing -> return Nothing
         checkTys _ _ _ = return Nothing
 
-        findBestFit :: [(Sig, APPairs)] -> TcCodeM [(Sig, APPairs)]
+        findBestFit :: [(Sig, APPairs)] -> CodeM [(Sig, APPairs)]
         findBestFit [] = return []
         findBestFit (x:xs) = go [x] xs
 
-        go :: [(Sig, APPairs)] -> [(Sig, APPairs)] -> TcCodeM [(Sig, APPairs)]
+        go :: [(Sig, APPairs)] -> [(Sig, APPairs)] -> CodeM [(Sig, APPairs)]
         go xs [] = return xs
         go xs (y:ys) = do
           bs0 <- mapM (\x -> fst y `moreSpecificThan` fst x) xs
@@ -246,7 +246,7 @@ findBestMethod tArgs argTys argPs candidates = do
            else do bs1 <- mapM (\x -> fst x `moreSpecificThan` fst y) xs
                    if and bs1 then go xs ys else go (y:xs) ys
 
-        moreSpecificThan :: Sig -> Sig -> TcCodeM Bool
+        moreSpecificThan :: Sig -> Sig -> CodeM Bool
         moreSpecificThan (_,_,ps1,False) (_,_,ps2,False) = do
                                            mpss <- zipWithM isAssignableTo ps1 ps2 -- [M [(P,P)]]
                                            return $ isJust $ sequence mpss
@@ -267,7 +267,7 @@ lookupMethod :: Maybe (Name PA)    -- Access path
              -> [TypeArgument PA]  -- Type arguments
              -> [Type TC]           -- Argument types
              -> [ActorPolicy]      -- Argument policies
-             -> TcCodeM (ActorPolicy, [TypeParam PA], MethodSig)
+             -> CodeM (ActorPolicy, [TypeParam PA], MethodSig)
 lookupMethod mPre i tArgs argTys argPs = do
   --debugPrint $ "lookupMethod: " ++ show (mPre, i, argTys)
   baseTm <- getTypeMap
@@ -333,7 +333,7 @@ lookupMethod mPre i tArgs argTys argPs = do
 --   so the policy of the access path is irrelevant.
 lookupLock :: Maybe (Name PA) -- Access path
            -> Ident PA        -- Name of lock
-           -> TcCodeM LockSig
+           -> CodeM LockSig
 lookupLock mPre i@(Ident sp _) = do
   baseTm <- getTypeMap
   preTm <- case mPre of
@@ -346,7 +346,7 @@ lookupLock mPre i@(Ident sp _) = do
     Nothing -> do
       fail $ "Lock " ++ prettyPrint (Name sp LName mPre i) ++ " not in scope"
 
-lookupFieldT :: TcStateType -> Ident PA -> TcCodeM VarFieldSig
+lookupFieldT :: TcStateType -> Ident PA -> CodeM VarFieldSig
 lookupFieldT typ i = do
   check (isRefType typ) $ toUndef ("Not a reference type: " ++ prettyPrint typ)
   aSig <- lookupTypeOfStateType typ
@@ -360,7 +360,7 @@ lookupMethodT :: TcStateType
               -> [TypeArgument PA]
               -> [Type TC]
               -> [ActorPolicy]
-              -> TcCodeM ([TypeParam PA], MethodSig)
+              -> CodeM ([TypeParam PA], MethodSig)
 lookupMethodT typ i tArgs argTys argPs = do
   check (isRefType typ) $ toUndef $ "Not a reference type: " ++ prettyPrint typ
   aSig <- lookupTypeOfStateType typ
@@ -406,7 +406,7 @@ lookupConstr :: ClassType TC
              -> ActorPolicy -- policyof(this), i.e. the result
              -> [Type TC]
              -> [ActorPolicy]
-             -> TcCodeM ([TypeParam PA], [(RefType PA, B.ByteString)], ConstrSig)
+             -> CodeM ([TypeParam PA], [(RefType PA, B.ByteString)], ConstrSig)
 lookupConstr ctyp tArgs pThis argTys argPs = do
   --debugPrint $ "\n\n######## Looking up constructor! ######## \n"
   let typ = clsTypeToType ctyp
@@ -588,7 +588,7 @@ updateStateType _mN _mTyO _ty sty = return sty -- BOGUS!!!
 
 -- Instance Analysis
 
-getInstanceActors :: Maybe (Name PA) -> ClassType TC -> TcCodeM [ActorId]
+getInstanceActors :: Maybe (Name PA) -> ClassType TC -> CodeM [ActorId]
 getInstanceActors mn ct@(ClassType TC tyN _) = do
   instanceMap <- instanceSt <$> getState
   case maybe Nothing (\n -> Map.lookup n instanceMap) mn of
@@ -599,7 +599,7 @@ getInstanceActors mn ct@(ClassType TC tyN _) = do
 
 -- Policy Analysis
 
-getPolicyBounds :: Maybe (Name PA) -> Maybe TcStateType -> TcCodeM ActorPolicyBounds
+getPolicyBounds :: Maybe (Name PA) -> Maybe TcStateType -> CodeM ActorPolicyBounds
 getPolicyBounds mn mtyO = do
   policyMap <- policySt <$> getState
   case maybe Nothing (\n -> Map.lookup n policyMap) mn of
@@ -614,7 +614,7 @@ getPolicyBounds mn mtyO = do
 
 -- Actor Analysis
 
-getActorId :: Maybe (Name PA) -> Maybe TcStateType -> TcCodeM ActorId
+getActorId :: Maybe (Name PA) -> Maybe TcStateType -> CodeM ActorId
 getActorId mn mtyO = do
   actorMap <- actorSt <$> getState
   case maybe Nothing (\n -> Map.lookup n actorMap) mn of
@@ -627,27 +627,27 @@ getActorId mn mtyO = do
                  _ -> liftTcDeclM $ unknownActorId
     Just ai -> return $ aID ai
 
-setActorId :: Name PA -> ActorId -> TcCodeM ()
+setActorId :: Name PA -> ActorId -> CodeM ()
 setActorId n aid = updateState setAct
   where setAct :: CodeState -> CodeState
         setAct s@(CodeState { actorSt = actMap }) = s { actorSt = Map.adjust replId n actMap }
         replId (AI _ st) = AI aid st
 
 
-newActorIdWith :: Ident PA -> ActorId -> TcCodeM ()
+newActorIdWith :: Ident PA -> ActorId -> CodeM ()
 newActorIdWith i aid = do
   updateState insertAct
       where insertAct :: CodeState -> CodeState
             insertAct s@(CodeState { actorSt = actMap }) =
                 s { actorSt = Map.insert (mkSimpleName EName i) (AI aid Stable) actMap }
 
-newActorId :: Ident PA -> TcCodeM ActorId
+newActorId :: Ident PA -> CodeM ActorId
 newActorId i = do
   aid <- liftTcDeclM $ freshActorId (prettyPrint i)
   newActorIdWith i aid
   return aid
 
-newUnknownId :: Ident PA -> TcCodeM ActorId
+newUnknownId :: Ident PA -> CodeM ActorId
 newUnknownId i = do
   aid <- liftTcDeclM unknownActorId
   newActorIdWith i aid
@@ -655,7 +655,7 @@ newUnknownId i = do
 -}
 
 {-
-scrambleActors :: Maybe Type TC -> TcCodeM ()
+scrambleActors :: Maybe Type TC -> CodeM ()
 scrambleActors mtc = do
   let stb = maybe FullV (FieldV . Just . typeName_) mtc
   state <- getState
@@ -670,7 +670,7 @@ scrambleActors mtc = do
 -- Policy inference
 
 
---newRigidPolVar :: TcCodeM TcPolicy
+--newRigidPolVar :: CodeM TcPolicy
 --newRigidPolVar = do
 --  uniq <- lift . getUniq =<< getUniqRef
 --  return $ TcRigidVar uniq
@@ -682,7 +682,7 @@ scrambleActors mtc = do
 -- We don't give crap about backwards compatibility here, and even if we
 -- did, we would have to rule it out because it would be unsound.
 
-isAssignableTo :: Type TC -> Type TC -> TcCodeM (Maybe [(ActorPolicy, ActorPolicy)])
+isAssignableTo :: Type TC -> Type TC -> CodeM (Maybe [(ActorPolicy, ActorPolicy)])
 isAssignableTo t1 t2 = do
   case t1 `equivTo` t2 of -- identity conversion
     Just ps -> return $ Just ps
@@ -691,14 +691,14 @@ isAssignableTo t1 t2 = do
       return $ if b then Just [] else Nothing
 
 -- TODO: This is a replacement for 'isAssignableTo' (or rather, =<:) for the typecheck phase.
--- TODO: We use 'TcCodeM' for now. A "weaker" version may be sufficient.
-isAssignableToTc :: Type TC -> Type TC -> TcCodeM Bool
+-- TODO: We use 'CodeM' for now. A "weaker" version may be sufficient.
+isAssignableToTc :: Type TC -> Type TC -> CodeM Bool
 isAssignableToTc t1 t2 = do 
     let b1 = t1 `equivToTc` t2 -- identity conversion
     b2 <- liftTcDeclM $ t1 `widensTo` t2 -- widening conversion
     return $ b1 || b2
 
-(=<:) :: Type TC -> TcStateType -> TcCodeM (Maybe [(ActorPolicy, ActorPolicy)])
+(=<:) :: Type TC -> TcStateType -> CodeM (Maybe [(ActorPolicy, ActorPolicy)])
 lhs =<: rhs = isAssignableTo (unStateType rhs) lhs
 
 equivTo :: Type TC -> Type TC -> Maybe [(ActorPolicy, ActorPolicy)]
@@ -749,7 +749,7 @@ equivToTc t1 t2 = t1 == t2
 
 isCastableTo :: Type TC
              -> Type TC
-             -> TcCodeM (Maybe [(ActorPolicy, ActorPolicy)], Bool) -- (Can be cast, needs reference narrowing)
+             -> CodeM (Maybe [(ActorPolicy, ActorPolicy)], Bool) -- (Can be cast, needs reference narrowing)
 isCastableTo t1 t2 = do
   -- 'isAssignableTo' handles the cases of identity, primitive widening,
   -- boxing + reference widening and unboxing + primitive widening.
@@ -781,7 +781,7 @@ isCastableTo t1 t2 = do
                      return (Just [], True)
        _ -> return (Nothing, False)
 
-(<<:) :: Type TC -> TcStateType -> TcCodeM (Maybe [(ActorPolicy, ActorPolicy)], Bool)
+(<<:) :: Type TC -> TcStateType -> CodeM (Maybe [(ActorPolicy, ActorPolicy)], Bool)
 lhs <<: rhs = isCastableTo (unStateType rhs) lhs
 
 -- widening conversion can come in four basic shapes:
@@ -880,7 +880,7 @@ solve cs =
 -- 'scramble' should be called at method calls,
 -- and will remove everything that is not known
 -- not to be affected by that call.
-scrambleState :: TcCodeM ()
+scrambleState :: CodeM ()
 scrambleState = do
 --  s1 <- getState
 --  debugPrint $ "\nScrambling: " ++ show s1
@@ -901,9 +901,9 @@ scramble = transformBi scr
 -- 'scrambleT' should be called when a field is
 -- updated, and will remove everything that could
 -- be an update-through-alias of that field.
-scrambleT :: RefType TC -> Ident PA -> Bool -> TcCodeM ()
+scrambleT :: RefType TC -> Ident PA -> Bool -> CodeM ()
 scrambleT rtyO iF fresh = setState =<< transformBiM scr =<< getState -- "updateStateM"
-  where scr :: InstanceInfo -> TcCodeM InstanceInfo
+  where scr :: InstanceInfo -> CodeM InstanceInfo
         scr isig = do
              appl <- liftTcDeclM $ iType isig `subTypeOf` rtyO
              return $ if appl && not (fresh && iFresh isig)
@@ -926,13 +926,13 @@ deleteIf :: Ord k => (k -> v -> Bool) -> Map k v -> Map k v
 deleteIf test = snd . Map.partitionWithKey test
 
 
-varUpdatedNN :: Name PA -> Maybe (Name PA) -> Ident PA -> TcCodeM ()
+varUpdatedNN :: Name PA -> Maybe (Name PA) -> Ident PA -> CodeM ()
 varUpdatedNN n mPre i = do
   (ty, _, _, _) <- lookupVar mPre i
   _ <- updateStateType (Just (n, True)) (unStateType ty) (Just $ setNullInStateType ty (NotNull, Committed))
   return ()
 
-isNullChecked :: Exp PA -> TcCodeM ()
+isNullChecked :: Exp PA -> CodeM ()
 isNullChecked ( BinOp _ (ExpName _ n@(Name _ EName mPre i)) (Equal _) (Lit _ (Null _)) ) =
     varUpdatedNN n mPre i
 isNullChecked ( BinOp _ (Lit _ (Null _)) (Equal _) (ExpName _ n@(Name _ EName mPre i)) ) =
@@ -940,7 +940,7 @@ isNullChecked ( BinOp _ (Lit _ (Null _)) (Equal _) (ExpName _ n@(Name _ EName mP
 isNullChecked _ = return ()
 
 
-isNotNullChecked :: Exp PA -> TcCodeM ()
+isNotNullChecked :: Exp PA -> CodeM ()
 isNotNullChecked ( BinOp _ (ExpName _ n@(Name _ EName mPre i)) (NotEq _) (Lit _ (Null _)) ) =
     varUpdatedNN n mPre i
 isNotNullChecked ( BinOp _ (Lit _ (Null _)) (NotEq _) (ExpName _ n@(Name _ EName mPre i)) ) =

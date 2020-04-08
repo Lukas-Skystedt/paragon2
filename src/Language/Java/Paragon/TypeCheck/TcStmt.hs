@@ -25,13 +25,13 @@ import qualified Data.ByteString.Char8 as B
 -- Typechecking Blocks and BlockStmts --
 ----------------------------------------
 
-tcBlock :: TypeCheck TcCodeM Block
+tcBlock :: TypeCheck CodeM Block
 tcBlock (Block _ bss) = TcBlock <$> insideBlock (tcBlockStmts bss)
 
-insideBlock :: TcCodeM a -> TcCodeM a
+insideBlock :: CodeM a -> CodeM a
 insideBlock = withEnv (\env -> return $ env { vars = emptyVarMap : vars env })
 
-tcBlockStmts :: [BlockStmt PA] -> TcCodeM [BlockStmt TC]
+tcBlockStmts :: [BlockStmt PA] -> CodeM [BlockStmt TC]
 -- Rule EMPTYBLOCK
 tcBlockStmts [] = return []
 
@@ -51,7 +51,7 @@ tcBlockStmts (b:_bss) = fail $ "Unsupported block statement: " ++ prettyPrint b
 --    Typechecking Statements    --
 -----------------------------------
 
-tcStmt :: TypeCheck TcCodeM Stmt
+tcStmt :: TypeCheck CodeM Stmt
 -- Rule EMPTY
 tcStmt (Empty _) = return $ TcEmpty
 

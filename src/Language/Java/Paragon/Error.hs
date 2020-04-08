@@ -46,7 +46,7 @@ data ErrorInfo
     | MethodAlreadyDefined String
     | ConstructorAlreadyDefined
 
-    -- TcCodeM
+    -- CodeM
     | MissingReturnStatement
     | NonStaticMethodReferencedFromStatic String
     | NonStaticFieldReferencedFromStatic String

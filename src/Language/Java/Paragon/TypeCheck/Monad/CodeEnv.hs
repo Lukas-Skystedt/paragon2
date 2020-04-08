@@ -23,7 +23,7 @@ import Data.Data
 -- -- ---------------------------------------------------------------------------------------------------------------------- -- --
 -- -- -- ---------------------------------------------------------------------------------------------------------------- -- -- --
 -- -- -- --  INFO OM VILKET ALTERNATIV VI SKA ANVÄNDA. Very very sucky anteckning.                                     -- -- -- --
--- -- -- --  Använder typfamiljer på TcCodeM.Alternativ är bästa utgångspunkten.                                       -- -- -- --
+-- -- -- --  Använder typfamiljer på CodeM.Alternativ är bästa utgångspunkten.                                       -- -- -- --
 -- -- -- -- Segregera env typen. Så att ni har många olika env typer, en för varje fas som kommer se väldigt olika ut. -- -- -- --
 -- -- -- --                                                                                                            -- -- -- --
 -- -- -- ---------------------------------------------------------------------------------------------------------------- -- -- --

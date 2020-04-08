@@ -81,7 +81,7 @@ instance HasSubTyping InterpretM where
 -- instance Functor InterpretM where
 
 -- Dummy implementation, for now
---lookupVarC :: Name SourcePos -> TcCodeM Value
+--lookupVarC :: Name SourcePos -> CodeM Value
 --lookupVarC n = liftTcDeclM $ lookupFieldD n
 type VMap = Map (Ident PA) Value
 

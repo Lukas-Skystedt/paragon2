@@ -74,7 +74,7 @@ Library
                       , Language.Java.Paragon.TypeCheck.NotAppl
                       , Language.Java.Paragon.TypeCheck.Interpreter
                       , Language.Java.Paragon.TypeCheck.Monad
-                      , Language.Java.Paragon.TypeCheck.Monad.TcCodeM
+                      , Language.Java.Paragon.TypeCheck.Monad.CodeM
                       , Language.Java.Paragon.TypeCheck.Monad.TcDeclM
                       , Language.Java.Paragon.TypeCheck.Monad.CodeState
                       , Language.Java.Paragon.TypeCheck.Monad.CodeEnv
@@ -131,7 +131,7 @@ Executable parac
                       , Language.Java.Paragon.TypeCheck
                       , Language.Java.Paragon.TypeCheck.Interpreter
                       , Language.Java.Paragon.TypeCheck.Monad
-                      , Language.Java.Paragon.TypeCheck.Monad.TcCodeM
+                      , Language.Java.Paragon.TypeCheck.Monad.CodeM
                       , Language.Java.Paragon.TypeCheck.Monad.TcDeclM
                       , Language.Java.Paragon.TypeCheck.Monad.CodeEnv
                       , Language.Java.Paragon.TypeCheck.Monad.CodeState

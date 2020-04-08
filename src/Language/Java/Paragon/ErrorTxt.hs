@@ -101,7 +101,7 @@ errorTxt' (MethodAlreadyDefined methodName) =
 errorTxt' ConstructorAlreadyDefined =
   "Such constructor is already defined"
 
--- TcCodeM
+-- CodeM
 errorTxt' MissingReturnStatement =
   "Missing return statement"
 

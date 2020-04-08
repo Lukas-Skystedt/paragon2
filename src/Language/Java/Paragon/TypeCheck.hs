@@ -14,7 +14,7 @@ import Language.Java.Paragon.TypeCheck.Types
 import Language.Java.Paragon.TypeCheck.TcStmt
 import Language.Java.Paragon.TypeCheck.TcExp
 import Language.Java.Paragon.Decorations.PaDecoration
-import Language.Java.Paragon.TypeCheck.Monad.TcCodeM
+import Language.Java.Paragon.TypeCheck.Monad.CodeM
 
 import Language.Java.Paragon.TypeCheck.NotAppl
 import qualified Language.Java.Paragon.PolicyLang as PL
@@ -149,7 +149,7 @@ typeCheckVarDecl st vd@(VarDecl _ (VarId _ i) mInit) = do
     case mInit of
       Nothing -> return $ notAppl vd
       Just (InitExp _ e) -> do
-        (e',cs) <- runTcCodeM (simpleEnv (error "policy missing in typeCheckVarDecl") -- TODO handle the policy stuff
+        (e',cs) <- runCodeM (simpleEnv (error "policy missing in typeCheckVarDecl") -- TODO handle the policy stuff
           False  -- Not compile time
           ("field initializer " ++ prettyPrint e) fieldStatic) st $ do
                      (rhsTy, e') <- tcExp e -- TODO: Can we get rid of TcStateType?
@@ -188,7 +188,7 @@ typeCheckMethodDecl st (MethodDecl _ ms tps rt i ps exs mb) = do
                 , staticContext = isMethodStatic ms
                 }
       -- This little thing is what actually checks the body
-      ((mb', endSt),cs) <- runTcCodeM env st $ do
+      ((mb', endSt),cs) <- runCodeM env st $ do
         mb' <- tcMethodBody mb
         endSt <- getState
         return (mb', endSt)
@@ -213,7 +213,7 @@ typeCheckMemberClass = error "typeCheckMemberClass: not implemented"
 typeCheckMemberInterface :: CodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckMemberInterface = error "typeCheckMemberInterface: not implemented"
 
-tcMethodBody :: TypeCheck TcCodeM MethodBody
+tcMethodBody :: TypeCheck CodeM MethodBody
 tcMethodBody (MethodBody _ mBlock) =
     TcMethodBody <$> maybe (return Nothing) ((Just <$>) . tcBlock) mBlock
 
@@ -290,7 +290,7 @@ typeCheckPolicyMod :: CodeState -> Policy PA -> TcDeclM (Policy TC)
 typeCheckPolicyMod st polExp = do
   -- TODO: What is top doing here?
   tp <- PL.topM
-  ((ty, polExp'), cs) <- runTcCodeM (simpleEnv tp
+  ((ty, polExp'), cs) <- runCodeM (simpleEnv tp
     True
     ("policy modifier " ++ prettyPrint polExp) False)
     st
@@ -399,7 +399,7 @@ evalAddPolicyInit st (i, InitExp _ eInit) tcba = do
   tp <- PL.topM
  --tcPol <- withErrCtxt (FallbackContext ("When evaluating the initializer of field "
  --                        ++ prettyPrint i)) $ evalPolicy eInit
-  ((tyInit, _eInit'),_) <- runTcCodeM (simpleEnv tp False "policy initializer" False) st $ tcExp eInit
+  ((tyInit, _eInit'),_) <- runCodeM (simpleEnv tp False "policy initializer" False) st $ tcExp eInit
   check (isPolicyType tyInit) $ toUndef $
         "Cannot initialize policy field " ++ prettyPrint i ++
         " with non-policy expression " ++ prettyPrint eInit ++ " of type " ++ prettyPrint tyInit

@@ -5,8 +5,8 @@ module Language.Java.Paragon.PolicyTypeEval where
 import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.TypeCheck.Types
 import Language.Java.Paragon.Decorations.PteDecoration
--- import Language.Java.Paragon.TypeCheck.Monad.TcCodeM
+-- import Language.Java.Paragon.TypeCheck.Monad.CodeM
 
 -- | Top level function in the policy type evaluation phase.
-evalPolicyTypes :: CompilationUnit TC -> a -- TcCodeM (CompilationUnit Pte)
+evalPolicyTypes :: CompilationUnit TC -> a -- CodeM (CompilationUnit Pte)
 evalPolicyTypes = error "evalPolicyTypes placeholder evaluated"

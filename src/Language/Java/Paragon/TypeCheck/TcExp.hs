@@ -11,7 +11,7 @@ import Language.Java.Paragon.SourcePos
 import qualified Language.Java.Paragon.PolicyLang as PL
 
 import Language.Java.Paragon.Decorations.PaDecoration
-import Language.Java.Paragon.TypeCheck.Monad.TcCodeM
+import Language.Java.Paragon.TypeCheck.Monad.CodeM
 import Language.Java.Paragon.TypeCheck.Monad
 import Language.Java.Paragon.TypeCheck.Types
 import Language.Java.Paragon.TypeCheck.TypeMap
@@ -37,9 +37,9 @@ tcExpModule = typeCheckerBase ++ ".TcExp"
 -- | Typechecks a term that is parsed as some expression and returns a triple
 -- consisting of the (state) type of that expression, the policy on the
 -- expression, and a typechecked expression.
--- Encapsulated in the TcCodeM monad gives access to the code environment,
+-- Encapsulated in the CodeM monad gives access to the code environment,
 -- state, allows it to fail, add error messages and policy contraints.
-tcExp :: Exp PA -> TcCodeM (TcStateType, Exp TC)
+tcExp :: Exp PA -> CodeM (TcStateType, Exp TC)
 
 -- Rule LIT
 -- Literals simply look up their state type. Their policy defaults to bottom
@@ -147,7 +147,7 @@ tcExp (ArrayCreateInit _ bt dimImplPs arrInit) = error "tcExp: case ArrayCreateI
 -- Rule ARRAYACCESS
 tcExp (ArrayAccess spA (ArrayIndex spI arrE iE)) =  error "tcExp: case ArrayAccess not implemented"
 
-tcFieldAccess :: FieldAccess PA -> TcCodeM (TcStateType, FieldAccess TC)
+tcFieldAccess :: FieldAccess PA -> CodeM (TcStateType, FieldAccess TC)
 tcFieldAccess (PrimaryFieldAccess _ e fi) = error "tcFieldAccess not implemented"
 --   do
 -- (tyE,pE,e') <- tcExp e
@@ -158,7 +158,7 @@ tcFieldAccess (PrimaryFieldAccess _ e fi) = error "tcFieldAccess not implemented
 
 tcFieldAccess fa = error $ "Unsupported field access: " ++ prettyPrint fa
 
-tcMethodOrLockInv :: MethodInvocation PA -> TcCodeM (TcStateType, MethodInvocation TC)
+tcMethodOrLockInv :: MethodInvocation PA -> CodeM (TcStateType, MethodInvocation TC)
 tcMethodOrLockInv _ = error "tcMethodOrLockInv: not implemented"
 
 -----------------------------------
@@ -180,7 +180,7 @@ litType (Null    _  ) = nullT
 -----------------------------------
 -- Treat them as pure compile-time for now
 
--- tcPolicyExp :: PolicyExp PA -> TcCodeM PL.PrgPolicy
+-- tcPolicyExp :: PolicyExp PA -> CodeM PL.PrgPolicy
 -- tcPolicyExp pe@(PolicyOf _ i) =
 --    error "tcPolicyExp: case PolicyOf not implemented"
 -- --  do
@@ -202,7 +202,7 @@ litType (Null    _  ) = nullT
 --  tcEvalPolicy pe -- Lit or This
 --  
 -- 
--- tcEvalPolicy :: PolicyExp PA -> TcCodeM PL.PrgPolicy
+-- tcEvalPolicy :: PolicyExp PA -> CodeM PL.PrgPolicy
 -- tcEvalPolicy pe@(PolicyThis pos) = evalPolicy (PolicyExp pos pe)
 -- tcEvalPolicy pe@(PolicyLit pos cs) = do
 -- --  mapM_ tcClause cs
