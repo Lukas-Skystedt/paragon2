@@ -27,6 +27,7 @@ typeMapModule = typeCheckerBase ++ ".TypeMap"
 data VarFieldSig = VSig {
       varType   :: Type TC,
       varPol    :: ActorPolicy,
+      -- ^ TODO: Change to Maybe
       varParam  :: Bool,
       varStatic :: Bool,
       varFinal  :: Bool,
@@ -36,16 +37,30 @@ data VarFieldSig = VSig {
 
 data MethodSig = MSig {
       mRetType   :: Type TC,
+      -- ^ ? Return type
       mModifiers :: [Modifier UD],
+      -- ^ ? Modifiers, e.g. public, static
       mRetPol    :: ActorPolicy,
+      -- ^ ? Policy of return type. TODO: Change to 'Maybe'
       mPars      :: [B.ByteString],
+      -- ^ ? Parameter names
       mParBounds :: [ActorPolicy],
+      -- ^ ? Read policies of parameters. Does this match 'mPars' via zip?
       mWrites    :: ActorPolicy,
+      -- ^ ? The method's write policy. TODO: Change to 'Maybe'
       mExpects   :: [TcLock],
+      -- ^ ? The locks that must be open for a call to the method to be allowed.
+      --  The ~ stuff?
       mLMods     :: TcLockDelta,
+      -- ^ ? How a call to the method *that returns normally* (?without execption?) will
+      -- affect the lock state
+      -- The +- stuff? TOOD: Change to 'Maybe'
       mExns      :: [(Type TC, ExnSig)],
+      -- ^ ? Exceptions. TODO: Change to '[(Type TC, Maybe ExnSig)]'
       mNNPars    :: [B.ByteString],
+      -- ^ ? Parameters that are not null
       mIsNative  :: Bool
+      -- ^ ? Is the method declared with the native keyword
     }
   deriving (Show, Data, Typeable)
 
@@ -56,13 +71,16 @@ data ExnSig = ExnSig {
     }
   deriving (Show, Data, Typeable)
 
+-- | ? Why no modifiers
 data ConstrSig = CSig {
       cPars      :: [B.ByteString],
       cParBounds :: [ActorPolicy],
       cWrites    :: ActorPolicy,
+      -- ^ TODO: Change to 'Maybe'
       cExpects   :: [TcLock],
       cLMods     :: TcLockDelta,
       cExns      :: [(Type TC, ExnSig)],
+      -- ^ ? Exceptions. TODO: Change to '[(Type TC, Maybe ExnSig)]'
       cNNPars    :: [B.ByteString],
       cIsNative  :: Bool
     }
@@ -76,9 +94,11 @@ data LockSig = LSig {
     }
   deriving (Show, Data, Typeable)
 
+-- | ? Signature for a class
 data TypeSig = TSig {
       tType       :: RefType TC,
       tIsClass    :: Bool,
+      -- ^ ? Class or interface
       tIsFinal    :: Bool,
       tSupers     :: [ClassType TC],
       tImpls      :: [ClassType TC],

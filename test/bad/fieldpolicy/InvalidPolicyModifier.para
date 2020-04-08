@@ -1,0 +1,4 @@
+public class InvalidPolicyModifier {
+    public static int y;
+    public static ?y int x;
+}

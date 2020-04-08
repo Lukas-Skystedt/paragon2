@@ -1,4 +1,4 @@
 
-public class StaticFieldFromStaticFieldLowToHigh {
+public class StaticFieldGiveIntToPolicy {
     public static final policy high = 1;
 }

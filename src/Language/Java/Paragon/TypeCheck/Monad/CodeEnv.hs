@@ -20,18 +20,27 @@ import Data.Data
 codeEnvModule :: String
 codeEnvModule = typeCheckerBase ++ ".Monad.CodeEnv"
 
+
+-- | TODO: good docstring
 data CodeEnv = CodeEnv  {
       vars      :: [Map B.ByteString VarFieldSig],
+      -- ? Variables in scope. Each element in the list is a scope where the innermost is first.
+      -- Does not contain fields -- the top level is method parameters.
       lockstate :: TcLockSet,
+      -- ? Locks that are known to be open inside the environment? /Scoped/ version, what does this mean?
       returnI   :: Maybe (Type TC, ActorPolicy),
+      -- ^ ? Explain! 'Nothing' is used for void.
       exnsE     :: Map (Type TC) (ActorPolicy, ActorPolicy),
+      -- ^ ? Something about policies of exceptions
       branchPCE :: (Map Entity [(ActorPolicy, String)], [(ActorPolicy, String)]),
+      -- ^ What is this?
       parBounds :: [(B.ByteString, ActorPolicy)], -- TODO: maybe convert to `Map`?
+      -- ^ Policies of method parameters
       compileTime :: Bool,
       staticContext :: Bool
     }
   deriving (Show, Data, Typeable)
-
+ 
 -- Env to use when typechecking expressions not inside method
 -- bodies, e.g. in field initializers and policy modifiers
 simpleEnv :: ActorPolicy -> Bool -> String -> Bool -> CodeEnv
@@ -47,6 +56,7 @@ simpleEnv brPol compT str statCtx =
       staticContext = statCtx
     }
 
+-- | ? Documentation
 data Entity = VarEntity (Name PA)
             | ThisFieldEntity B.ByteString
             | ExnEntity (Type TC)

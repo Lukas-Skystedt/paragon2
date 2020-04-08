@@ -48,7 +48,7 @@ typeCheck piDirs baseName (CompilationUnit _ pkg imps [td]) = do
                                [typedTd]
 typeCheck _ _ _ =
     fail $ "\n\n" ++ "Encountered multiple type declarations in the same file"
-    
+
 typeCheckTd :: BaseName -> Maybe (Name PA) -> TypeCheck TcDeclM TypeDecl
 typeCheckTd baseName mpkg (ClassTypeDecl     _ cdecl)
     = TcClassTypeDecl <$> typeCheckCd baseName mpkg cdecl
@@ -76,14 +76,14 @@ typeCheckCd baseName mpkg (ClassDecl sp ms i tps mSuper _impls (ClassBody _ decl
                 let inits' = [] -- TODO
                 mDs' <- typeCheckMemberDecls memberDecls
                 return (inits' ++ map TcMemberDecl mDs')
-          
+
           return $ TcClassDecl (map notAppl ms)
                                (notAppl i)
                                (map notAppl tps)
                                (fmap notAppl mSuper)
                                (map notAppl _impls)
                                (TcClassBody decls)
-    
+
 
 typeCheckCd _ _ _ = panic (typeCheckerBase ++ ".typeCheckCd")
                   "Enum decls not yet supported"
@@ -127,7 +127,7 @@ typeCheckMemberDecl     st md@MethodDecl{} =
     typeCheckMethodDecl st md
 typeCheckMemberDecl     st cd@ConstructorDecl{} =
     typeCheckConstrDecl st cd
-typeCheckMemberDecl     st mcd@MemberClassDecl{} = 
+typeCheckMemberDecl     st mcd@MemberClassDecl{} =
   typeCheckMemberClass st mcd
 typeCheckMemberDecl     st mid@MemberInterfaceDecl{} =
   typeCheckMemberInterface st mid
@@ -157,9 +157,9 @@ typeCheckVarDecl st vd@(VarDecl _ (VarId _ i) mInit) = do
                      mps <- (unStateType rhsTy) `isAssignableToTc` fieldTy -- TODO: unStateType is temporary
                       -- TODO: is there a function for this? (MonadFail m => Bool -> String -> m ())
                      if mps then return e' else fail "typeCheckVarDecl: type mismatch"
-                       
+
         return $ TcVarDecl (TcVarId $ notAppl i) $ Just $ TcInitExp e'
-      
+
 {-
 check :: MonadBase m => Bool -> Error -> m ()
 -- check b err = if b then return () else failE err
@@ -176,7 +176,7 @@ typeCheckMethodDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckMethodDecl st (MethodDecl _ ms tps rt i ps exs mb) = do
   withErrCtxt (MethodContext (prettyPrint i)) $ do
     withFoldMap withTypeParam tps $ do
-      
+
       let env = CodeEnv
                 { vars = [emptyVarMap] -- TODO
                 , lockstate = PL.LockSet [] -- TODO
@@ -192,7 +192,7 @@ typeCheckMethodDecl st (MethodDecl _ ms tps rt i ps exs mb) = do
         mb' <- tcMethodBody mb
         endSt <- getState
         return (mb', endSt)
-        
+
       let ms'  = map notAppl ms
           tps' = map notAppl tps
           rt'  = notAppl rt
@@ -226,13 +226,13 @@ typeCheckSignatures mds declm = do
   st <- setupStartState
   foldr (typeCheckSignature st) declm mds
    -- $ do debugPrint "Done with typeCheckSignatures"
-    
+
 typeCheckSignature :: CodeState -> MemberDecl PA -> TcDeclM a -> TcDeclM a
 -- Fields
-typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba 
+typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba
     | t /= PrimType defaultPos (PolicyT defaultPos) = do
 
-  -- Field identifiers   
+  -- Field identifiers
   let fis = [ i | VarDecl _ (VarId _ i) _ <- vds ]
 
   -- TODO: what is vti
@@ -240,10 +240,17 @@ typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba
                       ++ intercalate ", " (map prettyPrint fis))) $ do
     -- 1. Check field type
     ty <- evalSrcTypeTc t
+    
+    -- 2. Typecheck and evaluate field policy
+    -- TODO: check that no write policy is given
+    let rPolExps = [ e | Reads _ e <- ms ]
+    check (length rPolExps <= 1) $ toUndef
+              "At most one read modifier allowed per field"
+    mapM_ (typeCheckPolicyMod st) rPolExps
 
     -- TODO: we use top as a placeholder value since VSig needs one.
     top <- PL.topM
-    -- 2. Add signature to typemap
+    -- 3. Add signature to typemap
     return $ VSig {
                  varType = ty,
                  varPol  = top, -- error "varPol should not be used in TypeCheck phase",
@@ -253,7 +260,7 @@ typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba
                  varNotnull = isNotnull ms
                  }
   withFoldMap (addField vti) vds tcba
-    
+
     where addField :: VarFieldSig -> VarDecl PA -> TcDeclM a -> TcDeclM a
           addField vti (VarDecl sp (VarId _ i) _) =
               withCurrentTypeMap $ \tm ->
@@ -274,9 +281,22 @@ typeCheckSignature st (MethodDecl sp ms tps retT i ps exns _mb) tcba
 typeCheckSignature st (ConstructorDecl sp ms tps i ps exns _mb) tcba =
   error "typeCheckSignature: case ConstructorDecl not implemented"
 
--- TODO: what is this case? MemberClassDecl, MemberInterfaceDecl 
+-- TODO: what is this case? MemberClassDecl, MemberInterfaceDecl
 typeCheckSignature _ _ tcba = tcba
 
+typeCheckPolicyMod :: CodeState -> Policy PA -> TcDeclM (Policy TC)
+typeCheckPolicyMod st polExp = do
+  -- TODO: What is top doing here?
+  tp <- PL.topM
+  ((ty, polExp'), cs) <- runTcCodeM (simpleEnv tp
+    True
+    ("policy modifier " ++ prettyPrint polExp) False)
+    st
+    (tcExp polExp)
+
+  check (null cs) $ toUndef "Internal WTF: typeCheckPolicyMod: Constraints in policy exp?!?"
+  check (isPolicyType ty) $ toUndef $ "Wrong type for policy expression: " ++ prettyPrint ty
+  return polExp'
 
 -------------------------------------------------------------------------------
 -- Policies, typemethods and locks
@@ -344,13 +364,13 @@ typeCheckPolicyField fd@(FieldDecl _ ms t vds) tcba = do
       -- 3. Add signature to environment
       tcty <- evalSrcTypeTc t
       bt <- PL.bottomM
-      return $ VSig {
-                  varType = tcty,
-                  varPol  = bt,
-                  varParam = False,
-                  varStatic = Static defaultPos `elem` ms,
-                  varFinal  = Final  defaultPos `elem` ms,
-                  varNotnull = False
+      return $ VSig 
+                { varType = tcty
+                , varPol  = bt
+                , varParam = False
+                , varStatic = isStatic ms
+                , varFinal  = isFinal ms
+                , varNotnull = False
                 }
     withFoldMap (addField vti) (map fst pols) $ do
       -- 4. Typecheck the field normally
@@ -381,8 +401,8 @@ evalAddPolicyInit st (i, InitExp _ eInit) tcba = do
   check (isPolicyType tyInit) $ toUndef $
         "Cannot initialize policy field " ++ prettyPrint i ++
         " with non-policy expression " ++ prettyPrint eInit ++ " of type " ++ prettyPrint tyInit
-  withCurrentTypeMap (\tm -> return $ tm 
-    { policies = 
+  withCurrentTypeMap (\tm -> return $ tm
+    { policies =
       -- TODO: We don't add anything to the map. This needs to be resolved!
       --Map.insert (unIdent i)
                             --(error "using error value for policy in evalAddPolicyInit")
@@ -396,21 +416,21 @@ evalAddPolicyInit _ (i, arrInit) _ =
 
 {-
 
-(ClassBody 
+(ClassBody
   [ MemberDecl
      (FieldDecl [Private ,Static ,Final ]
                 (RefType (ClassRefType (ClassType "java.lang.Object" [])))
                 [VarDecl (VarId (Ident "highObserver")) Nothing])
-  , MemberDecl 
-     (FieldDecl [Public ,Static ,Final ] 
-           (PrimType (PolicyT )) 
-           [VarDecl (VarId (Ident "high")) 
-                    (Just (InitExp (PolicyExp 
-                      (PolicyLit [Clause [] 
-                                         (ClauseVarHead 
+  , MemberDecl
+     (FieldDecl [Public ,Static ,Final ]
+           (PrimType (PolicyT ))
+           [VarDecl (VarId (Ident "high"))
+                    (Just (InitExp (PolicyExp
+                      (PolicyLit [Clause []
+                                         (ClauseVarHead
                                             (Actor (ActorName "highObserver"))) []]))))])
-  , MemberDecl 
+  , MemberDecl
      (FieldDecl [Private ,Static ,Reads (ExpName "high")] (PrimType (IntT )) [VarDecl (VarId (Ident "x")) (Just (InitExp (Lit (Int 1))))])
-  ,MemberDecl 
+  ,MemberDecl
      (FieldDecl [Private ,Static ,Reads (ExpName "high")] (PrimType (IntT )) [VarDecl (VarId (Ident "y")) (Just (InitExp (ExpName "x")))])]))]
 -}

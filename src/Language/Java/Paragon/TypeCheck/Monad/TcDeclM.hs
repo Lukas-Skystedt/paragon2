@@ -1229,7 +1229,8 @@ skolemParam tp =
 
 -----------------------------------------------
 -- Underlying non-cont'ed monad
-
+-- First TypeMap: current type map (ctm). The currently checked file/compilation unit.
+-- Second TypeMap: global type map (gtm). External files/compilation units.
 newtype TcDeclM a = TcDeclM (TypeMap -> TypeMap -> ClassType TC -> PiReader (a, TypeMap) )
 
 runTcDeclM :: ClassType TC -> TcDeclM a -> PiReader a
@@ -1353,7 +1354,7 @@ newMetaPolVar i = liftTcDeclM $ do
 -- Versions of some of the above functions for the type check phase
 -------------------------------------------------------------------------------
 
-
+-- TODO: Tc should be prefix, not suffix in function names
 -- TODO: We replace the old evalSrcType with this function.
 -- TODO: Maybe 'TcDeclM' should be replaced with a generic monad (EvalPolicyM).
 evalSrcTypeTc :: Type PA -> TcDeclM (Type TC)

@@ -40,7 +40,9 @@ emptyVM = VarMap {-Map.empty-} Map.empty Map.empty Map.empty
 
 data CodeState = CodeState {
       varMapSt   :: !VarMap,
+      -- ? TODO: Difference between this field and 'vars' in 'CodeEnv'?
       lockMods   :: !LockMods,
+      -- ? Locks that something something
       exnS       :: !ExnsMap
     }
   deriving (Eq, Show, Data, Typeable)
@@ -51,11 +53,14 @@ emptyCodeState = CodeState emptyVM noDelta Map.empty
 data InstanceInfo = II {
       iType :: RefType TC,
       iStable :: Bool,
+      -- ^ ? Stable?
       iFresh :: Bool,
+      -- ^ ? Fresh?
       iActorId :: TypedActorIdSpec,
       iImplActorArgs :: [TypedActorIdSpec],
       iMembers :: !VarMap,
       iNull :: !NullType
+      -- ^ ? Can be null
     }
   deriving (Eq, Show, Data, Typeable)
 
