@@ -243,6 +243,8 @@ typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba
     
     -- 2. Typecheck and evaluate field policy
     -- TODO: check that no write policy is given
+    check (null [ () | Writes{} <- ms ]) $ toUndef
+              "Write policies are not allowed on fields."
     let rPolExps = [ e | Reads _ e <- ms ]
     check (length rPolExps <= 1) $ toUndef
               "At most one read modifier allowed per field"
