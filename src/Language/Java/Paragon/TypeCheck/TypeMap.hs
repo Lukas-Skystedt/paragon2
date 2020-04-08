@@ -26,7 +26,7 @@ typeMapModule = typeCheckerBase ++ ".TypeMap"
 
 data VarFieldSig = VSig {
       varType   :: Type TC,
-      varPol    :: ActorPolicy,
+      varPol    :: Maybe ActorPolicy,
       -- ^ TODO: Change to Maybe
       varParam  :: Bool,
       varStatic :: Bool,
@@ -151,7 +151,8 @@ emptyTM = TypeMap {
 hardCodedArrayTM :: Type TC -> ActorPolicy -> TypeSig
 hardCodedArrayTM ty p =
     let memTM = emptyTM {
-                  fields = Map.fromList [(B.pack "length", VSig intT (VarPolicy thisP) False False True False)]
+                  fields = Map.fromList [(B.pack "length", VSig intT (Just $ VarPolicy thisP) 
+                                            False False True False)]
                 , methods = Map.fromList [] -- TODO
                 }
     in TSig {
@@ -462,7 +463,7 @@ instance Pretty VarFieldSig where
     pretty (VSig ty pol p st fin mnull) =
         vcat [text "VSig {",
               nest 2 $ vcat [text "varType: " <+> pretty ty,
-                             text "varPol: " <+> pretty pol,
+                             text "varPol: " <+> maybe (text "None") pretty pol,
                              text "bools: " <+> text (show [p,st,fin,mnull])],
               char '}']
 

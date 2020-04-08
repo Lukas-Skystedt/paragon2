@@ -487,7 +487,7 @@ fetchSignatures isNative n memDs = do
                    FieldDecl _ ms ty vds -> do
                       tcty <- evalSrcType genBot ty
                       pol  <- getReadPolicy ms
-                      let vti = VSig tcty (PL.VarPolicy pol)
+                      let vti = VSig tcty (Just $ PL.VarPolicy pol)
                                   False (Static defaultPos `elem` ms) (Final defaultPos `elem` ms) (Notnull defaultPos `elem` ms)
                       ids <- mapM unVarDecl vds
                       let newFm = foldl (\m i -> Map.insert i vti m) fm ids
@@ -633,14 +633,14 @@ withTypeParam tp tcba =
       ActorParam _ rt i -> do
           topp <- PL.topM
           rTy <- evalSrcRefType genBot rt
-          let vti = VSig (TcRefType rTy) topp False False True False
+          let vti = VSig (TcRefType rTy) (Just topp) False False True False
               bI  = unIdent i
           withCurrentTypeMap (\tm ->
               return $ tm { actors = Map.insert bI (PL.TypedActorIdSpec rTy $ PL.ActorTPVar bI) (actors tm),
                             fields = Map.insert bI vti (fields tm) }) $ tcba
       PolicyParam _ i -> do
            topp <- PL.topM
-           let vti = VSig policyT topp False False True False
+           let vti = VSig policyT (Just topp) False False True False
                bI  = unIdent i
            withCurrentTypeMap (\tm ->
               return $ tm { policies = Map.insert bI (PL.PolicyVar $ PL.PolicyTypeParam bI) (policies tm),
