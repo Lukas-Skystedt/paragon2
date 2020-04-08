@@ -39,28 +39,29 @@ data MethodSig = MSig {
       mRetType   :: Type TC,
       -- ^ ? Return type
       mModifiers :: [Modifier UD],
-      -- ^ ? Modifiers, e.g. public, static
+      -- ^ ? Modifiers, e.g. public, static, niklas: no paragon modifiers here
       mRetPol    :: ActorPolicy,
-      -- ^ ? Policy of return type. TODO: Change to 'Maybe'
+      -- ^ ? Policy of return type. TODO: Change to 'Maybe', niklas: confirms maybe (policy of return VALUE)
       mPars      :: [B.ByteString],
       -- ^ ? Parameter names
       mParBounds :: [ActorPolicy],
-      -- ^ ? Read policies of parameters. Does this match 'mPars' via zip?
+      -- ^ ? Read policies of parameters. Does this match 'mPars' via zip?, niklas: Should be maybe
       mWrites    :: ActorPolicy,
       -- ^ ? The method's write policy. TODO: Change to 'Maybe'
       mExpects   :: [TcLock],
-      -- ^ ? The locks that must be open for a call to the method to be allowed.
-      --  The ~ stuff?
+      -- ^ ? The locks that must be open for a call to the method to be allowed. , niklas: confirms ~ ,THey have to be opened, always verified static,  Only lock queries are dynamic
+      --  The ~ stuff?.
       mLMods     :: TcLockDelta,
       -- ^ ? How a call to the method *that returns normally* (?without execption?) will
       -- affect the lock state
-      -- The +- stuff? TOOD: Change to 'Maybe'
+      -- The +- stuff? TOOD: Change to 'Maybe', niklas: confirms +- stuff. This is for when you correctly reach the last statement.
+      -- Conservative approximation of all possible return points
       mExns      :: [(Type TC, ExnSig)],
-      -- ^ ? Exceptions. TODO: Change to '[(Type TC, Maybe ExnSig)]'
+      -- ^ ? Exceptions. TODO: Change to '[(Type TC, Maybe ExnSig)]', niklas : confirmed
       mNNPars    :: [B.ByteString],
-      -- ^ ? Parameters that are not null
+      -- ^ ? Parameters that are not null, niklas : confirmed
       mIsNative  :: Bool
-      -- ^ ? Is the method declared with the native keyword
+      -- ^ ? Is the method declared with the native keyword. niklas: If this is a paragon file, then its java Native, but not in Pi files.
     }
   deriving (Show, Data, Typeable)
 
@@ -71,7 +72,7 @@ data ExnSig = ExnSig {
     }
   deriving (Show, Data, Typeable)
 
--- | ? Why no modifiers
+-- | ? Why no modifiers, niklas: ¯\_(ツ)_/¯
 data ConstrSig = CSig {
       cPars      :: [B.ByteString],
       cParBounds :: [ActorPolicy],
@@ -86,8 +87,10 @@ data ConstrSig = CSig {
     }
   deriving (Show, Data, Typeable)
 
+-- | Something with Maybe was mentioned here
 data LockSig = LSig {
       lPol     :: ActorPolicy,
+      -- ^ Niklas: Lock properties
       -- lArity   :: Int,
       lArgs    :: [RefType TC],
       lProps   :: GlobalPol
@@ -98,7 +101,7 @@ data LockSig = LSig {
 data TypeSig = TSig {
       tType       :: RefType TC,
       tIsClass    :: Bool,
-      -- ^ ? Class or interface
+      -- ^ ? Class or interface, Niklas : confirmed
       tIsFinal    :: Bool,
       tSupers     :: [ClassType TC],
       tImpls      :: [ClassType TC],
@@ -112,6 +115,7 @@ type Map = Map.Map
 type MethodMap = Map ([TypeParam PA], [Type TC], Bool) MethodSig
 type ConstrMap = Map ([TypeParam PA], [Type TC], Bool) ConstrSig
 
+-- | Niklas : Probably best to have empty Maps instead of Maybe, too much krångeL to have maybe on entire Map
 data TypeMap = TypeMap {
       -- signatures
       fields      :: Map B.ByteString VarFieldSig,
@@ -120,7 +124,9 @@ data TypeMap = TypeMap {
       locks       :: Map B.ByteString LockSig,
       -- known policy-level entities
       policies    :: Map B.ByteString PrgPolicy,
+      -- ^ Niklas : Probably not used in p1
       actors      :: Map B.ByteString TypedActorIdSpec,
+      -- ^ Niklas : Probably not used in p1 
       -- typemethod eval info
       typemethods :: Map B.ByteString ([B.ByteString], Block PA),
       -- types and packages

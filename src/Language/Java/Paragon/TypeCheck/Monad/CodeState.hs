@@ -54,8 +54,13 @@ data InstanceInfo = II {
       iType :: RefType TC,
       iStable :: Bool,
       -- ^ ? Stable?
+      -- Stable är frågan : Får jag lov att använda denna på typnivå
+      -- Det finns vissa krav på om man får göra det eller inte. Den ska vara final.. och den ska vara... vad det nu är, krav helt enkelt.
+      -- Vi kallar det för stable. (Hoppas verkligen jag säger rätt nu), det är något konstigt här yes, *tystnad*, kör vidare med det ni har
+      -- så ska jag gräva vidare. Ska kolla vad fresh och stable är och återkomma.
       iFresh :: Bool,
       -- ^ ? Fresh?
+      --
       iActorId :: TypedActorIdSpec,
       iImplActorArgs :: [TypedActorIdSpec],
       iMembers :: !VarMap,
