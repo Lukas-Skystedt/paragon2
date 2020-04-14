@@ -148,7 +148,7 @@ extendVarEnv i vti = withEnv $ \env -> do
     then return $ env { vars = Map.insert i vti oldVmap : oldVmaps }
     else failE $ mkErrorFromInfo $ VariableAlreadyDefined (B.unpack i)
 
-lookupActorName :: ActorName PA -> CodeM (TcStateType, ActorPolicy)
+lookupActorName :: ActorName PA -> CodeM (TcStateType, Maybe ActorPolicy)
 lookupActorName (ActorName _ nam@(Name _ nt mPre i))
     | nt == EName =
         do (ty, pol, _, _) <- lookupVar mPre i
@@ -267,14 +267,14 @@ lookupMethod :: Maybe (Name PA)    -- Access path
              -> [TypeArgument PA]  -- Type arguments
              -> [Type TC]           -- Argument types
              -> [ActorPolicy]      -- Argument policies
-             -> CodeM (ActorPolicy, [TypeParam PA], MethodSig)
+             -> CodeM (Maybe ActorPolicy, [TypeParam PA], MethodSig)
 lookupMethod mPre i tArgs argTys argPs = do
   --debugPrint $ "lookupMethod: " ++ show (mPre, i, argTys)
   baseTm <- getTypeMap
   (mPreTy, preTm, prePol, _) <-
     case mPre of
       Nothing -> bottomM >>= \bt ->
-                  return (Nothing, baseTm, bt, Nothing)
+                  return (Nothing, baseTm, Just bt, Nothing)
       Just pre -> lookupPrefixName pre
   case Map.lookup (unIdent i) $ methods preTm of
     Nothing -> fail $ case mPreTy of
@@ -693,7 +693,7 @@ isAssignableTo t1 t2 = do
 -- TODO: This is a replacement for 'isAssignableTo' (or rather, =<:) for the typecheck phase.
 -- TODO: We use 'CodeM' for now. A "weaker" version may be sufficient.
 isAssignableToTc :: Type TC -> Type TC -> CodeM Bool
-isAssignableToTc t1 t2 = do 
+isAssignableToTc t1 t2 = do
     let b1 = t1 `equivToTc` t2 -- identity conversion
     b2 <- liftTcDeclM $ t1 `widensTo` t2 -- widening conversion
     return $ b1 || b2
@@ -763,9 +763,9 @@ isCastableTo t1 t2 = do
      -- Only the last one, that includes reference narrowing, can throw a ClassCastException.
      case (t1, t2) of
        (TcPrimType pt1, TcPrimType pt2) -> -- primitive (widening +) narrowing
-           return (if primTypeTcToPa pt2 `elem`  narrowConvert (primTypeTcToPa pt1) 
-             ++ widenNarrowConvert (primTypeTcToPa pt1) 
-             then Just [] 
+           return (if primTypeTcToPa pt2 `elem`  narrowConvert (primTypeTcToPa pt1)
+             ++ widenNarrowConvert (primTypeTcToPa pt1)
+             then Just []
              else Nothing, False)
        (TcRefType  rt1, TcPrimType pt2)
            | Just ct2 <- box (primTypeTcToPa pt2) -> do -- reference widening + unboxing AND
@@ -912,13 +912,13 @@ scrambleT rtyO iF fresh = setState =<< transformBiM scr =<< getState -- "updateS
 
         scrVM :: VarMap -> VarMap
         scrVM (VarMap {-aMap-} pMap iMap tMap) =
-             
+
              VarMap
                    -- (deleteIf matches aMap)
                    (deleteIf matches pMap)
                    (deleteIf matches iMap)
                    tMap -- will be empty
-          where 
+          where
             matches :: B.ByteString -> a -> Bool
             matches k _v = k == unIdent iF
 
