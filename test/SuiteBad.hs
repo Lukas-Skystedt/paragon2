@@ -10,6 +10,7 @@ import TestUtils
 import System.FilePath
 import Distribution.TestSuite as TS
 import System.Console.ANSI
+import System.Exit
 
 -- | Top level function of the 'bad' test suite. Return a list of tests to be
 -- run.
@@ -33,23 +34,13 @@ makeTest lib program = Test testInst
           , setOption = \_ _ -> Right testInst
           }
         runTest = do
-          expectedOutput <- getExpected program
           actualOutput <- runTestCase lib program False
-          case actualOutput of
-            Success -> return $ Finished $ Fail "Parac compiled program containing errors"
-            ParacErr stdOut stdErr _exitCode
-             | (stdErr ++ stdOut) == expectedOutput -> return $ Finished Pass
-             | otherwise -> do
-                putStrLn "Exptected output:"
-                startColor Green
-                putStrLn expectedOutput
-                resetColor
-                putStrLn "Actual output:"
-                startColor Red
-                putStrLn (stdErr ++ stdOut)
-                resetColor
-                return $ Finished $ Fail "Expected output does not match actual output."
-            JavacErr {} -> return $ Finished $ Error "Javac should not be called for bad test cases"
+          return $ case actualOutput of
+            Success -> Finished $ Fail "Parac compiled program containing errors"
+            ParacErr _stdOut _stdErr (ExitFailure code) -> Finished $ Pass
+            ParacErr _stdOut _stdErr ExitSuccess ->
+              Finished $ Fail "Parac compiled program containing errors"
+            JavacErr {} ->  Finished $ Error "Javac should not be called for bad test cases"
 
 -- | Read the contents of file with expected test output from the file
 -- corresponding to the given .para file.
