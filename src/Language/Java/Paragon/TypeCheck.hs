@@ -120,7 +120,7 @@ typeCheckMemberDecls ms = do
   mapM (typeCheckMemberDecl st) ms
 
 
-typeCheckMemberDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
+typeCheckMemberDecl :: TcCodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckMemberDecl     st fd@FieldDecl{} =
     typeCheckFieldDecl  st fd
 typeCheckMemberDecl     st md@MethodDecl{} =
@@ -132,14 +132,14 @@ typeCheckMemberDecl     st mcd@MemberClassDecl{} =
 typeCheckMemberDecl     st mid@MemberInterfaceDecl{} =
   typeCheckMemberInterface st mid
 
-typeCheckFieldDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
+typeCheckFieldDecl :: TcCodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckFieldDecl st (FieldDecl _ ms t vds) = do
   vds' <- mapM (typeCheckVarDecl st) vds
   let ms' = map notAppl ms
       t'  = notAppl t
   return $ TcFieldDecl ms' t' vds'
 
-typeCheckVarDecl :: CodeState -> TypeCheck TcDeclM VarDecl
+typeCheckVarDecl :: TcCodeState -> TypeCheck TcDeclM VarDecl
 typeCheckVarDecl st vd@(VarDecl _ (VarId _ i) mInit) = do
   withErrCtxt (FallbackContext ("When checking initializer of field " ++ prettyPrint i)) $ do
 --    detailPrint $ "field lookup: "++ B.unpack (unIdent i)
@@ -149,12 +149,10 @@ typeCheckVarDecl st vd@(VarDecl _ (VarId _ i) mInit) = do
     case mInit of
       Nothing -> return $ notAppl vd
       Just (InitExp _ e) -> do
-        (e',cs) <- runCodeM (simpleEnv (error "policy missing in typeCheckVarDecl") -- TODO handle the policy stuff
-          False  -- Not compile time
-          ("field initializer " ++ prettyPrint e) fieldStatic) st $ do
+        (e',cs) <- runCodeM (tcSimpleEnv fieldStatic) st $ do
                      (rhsTy, e') <- tcExp e -- TODO: Can we get rid of TcStateType?
                      --debugPrint $ "Trying to assign " ++ prettyPrint rhsTy ++ " to " ++ prettyPrint fieldTy
-                     mps <- (unStateType rhsTy) `isAssignableToTc` fieldTy -- TODO: unStateType is temporary
+                     mps <- (unTypeNT rhsTy) `isAssignableToTc` fieldTy -- TODO: unTypeNT is temporary
                       -- TODO: is there a function for this? (MonadFail m => Bool -> String -> m ())
                      if mps then return e' else fail "typeCheckVarDecl: type mismatch"
 
@@ -172,21 +170,11 @@ checkC b err = if b then return () else failEC () err
 
       Just (InitArray _ _arr) -> error "typeCheckVarDecl: InitArray not implemented"
 
-typeCheckMethodDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
+typeCheckMethodDecl :: TcCodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckMethodDecl st (MethodDecl _ ms tps rt i ps exs mb) = do
   withErrCtxt (MethodContext (prettyPrint i)) $ do
     withFoldMap withTypeParam tps $ do
-
-      let env = CodeEnv
-                { vars = [emptyVarMap] -- TODO
-                , lockstate = PL.LockSet [] -- TODO
-                , returnI = Nothing -- TODO
-                , exnsE = Map.empty -- TODO
-                , branchPCE = (Map.empty, []) -- TODO
-                , parBounds = [] -- TODO
-                , compileTime = False
-                , staticContext = isMethodStatic ms
-                }
+      let env = tcSimpleEnv $ isMethodStatic ms
       -- This little thing is what actually checks the body
       ((mb', endSt),cs) <- runCodeM env st $ do
         mb' <- tcMethodBody mb
@@ -202,18 +190,18 @@ typeCheckMethodDecl st (MethodDecl _ ms tps rt i ps exs mb) = do
       return $ TcMethodDecl ms' tps' rt' i' ps' exs' mb'
 
 
-typeCheckConstrDecl :: CodeState -> TypeCheck TcDeclM MemberDecl
+typeCheckConstrDecl :: TcCodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckConstrDecl st (ConstructorDecl _ ms tps ci ps _exs cb) = error "typeCheckConstrDecl: not implemented"
 
 
-typeCheckMemberClass :: CodeState -> TypeCheck TcDeclM MemberDecl
+typeCheckMemberClass :: TcCodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckMemberClass = error "typeCheckMemberClass: not implemented"
 
 
-typeCheckMemberInterface :: CodeState -> TypeCheck TcDeclM MemberDecl
+typeCheckMemberInterface :: TcCodeState -> TypeCheck TcDeclM MemberDecl
 typeCheckMemberInterface = error "typeCheckMemberInterface: not implemented"
 
-tcMethodBody :: TypeCheck CodeM MethodBody
+tcMethodBody :: TypeCheck (CodeM TC) MethodBody
 tcMethodBody (MethodBody _ mBlock) =
     TcMethodBody <$> maybe (return Nothing) ((Just <$>) . tcBlock) mBlock
 
@@ -227,7 +215,7 @@ typeCheckSignatures mds declm = do
   foldr (typeCheckSignature st) declm mds
    -- $ do debugPrint "Done with typeCheckSignatures"
 
-typeCheckSignature :: CodeState -> MemberDecl PA -> TcDeclM a -> TcDeclM a
+typeCheckSignature :: TcCodeState -> MemberDecl PA -> TcDeclM a -> TcDeclM a
 -- Fields
 typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba
     | t /= PrimType defaultPos (PolicyT defaultPos) = do
@@ -240,7 +228,7 @@ typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba
                       ++ intercalate ", " (map prettyPrint fis))) $ do
     -- 1. Check field type
     ty <- evalSrcTypeTc t
-    
+
     -- 2. Typecheck and evaluate field policy
     -- TODO: check that no write policy is given
     check (null [ () | Writes{} <- ms ]) $ toUndef
@@ -284,18 +272,14 @@ typeCheckSignature st (ConstructorDecl sp ms tps i ps exns _mb) tcba =
 -- TODO: what is this case? MemberClassDecl, MemberInterfaceDecl
 typeCheckSignature _ _ tcba = tcba
 
-typeCheckPolicyMod :: CodeState -> Policy PA -> TcDeclM (Policy TC)
+typeCheckPolicyMod :: TcCodeState -> Policy PA -> TcDeclM (Policy TC)
 typeCheckPolicyMod st polExp = do
-  -- TODO: What is top doing here?
-  tp <- PL.topM
-  ((ty, polExp'), cs) <- runCodeM (simpleEnv tp
-    True
-    ("policy modifier " ++ prettyPrint polExp) False)
+  ((ty, polExp'), cs) <- runCodeM (tcSimpleEnv False)
     st
     (tcExp polExp)
 
   check (null cs) $ toUndef "Internal WTF: typeCheckPolicyMod: Constraints in policy exp?!?"
-  check (isPolicyType ty) $ toUndef $ "Wrong type for policy expression: " ++ prettyPrint ty
+  check (ntIsPolicyType ty) $ toUndef $ "Wrong type for policy expression: " ++ prettyPrint ty
   return polExp'
 
 -------------------------------------------------------------------------------
@@ -391,14 +375,13 @@ typeCheckPolicyField fd@(FieldDecl _ ms t vds) tcba = do
 typeCheckPolicyField fd _ = panic (typeCheckerBase ++ ".typeCheckPolicyField") $
                            "Applied to non-policy decl " ++ show fd
 
-evalAddPolicyInit :: CodeState -> (Ident PA, VarInit PA) -> TcDeclM a -> TcDeclM a
+evalAddPolicyInit :: TcCodeState -> (Ident PA, VarInit PA) -> TcDeclM a -> TcDeclM a
 evalAddPolicyInit st (i, InitExp _ eInit) tcba = do
   --debugPrint $ "evalAddInit: " ++ show i
-  tp <- PL.topM
  --tcPol <- withErrCtxt (FallbackContext ("When evaluating the initializer of field "
  --                        ++ prettyPrint i)) $ evalPolicy eInit
-  ((tyInit, _eInit'),_) <- runCodeM (simpleEnv tp False "policy initializer" False) st $ tcExp eInit
-  check (isPolicyType tyInit) $ toUndef $
+  ((tyInit, _eInit'),_) <- runCodeM (tcSimpleEnv False) st $ tcExp eInit
+  check (ntIsPolicyType tyInit) $ toUndef $
         "Cannot initialize policy field " ++ prettyPrint i ++
         " with non-policy expression " ++ prettyPrint eInit ++ " of type " ++ prettyPrint tyInit
   withCurrentTypeMap (\tm -> return $ tm

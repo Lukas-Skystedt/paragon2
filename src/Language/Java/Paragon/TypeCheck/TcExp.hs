@@ -39,17 +39,18 @@ tcExpModule = typeCheckerBase ++ ".TcExp"
 -- expression, and a typechecked expression.
 -- Encapsulated in the CodeM monad gives access to the code environment,
 -- state, allows it to fail, add error messages and policy contraints.
-tcExp :: Exp PA -> CodeM TC (TcStateType, Exp TC)
+tcExp :: Exp PA -> CodeM TC (TypeNT, Exp TC)
 
 -- Rule LIT
 -- Literals simply look up their state type. Their policy defaults to bottom
 -- (we might eventually want to infer the appropriate policy instead).
 tcExp (Lit loc l) = do
-  sty <- getStateType Nothing Nothing $ litType l
-  return (sty, Lit (Just $ toT sty) (notAppl l))
+  -- sty <- getStateType Nothing Nothing $ litType l
+  let tyNT = typeNT $ litType l
+  return (tyNT, Lit (Just $ tcToT tyNT) (notAppl l))
 
 tcExp (Paren _ e) = do (ty, e') <- tcExp e
-                       return (ty, Paren (Just $ toT ty) e')
+                       return (ty, Paren (Just $ tcToT ty) e')
 
 -- Rule THIS
 -- Simple wrapping, policy defaults to bottom.
@@ -67,18 +68,19 @@ tcExp (BinOp _ e1 op e2) = error "tcExp: case BinOp not implemented"
 tcExp (ExpName _ n) =
     case n of
       Name sp EName mPre i -> do
-             (ty, _pol, _, mStatFld) <- lookupVar mPre i
-             debugPrint $ "lookupVar found: " ++ show ty
-             staticCtx <- getStaticContext
+             (ty, _, mStatFld) <- tcLookupVar mPre i
+             debugPrint $ "tcLookupVar found: " ++ show ty
+             staticCtx <- tcGetStaticContext
              check (not staticCtx || fromMaybe True mStatFld) $
                mkError (NonStaticFieldReferencedFromStatic (prettyPrint i)) sp
-             return (ty, ExpName (Just $ toT ty) (notAppl n))
+             return (ty, ExpName (Just $ tcToT ty) (notAppl n))
       Name sp LName mPre i -> do
-             LSig _pL lTys _ <- lookupLock mPre i
+             LSig _pL lTys _ <- tcLookupLock mPre i
              check (null lTys) $
                mkError (LArityMismatch (prettyPrint n) (length lTys) 0) sp
-             let ty = lockT [PL.ConcreteLock $ PL.Lock n []]
-             return (ty, ExpName (Just $ toT ty) (notAppl n))
+             -- let ty = lockT [PL.ConcreteLock $ PL.Lock n []]
+             let ty = error "tcExp: locks not handled"
+             return (ty, ExpName (Just $ tcToT ty) (notAppl n))
       Name sp EOrLName mPre i -> do
              tryCatch (tcExp $ ExpName sp $ Name sp LName mPre i)
                 (\ec ->tcExp $ ExpName sp $ Name sp EName mPre i)
@@ -98,7 +100,7 @@ tcExp ex@(Assign exSp lhs _op rhs) = error "tcExp: case Assign not implemented"
 -- Redirected into separate function
 tcExp (MethodInv _ mi) = do
   (ty, mi') <- tcMethodOrLockInv mi
-  return (ty, MethodInv (Just $ toT ty) mi')
+  return (ty, MethodInv (Just $ tcToT ty) mi')
 
 -- Rule NEW
 -- Redirected into separate function
@@ -114,8 +116,10 @@ tcExp (Cond sp c e1 e2) = error "tcExp: case Cond not implemented"
 -- Redirected into separate function
 tcExp (PolicyExp _ pl) = do
   --debugPrint $ "tcExp[PolicyExp]: " ++ prettyPrint pl
-  let ty = policyPolT (error "placeholder value in tcExp, case PolicyExp") -- $ KnownPolicy $ PL.VarPolicy pRep -- What does this do?
-  return (ty, PolicyExp (Just $ toT ty) (notAppl pl))
+  -- TODO: Is this a good representation of the policy type? Should we do more checking here?
+  -- TODO: another defaultPos :(
+  let ty = TypeNT (PrimType () (PolicyT defaultPos)) (error "null info on policy should not be evaluated (in tcExp)") -- $ KnownPolicy $ PL.VarPolicy pRep -- What does this do?
+  return (ty, PolicyExp (Just $ tcToT ty) (notAppl pl))
 
 -- Rule POST/PRE-INCREMENT/DECREMENT
 -- Basically only check that operator is used on numeric type
@@ -132,7 +136,7 @@ tcExp (Cast sp t e)  = error "cExp: case Cast not implemented"
 -- Redirected into separate function
 tcExp (FieldAccess _ fa) = do
   (ty, fa') <- tcFieldAccess fa
-  return (ty, FieldAccess (Just $ toT ty) fa')
+  return (ty, FieldAccess (Just $ tcToT ty) fa')
 
 ----------
 -- Arrays
@@ -147,7 +151,7 @@ tcExp (ArrayCreateInit _ bt dimImplPs arrInit) = error "tcExp: case ArrayCreateI
 -- Rule ARRAYACCESS
 tcExp (ArrayAccess spA (ArrayIndex spI arrE iE)) =  error "tcExp: case ArrayAccess not implemented"
 
-tcFieldAccess :: FieldAccess PA -> CodeM TC (TcStateType, FieldAccess TC)
+tcFieldAccess :: FieldAccess PA -> CodeM TC (TypeNT, FieldAccess TC)
 tcFieldAccess (PrimaryFieldAccess _ e fi) = error "tcFieldAccess not implemented"
 --   do
 -- (tyE,pE,e') <- tcExp e
@@ -158,7 +162,7 @@ tcFieldAccess (PrimaryFieldAccess _ e fi) = error "tcFieldAccess not implemented
 
 tcFieldAccess fa = error $ "Unsupported field access: " ++ prettyPrint fa
 
-tcMethodOrLockInv :: MethodInvocation PA -> CodeM TC (TcStateType, MethodInvocation TC)
+tcMethodOrLockInv :: MethodInvocation PA -> CodeM TC (TypeNT, MethodInvocation TC)
 tcMethodOrLockInv _ = error "tcMethodOrLockInv: not implemented"
 
 -----------------------------------

@@ -38,6 +38,9 @@ data VarMap = VarMap {
 emptyVM :: VarMap
 emptyVM = VarMap {-Map.empty-} Map.empty Map.empty Map.empty
 
+tcEmptyVM :: TcVarMap
+tcEmptyVM = TcVarMap Map.empty Map.empty
+
 data CodeState = CodeState {
       varMapSt   :: !VarMap,
       -- ? TODO: Difference between this field and 'vars' in 'CodeEnv'?
@@ -59,6 +62,8 @@ data TcVarMap = TcVarMap {
   deriving (Eq, Show, Data, Typeable)
 
 emptyCodeState = CodeState emptyVM noDelta Map.empty
+
+tcEmptyCodeState = TcCodeState tcEmptyVM
 
 data InstanceInfo = II {
       iType :: RefType TC,

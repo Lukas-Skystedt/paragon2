@@ -126,7 +126,7 @@ data TypeMap = TypeMap {
       policies    :: Map B.ByteString PrgPolicy,
       -- ^ Niklas : Probably not used in p1
       actors      :: Map B.ByteString TypedActorIdSpec,
-      -- ^ Niklas : Probably not used in p1 
+      -- ^ Niklas : Probably not used in p1
       -- typemethod eval info
       typemethods :: Map B.ByteString ([B.ByteString], Block PA),
       -- types and packages
@@ -151,7 +151,7 @@ emptyTM = TypeMap {
 hardCodedArrayTM :: Type TC -> ActorPolicy -> TypeSig
 hardCodedArrayTM ty p =
     let memTM = emptyTM {
-                  fields = Map.fromList [(B.pack "length", VSig intT (Just $ VarPolicy thisP) 
+                  fields = Map.fromList [(B.pack "length", VSig intT (Just $ VarPolicy thisP)
                                             False False True False)]
                 , methods = Map.fromList [] -- TODO
                 }
@@ -336,6 +336,15 @@ lookupTypeOfStateT (TcTypeNT t _) tm =
       Left err -> Left err
 
 lookupTypeOfStateT _ _ = Left Nothing
+
+
+tcLookupTypeOfStateT :: TypeNT -> TypeMap -> Either (Maybe String) TypeSig
+tcLookupTypeOfStateT (TypeNT t _) tm =
+    case lookupTypeOfT t tm of
+      Right (is, tsig) | null is -> Right tsig
+                       | otherwise -> panic (typeMapModule ++ ".tcLookupTypeOfStateT")
+                                      $ "Needs implicit actor arguments: " ++ show (t, is)
+      Left err -> Left err
 
 -- | lookupTypeOfT will, given a type T and a top-level type environment,
 --   return the type environment for T tagged with Right.

@@ -328,6 +328,22 @@ registerReturn ty p = withEnv $ \env -> env { returnI = (ty,p) }
 --                                     "  q: " ++ prettyPrint p) aps
 --                         return (prePol, tps, msig)
 
+-- | Lookup the signature of a lock -- note that all locks are static,
+--   so the policy of the access path is irrelevant.
+tcLookupLock :: Maybe (Name PA) -- Access path
+             -> Ident PA        -- Name of lock
+             -> CodeM TC LockSig
+tcLookupLock mPre i@(Ident sp _) = do
+  baseTm <- getTypeMap
+  preTm <- case mPre of
+             Nothing -> return baseTm
+             Just pre -> do
+                       (_, preTm, _) <- tcLookupPrefixName pre
+                       return preTm
+  case Map.lookup (unIdent i) $ locks preTm of
+    Just lsig -> return lsig
+    Nothing -> do
+      fail $ "Lock " ++ prettyPrint (Name sp LName mPre i) ++ " not in scope"
 
 -- | Lookup the signature of a lock -- note that all locks are static,
 --   so the policy of the access path is irrelevant.
@@ -692,11 +708,11 @@ scrambleActors mtc = do
 
 -- -- TODO: This is a replacement for 'isAssignableTo' (or rather, =<:) for the typecheck phase.
 -- -- TODO: We use 'CodeM' for now. A "weaker" version may be sufficient.
--- isAssignableToTc :: Type TC -> Type TC -> CodeM x Bool
--- isAssignableToTc t1 t2 = do
---     let b1 = t1 `equivToTc` t2 -- identity conversion
---     b2 <- liftTcDeclM $ t1 `widensTo` t2 -- widening conversion
---     return $ b1 || b2
+isAssignableToTc :: Type TC -> Type TC -> CodeM TC Bool
+isAssignableToTc t1 t2 = do
+    let b1 = t1 `equivToTc` t2 -- identity conversion
+    b2 <- liftTcDeclM $ t1 `widensTo` t2 -- widening conversion
+    return $ b1 || b2
 
 -- (=<:) :: Type TC -> TcStateType -> CodeM x (Maybe [(ActorPolicy, ActorPolicy)])
 -- lhs =<: rhs = isAssignableTo (unStateType rhs) lhs
@@ -725,27 +741,27 @@ scrambleActors mtc = do
 
 -- equivTo t1 t2 = if t1 == t2 then return [] else Nothing
 
--- equivToTc :: Type TC -> Type TC -> Bool
--- equivToTc (TcRefType rt1) (TcRefType rt2) = equivRefT rt1 rt2
---   where equivRefT :: RefType TC -> RefType TC -> Bool
---         equivRefT (TcArrayType t1 _) (TcArrayType t2 _) = t1 `equivToTc` t2
---         equivRefT (TcClassRefType ct1) (TcClassRefType ct2) = equivClsT ct1 ct2
---         equivRefT _ _ = rt1 == rt2
+equivToTc :: Type TC -> Type TC -> Bool
+equivToTc (TcRefType rt1) (TcRefType rt2) = equivRefT rt1 rt2
+  where equivRefT :: RefType TC -> RefType TC -> Bool
+        equivRefT (TcArrayType t1 _) (TcArrayType t2 _) = t1 `equivToTc` t2
+        equivRefT (TcClassRefType ct1) (TcClassRefType ct2) = equivClsT ct1 ct2
+        equivRefT _ _ = rt1 == rt2
 
---         equivClsT :: ClassType TC -> ClassType TC -> Bool
---         equivClsT (TcClassType n1 tas1) (TcClassType n2 tas2) =
---             n1 == n2                   -- Same class name
---             && equivTypeArgs tas1 tas2 -- Same type arguments
+        equivClsT :: ClassType TC -> ClassType TC -> Bool
+        equivClsT (TcClassType n1 tas1) (TcClassType n2 tas2) =
+            n1 == n2                   -- Same class name
+            && equivTypeArgs tas1 tas2 -- Same type arguments
 
---         equivTypeArgs :: [TypeArgument TC] -> [TypeArgument TC] -> Bool
---         equivTypeArgs tas1 tas2 = and $ zipWith equivTypeArg tas1 tas2
+        equivTypeArgs :: [TypeArgument TC] -> [TypeArgument TC] -> Bool
+        equivTypeArgs tas1 tas2 = and $ zipWith equivTypeArg tas1 tas2
 
---         equivTypeArg :: TypeArgument TC -> TypeArgument TC -> Bool
---         equivTypeArg (TcActualPolicy _) (TcActualPolicy _) = True -- We don't check policies in this phase
---         equivTypeArg (TcActualType r1) (TcActualType r2) = equivRefT r1 r2
---         equivTypeArg a1 a2 = a1 == a2
+        equivTypeArg :: TypeArgument TC -> TypeArgument TC -> Bool
+        equivTypeArg (TcActualPolicy _) (TcActualPolicy _) = True -- We don't check policies in this phase
+        equivTypeArg (TcActualType r1) (TcActualType r2) = equivRefT r1 r2
+        equivTypeArg a1 a2 = a1 == a2
 
--- equivToTc t1 t2 = t1 == t2
+equivToTc t1 t2 = t1 == t2
 
 -- isCastableTo :: Type TC
 --              -> Type TC
@@ -789,17 +805,17 @@ scrambleActors mtc = do
 -- 2) rt/rt -> widening reference conversion
 -- 3) pt/rt -> boxing conversion + widening reference conversion
 -- 4) rt/pt -> unboxing conversion + widening primitive conversion
--- widensTo :: Type TC -> Type TC -> TcDeclM Bool
--- widensTo (TcPrimType pt1) (TcPrimType pt2) = return $ pt2 `elem` (map primTypePaToTc $ widenConvert (primTypeTcToPa pt1))
--- widensTo (TcRefType  rt1) (TcRefType  rt2) = rt1 `subTypeOf` rt2
--- widensTo (TcPrimType pt1) t2@(TcRefType _) =
---     maybe (return False)
---               (\ct -> clsTypeToType ct `widensTo` t2) (box $ primTypeTcToPa pt1)
--- widensTo (TcRefType   rt1) t2@(TcPrimType _) =
---     case rt1 of
---       TcClassRefType ct -> maybe (return False)
---                         (\pt -> TcPrimType pt `widensTo` t2) (unbox ct)
---       _ -> return False
+widensTo :: Type TC -> Type TC -> TcDeclM Bool
+widensTo (TcPrimType pt1) (TcPrimType pt2) = return $ pt2 `elem` (map primTypePaToTc $ widenConvert (primTypeTcToPa pt1))
+widensTo (TcRefType  rt1) (TcRefType  rt2) = rt1 `subTypeOf` rt2
+widensTo (TcPrimType pt1) t2@(TcRefType _) =
+    maybe (return False)
+              (\ct -> clsTypeToType ct `widensTo` t2) (box $ primTypeTcToPa pt1)
+widensTo (TcRefType   rt1) t2@(TcPrimType _) =
+    case rt1 of
+      TcClassRefType ct -> maybe (return False)
+                        (\pt -> TcPrimType pt `widensTo` t2) (unbox ct)
+      _ -> return False
 {-- 5) Paragon-specific types
 widensTo t1 t2 | isPolicyType t1 && t2 == policyT  = return True
                | isLockType   t1 && t2 == booleanT = return True

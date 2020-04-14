@@ -5,6 +5,10 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+
+-- Hide errors due to our template Haskell pattern synonyms not having type
+-- signatures.
+{-# OPTIONS_GHC -Wno-missing-pattern-synonym-signatures #-}
 module Language.Java.Paragon.TypeCheck.Types where
 
 import Security.InfoFlow.Policy.FlowLocks.Policy (MetaPolicy(..),VarPolicy(..),Clause(..),Atom(..),Policy(..))
@@ -72,6 +76,9 @@ deriving instance Typeable T
 toT :: TcStateType -> T
 toT sty = JavaType (unStateType sty)
 
+tcToT :: TypeNT -> T
+tcToT tyNT = JavaType (unTypeNT tyNT)
+
 setNative :: Bool -> T -> T
 -- setNative b = fmap $ \(t,_) -> (t,b)
 
@@ -89,6 +96,18 @@ data TcStateType
     | TcLockT [TcLock]             -- ^ List of looks checked in the expression
     | TcTypeNT (Type TC) NullType       -- ^ Simply the type with nullpointer information. NT - NullType
   -- deriving (Eq, Show, Data, Typeable)
+
+-- TODO maybe change name
+data TypeNT = TypeNT (Type TC) NullType
+
+deriving instance Eq TypeNT
+deriving instance Ord TypeNT
+deriving instance Show TypeNT
+deriving instance Data TypeNT
+deriving instance Typeable TypeNT
+
+instance Pretty TypeNT where
+  pretty (TypeNT ty nt) = pretty ty <> pretty nt
 
 deriving instance Eq TcStateType
 deriving instance Ord TcStateType
@@ -129,7 +148,16 @@ stateType :: Type TC -> TcStateType
 stateType t@(TcRefType TcNullT) = TcTypeNT t (MaybeNull, Committed)
 stateType t = TcTypeNT t (NotNull, Committed)
 
-unStateType :: TcStateType -> (Type TC)
+-- If the type is a null reference it's result will have state
+-- @(MaybeNull, Committed)@, otherwise it is @(NotNull, Committed)@.
+typeNT :: Type TC -> TypeNT
+typeNT t@(TcRefType TcNullT) = TypeNT t (MaybeNull, Committed)
+typeNT t = TypeNT t (NotNull, Committed)
+
+unTypeNT :: TypeNT -> Type TC
+unTypeNT (TypeNT ty _) = ty
+
+unStateType :: TcStateType -> Type TC
 unStateType tcst = case tcst of
                      TcInstance rt _ _ _ -> TcRefType rt
 --                     TcActorIdT    _   -> actorT
@@ -280,6 +308,10 @@ isActorType = isJust . mActorId
 
 isPolicyType :: TcStateType -> Bool
 isPolicyType = isJust . mPolicyPol
+
+ntIsPolicyType :: TypeNT -> Bool
+ntIsPolicyType (TypeNT (PrimType _ (PolicyT _)) _) = True
+ntIsPolicyType _ = False
 
 isArrayType :: TcStateType -> Bool
 isArrayType = isJust . mArrayType . unStateType

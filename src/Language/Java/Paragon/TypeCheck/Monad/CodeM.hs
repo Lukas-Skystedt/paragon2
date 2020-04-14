@@ -62,8 +62,8 @@ tcCodeMModule = typeCheckerBase ++ ".Monad.CodeM"
 -- All the cool methods of this monad
 
 
-setupStartState :: TcDeclM CodeState
-setupStartState = return emptyCodeState
+setupStartState :: TcDeclM TcCodeState
+setupStartState = return tcEmptyCodeState
 {-
 setupStartState = do
   tm <- getTypeMap
@@ -264,8 +264,8 @@ withEnv k (CodeM f) = CodeM $ \e0 s -> do
   tracePrint ("\n" ++ tcCodeMModule ++ ".withEnv return:\n" ++ formatData e0 ++ "\n")
   return r
 
--- getStaticContext :: CodeM x Bool
--- getStaticContext = staticContext <$> getEnv
+tcGetStaticContext :: CodeM TC Bool
+tcGetStaticContext = tcStaticContext <$> getEnv
 
 -- The state
 
@@ -370,6 +370,77 @@ addConstraint c err = CodeM (\_ s -> return ((), s, [(c,err)]))
 --     _ -> panic (tcCodeMModule ++ ".getPrefix")
 --          $ show mn
 
+tcLookupPrefixName :: Name PA -> CodeM TC (Maybe TypeNT, TypeMap, Maybe Bool)
+tcLookupPrefixName n@(Name _ EName Nothing i) = do
+    -- Special case: This *could* be a var, since those can only
+    -- appear first in the name, i.e. prefix == Nothing
+    -- We can piggyback on lookupVar since its preconditions are met
+    (sty, _, mStatFld) <- tcLookupVar Nothing i
+    -- debugPrint $ "lookupPrefixName: " ++ prettyPrint i ++ " :: " ++ prettyPrint sty
+    tm <- getTypeMap
+    case tcLookupTypeOfStateT sty tm of
+      Right newSig -> do
+        -- debugPrint $ prettyPrint newSig
+--        debugPrint $ "\nSig before instantiation: "
+--                       ++ prettyPrint (tMembers newSig)
+--        debugPrint $ "\nSig after  instantiation: "
+--                       ++ prettyPrint (instThis p (tMembers newSig)) ++ "\n"
+        -- TODO: HACK! We are not sure how to handle "Maybe ActorPolicy" in this case, the line below is a workaround.
+        instTM <- return $ tMembers newSig --instThis p $ tMembers newSig
+        return (Just sty, instTM, mStatFld)
+      Left (Just err) -> fail err
+      _ -> panic (tcCodeMModule ++ ".tcLookupPrefixName")
+           $ "Unknown variable or field: " ++ show n
+
+-- | Lookup the type of a field or variable access path.
+--   Last component - if it is a field -> is it static
+--   Precondition: Name is the decomposition of an EName
+tcLookupVar :: Maybe (Name PA) -> Ident PA -> CodeM TC (TypeNT, Bool, Maybe Bool)
+tcLookupVar Nothing i@(Ident sp _) = do
+  -- Could be a single variable
+  let nam = Name sp EName Nothing i -- Reconstructing for lookups
+  varMaps <- tcVars <$> getEnv
+  case lookupVarInVarMaps i varMaps of
+    -- Is a variable
+    Just (VSig ty _ param _ _ _) -> return (typeNT ty, param, Nothing)
+    -- Not a variable, must be a field
+    Nothing -> do
+      tm <- getTypeMap
+      case Map.lookup (unIdent i) $ fields tm of
+        Just (VSig ty _ param statFld _ _) -> do
+                  let tyNT = typeNT ty
+                  debugPrint $ "Var: " ++ prettyPrint i ++ " " ++ show tyNT
+                  return (tyNT, param, Just statFld)
+        Nothing ->
+          -- We could be in actor resolution mode, in which case the field is not yet registered,
+          -- except as an actor identity
+          error "Actor resolution mode in tcLookupVar is not impelemented"
+  where lookupVarInVarMaps :: Ident a -> [Map B.ByteString VarFieldSig] -> Maybe VarFieldSig
+        lookupVarInVarMaps _ [] = Nothing
+        lookupVarInVarMaps i (varMap:varMaps) =
+          case Map.lookup (unIdent i) varMap of
+            Nothing     -> lookupVarInVarMaps i varMaps
+            varFieldSig -> varFieldSig
+
+tcLookupVar (Just pre) i@(Ident sp _) = do
+  (mPreTy, preTm, _) <- tcLookupPrefixName pre
+  x <- liftIO checkNull
+  -- TODO: Exception stuff not yet implemented
+--  when ((case mPreTy of
+--           Just st | maybeNull st -> True
+--           _ -> False) && x) throwNull
+  case Map.lookup (unIdent i) $ fields preTm of
+    Just (VSig ty p _ statFld _ _) -> return (typeNT ty, False, Just statFld)
+    Nothing -> do
+      case mPreTy of
+        Just preTy -> fail $ "Type " ++ prettyPrint preTy ++
+                      " does not have a field named " ++ prettyPrint i
+        Nothing -> panic (tcCodeMModule ++ ".tcLookupVar")
+                  $ "EName as direct child of PName: "
+                        ++ show (Name sp EName (Just pre) i)
+
+
+
 -------------------------------
 -- | Lookup the prefix part of a name, which has to be dereferenceable.
 --   Returns the relevant type (Nothing if package), its typemap
@@ -396,7 +467,7 @@ addConstraint c err = CodeM (\_ s -> return ((), s, [(c,err)]))
 --       Left (Just err) -> fail err
 --       _ -> panic (tcCodeMModule ++ ".lookupPrefixName")
 --            $ "Unknown variable or field: " ++ show n
---
+
 -- lookupPrefixName n@(Name _ nt mPre i) = do
 --   baseTm <- getTypeMap
 --   (mPreSty, preTm, prePol, mStatFld) <-
@@ -423,7 +494,7 @@ addConstraint c err = CodeM (\_ s -> return ((), s, [(c,err)]))
 --                           -- Was
 --                           -- > prePol `lub` p
 --                           rPol <- sequence $ liftM2 lub prePol p
---
+
 --         -- TODO: HACK! We are not sure how to handle "Maybe ActorPolicy" in this case, the line below is a workaround.
 --                           instTM <- return $ tMembers tsig --mapM (\p' -> instThis p' $ tMembers tsig) p
 --                           return (Just _sty, instTM, rPol, mStatFld)
@@ -432,7 +503,7 @@ addConstraint c err = CodeM (\_ s -> return ((), s, [(c,err)]))
 --                           $ "Unknown type: " ++ show ty
 --                Nothing -> panic (tcCodeMModule ++ ".lookupPrefixName")
 --                           $ "Not a field: " ++ show n
---
+
 --     TName -> do
 --             (_tps, _iaps, tsig) <- case Map.lookup (unIdent i) $ types preTm of
 --                                      Nothing -> liftTcDeclM $ fetchType n
@@ -445,17 +516,17 @@ addConstraint c err = CodeM (\_ s -> return ((), s, [(c,err)]))
 -- --                      "Type " ++ prettyPrint n ++ " expects " ++
 -- --                      show (length tps) ++ " but has been given none."
 --             return (Just . stateType . TcRefType $ tType tsig, tMembers tsig, prePol, mStatFld)
---
+
 --     PName -> case Map.lookup (unIdent i) $ packages preTm of
 --                Nothing -> do liftTcDeclM $ fetchPkg n
 --                              return (Nothing, emptyTM, prePol, mStatFld)
 --                -- panic (tcCodeMModule ++ ".lookupPrefixName")
 --                           -- - $ "Not a package: " ++ show n
 --                Just tm -> return (Nothing, tm, prePol, mStatFld)
---
+
 --     _ -> panic (tcCodeMModule ++ ".lookupPrefixName")
 --          $ "Malformed prefix name: " ++ show n
---
+
 -- lookupPrefixName n = panic (tcCodeMModule ++ ".lookupPrefixName")
 --                      $ "Malformed prefix name: " ++ show n
 
@@ -515,7 +586,7 @@ addConstraint c err = CodeM (\_ s -> return ((), s, [(c,err)]))
 --           case Map.lookup (unIdent i) varMap of
 --             Nothing     -> lookupVarInVarMaps i varMaps
 --             varFieldSig -> varFieldSig
---
+
 -- lookupVar (Just pre) i@(Ident sp _) = do
 --   (mPreTy, preTm, prePol, _) <- lookupPrefixName pre
 --   x <- liftIO checkNull
@@ -527,7 +598,7 @@ addConstraint c err = CodeM (\_ s -> return ((), s, [(c,err)]))
 --       let nam = Name sp EName (Just pre) i
 --         --debugPrint $ "lookupVar: " ++ prettyPrint nam ++ " :: " ++ prettyPrint ty
 --         --debugPrint $ "   mPreTy: " ++ show mPreTy
---
+
 --       sty <- getStateType (Just nam) mPreTy ty
 --       -- Would be
 --       -- > prePol `lub` p
@@ -538,7 +609,7 @@ addConstraint c err = CodeM (\_ s -> return ((), s, [(c,err)]))
 --       --rPol <- prePol `lub` expectJust
 --       --  "The ActorPolicy in VarFieldSig should not be Nothing in lookupVar" p
 --       rPol <- sequence $ liftM2 lub prePol p
---
+
 --       return (sty, rPol, False, Just statFld)
 --     Nothing -> do
 --       case mPreTy of
@@ -563,17 +634,17 @@ startState = updateState $ \s -> s { lockMods = noMods, exnS = Map.empty }
 -- associated type of that (instance) actor is returned. For policies the
 -- policy bounds. For all other types just the type with null-pointer
 -- information.
--- getStateType :: Maybe (Name PA)          -- ^ field/var name (if decidable)
---              -> Maybe TcStateType        -- ^ containing object state type
---              -> Type TC                  -- ^ field/var/cell type
---              -> CodeM x TcStateType
--- getStateType mn mtyO ty
--- --    | ty == actorT   = do actorIdT <$> getActorId mn mtyO
---     | ty == policyT  = do policyPolT <$> getPolicyBounds mn mtyO
---     | Just ct <- mClassType ty = do
---                    (aid, as, nt) <- getInstanceActors ct mn mtyO
---                    return $ instanceT (TcClassRefType ct) aid as nt
---     | otherwise = return $ stateType ty
+--getStateType :: Maybe (Name PA)          -- ^ field/var name (if decidable)
+--             -> Maybe TcStateType        -- ^ containing object state type
+--             -> Type TC                  -- ^ field/var/cell type
+--             -> CodeM x TcStateType
+--getStateType mn mtyO ty
+----    | ty == actorT   = do actorIdT <$> getActorId mn mtyO
+--    | ty == policyT  = do policyPolT <$> getPolicyBounds mn mtyO
+--    | Just ct <- mClassType ty = do
+--                   (aid, as, nt) <- getInstanceActors ct mn mtyO
+--                   return $ instanceT (TcClassRefType ct) aid as nt
+--    | otherwise = return $ stateType ty
 
 {-
 getActorId :: Maybe (Name SourcePos)

@@ -93,6 +93,14 @@ data TcCodeEnv = TcCodeEnv
       }
   deriving (Show, Data, Typeable)
 
+tcSimpleEnv :: Bool -> TcCodeEnv
+tcSimpleEnv statCtx =
+  TcCodeEnv {
+    tcVars = [emptyVarMap],
+    tcReturnI = Nothing,
+    tcStaticContext = statCtx
+  }
+
 -- Env to use when typechecking expressions not inside method
 -- bodies, e.g. in field initializers and policy modifiers
 simpleEnv :: ActorPolicy -> Bool -> String -> Bool -> CodeEnv
