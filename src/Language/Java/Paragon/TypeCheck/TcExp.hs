@@ -39,7 +39,7 @@ tcExpModule = typeCheckerBase ++ ".TcExp"
 -- expression, and a typechecked expression.
 -- Encapsulated in the CodeM monad gives access to the code environment,
 -- state, allows it to fail, add error messages and policy contraints.
-tcExp :: Exp PA -> CodeM (TcStateType, Exp TC)
+tcExp :: Exp PA -> CodeM TC (TcStateType, Exp TC)
 
 -- Rule LIT
 -- Literals simply look up their state type. Their policy defaults to bottom
@@ -64,7 +64,7 @@ tcExp (BinOp _ e1 op e2) = error "tcExp: case BinOp not implemented"
 -- If we have a regular variable / field we simply look up its type and policy.
 -- If we have a lock we additionaly check its arity. If we do now know if it is
 -- a lock or not, we try assuming it is a lock first.
-tcExp (ExpName _ n) = 
+tcExp (ExpName _ n) =
     case n of
       Name sp EName mPre i -> do
              (ty, _pol, _, mStatFld) <- lookupVar mPre i
@@ -93,7 +93,7 @@ tcExp (ExpName _ n) =
 -- We then continue to check the assignment itself to see if the there are any
 -- policy violations.
 tcExp ex@(Assign exSp lhs _op rhs) = error "tcExp: case Assign not implemented"
-  
+
 -- Rule CALL
 -- Redirected into separate function
 tcExp (MethodInv _ mi) = do
@@ -103,7 +103,7 @@ tcExp (MethodInv _ mi) = do
 -- Rule NEW
 -- Redirected into separate function
 tcExp (InstanceCreation _ tas ct args Nothing) = error "cExp: case InstanceCreation not implemented"
-   
+
 -- Rule COND
 -- Recursively check the branches (with increased pc) and check if types of
 -- branches match.
@@ -147,7 +147,7 @@ tcExp (ArrayCreateInit _ bt dimImplPs arrInit) = error "tcExp: case ArrayCreateI
 -- Rule ARRAYACCESS
 tcExp (ArrayAccess spA (ArrayIndex spI arrE iE)) =  error "tcExp: case ArrayAccess not implemented"
 
-tcFieldAccess :: FieldAccess PA -> CodeM (TcStateType, FieldAccess TC)
+tcFieldAccess :: FieldAccess PA -> CodeM TC (TcStateType, FieldAccess TC)
 tcFieldAccess (PrimaryFieldAccess _ e fi) = error "tcFieldAccess not implemented"
 --   do
 -- (tyE,pE,e') <- tcExp e
@@ -158,7 +158,7 @@ tcFieldAccess (PrimaryFieldAccess _ e fi) = error "tcFieldAccess not implemented
 
 tcFieldAccess fa = error $ "Unsupported field access: " ++ prettyPrint fa
 
-tcMethodOrLockInv :: MethodInvocation PA -> CodeM (TcStateType, MethodInvocation TC)
+tcMethodOrLockInv :: MethodInvocation PA -> CodeM TC (TcStateType, MethodInvocation TC)
 tcMethodOrLockInv _ = error "tcMethodOrLockInv: not implemented"
 
 -----------------------------------
@@ -200,8 +200,8 @@ litType (Null    _  ) = nullT
 --  debugPrint $ "tcPolicyExp[Lit/This]: " ++ prettyPrint pe
 --  tm <- getTypeMap
 --  tcEvalPolicy pe -- Lit or This
---  
--- 
+--
+--
 -- tcEvalPolicy :: PolicyExp PA -> CodeM PL.PrgPolicy
 -- tcEvalPolicy pe@(PolicyThis pos) = evalPolicy (PolicyExp pos pe)
 -- tcEvalPolicy pe@(PolicyLit pos cs) = do

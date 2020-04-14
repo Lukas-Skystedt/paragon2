@@ -116,12 +116,12 @@ monadModule = typeCheckerBase ++ ".Monad"
 
 -- returns
 
-getReturn :: CodeM (Type TC, ActorPolicy)
-getReturn = do
-  mRet <- returnI <$> getEnv
-  case mRet of
-    Nothing -> fail "Attempting to use 'return' in a simple expression context"
-    Just ret -> return ret
+-- getReturn :: CodeM x (Type TC, ActorPolicy)
+-- getReturn = do
+--   mRet <- returnI <$> getEnv
+--   case mRet of
+--     Nothing -> fail "Attempting to use 'return' in a simple expression context"
+--     Just ret -> return ret
 
 {-
 registerReturn :: Type TC -> TcPolicy -> CodeM r a -> CodeM r a
@@ -133,379 +133,379 @@ registerReturn ty p = withEnv $ \env -> env { returnI = (ty,p) }
 --fieldEnvToVars = withEnv $ \env -> env { vars = fields (typemap env) }
 
 
-extendVarEnvList :: [(B.ByteString, VarFieldSig)] -> CodeM a -> CodeM a
-extendVarEnvList vs = withEnv $ \env ->
-  let (oldVmap:oldVmaps) = vars env
-      newVmap = foldl (\m (i,vti) -> Map.insert i vti m) oldVmap vs
-  in return $ env { vars = newVmap : oldVmaps }
-
-extendVarEnv :: B.ByteString -> VarFieldSig -> CodeM a -> CodeM a
---extendVarEnv i = extendVarEnvN i
---extendVarEnvN :: Ident -> VarFieldSig -> CodeM a -> CodeM a
-extendVarEnv i vti = withEnv $ \env -> do
-  let (oldVmap:oldVmaps) = vars env
-  if Map.notMember i oldVmap
-    then return $ env { vars = Map.insert i vti oldVmap : oldVmaps }
-    else failE $ mkErrorFromInfo $ VariableAlreadyDefined (B.unpack i)
-
-lookupActorName :: ActorName PA -> CodeM (TcStateType, Maybe ActorPolicy)
-lookupActorName (ActorName _ nam@(Name _ nt mPre i))
-    | nt == EName =
-        do (ty, pol, _, _) <- lookupVar mPre i
-           return (ty, pol)
-    | otherwise   = panic (monadModule ++ ".lookupActorName")
-                                 $ "Not an EName: " ++ show nam
-lookupActorName (ActorTypeVar _ _rt i) = do
-  (ty, pol, _, _) <- lookupVar Nothing i
-  return (ty, pol)
-
-lookupActorName n = panic (monadModule ++ ".lookupActorName")
-                    $ "Unexpected AntiQName: " ++ show n
-
-type Sig = ([TypeParam PA], [B.ByteString], [Type TC], Bool)
-type APPairs = [(ActorPolicy, ActorPolicy)]
-
-instance Pretty Sig where
-  pretty (tps, _, tys, isva) = pretty (tps, tys, isva)
-
-
-findBestMethod
-    :: [TypeArgument PA]
-    -> [Type TC]
-    -> [ActorPolicy]
-    -> [Sig]  -- Works for both methods and constrs
-    -> CodeM [(Sig, APPairs)]
-findBestMethod tArgs argTys argPs candidates = do
-  --debugPrint $ "findBestMethod: "
-  --debugPrint $ "  Candidates: "
-  --mapM_ (debugPrint . ("    " ++) . prettyPrint) candidates
-  --debugPrint $ "  Argument types: "
-  --debugPrint $ "    " ++ prettyPrint argTys
-  mps <- mapM isApplicable candidates
-  res <- findBestFit [ (c, ps) | (c, Just ps) <- zip candidates mps ]
-  --debugPrint $ "Best method done"
-  return res
-  -- findBestFit =<< filterM isApplicable candidates
-
-  where isApplicable :: Sig -> CodeM (Maybe APPairs)
-        isApplicable (tps, pIs, pTys, isVA) = do
-          b1 <- checkArgs tps tArgs
-          if b1 then do
-                  tyArgs <- zipWithM (evalSrcTypeArg genBot) tps tArgs
-                  let subst = zip pIs argPs
-                  pTys' <- mapM (substTypeParPols subst) $
-                                instantiate (zip tps tyArgs) pTys
-                  --debugPrint $ "isApplicable: "
-                  --               ++ show (isVA, map prettyPrint pTys', map prettyPrint argTys)
-                  ps <- checkTys isVA pTys' argTys
-                  --debugPrint $ "     .... "
-                  --               ++ maybe "Nope" (prettyPrint . (map (\(a,b) -> [a,b]))) ps
-                  return ps
-           else return Nothing
-
-        checkArgs :: [TypeParam PA] -> [TypeArgument PA] -> CodeM Bool
-        checkArgs [] [] = return True
-        checkArgs (tp:tps) (ta:tas) = (&&) <$> checkArg tp ta <*> checkArgs tps tas
-        checkArgs _ _ = return False
-
-        -- this needs to be done in CodeM, to account for local variables.
-        checkArg :: TypeParam PA -> TypeArgument PA -> CodeM Bool
-        checkArg tp ta = isRight <$> tryM (evalSrcTypeArg genBot tp ta)
-
-        checkTys :: Bool -> [Type TC] -> [Type TC] -> CodeM (Maybe APPairs)
-        checkTys _ [] [] = return $ Just []
-        checkTys b ps as
-            | not b && length ps /= length as = return Nothing
-            | b && length ps > length as + 1  = return Nothing
-        checkTys True [p] [a] = do
-          mps <- a `isAssignableTo` p
-          case mps of
-            Just _ -> return mps
-            Nothing -> bottomM >>= \bt -> a `isAssignableTo` arrayType p bt
-        checkTys True [p] as = do
-          mpps <- zipWithM isAssignableTo as (repeat p) -- [M [(P,P)]]
-          return $ concat <$> sequence mpps
-
-        checkTys b (p:ps) (a:as) = do
-          mps <- a `isAssignableTo` p
-          case mps of
-            Just aps -> do mAps' <- checkTys b ps as
-                           return $ fmap (aps++) mAps'
-            Nothing -> return Nothing
-        checkTys _ _ _ = return Nothing
-
-        findBestFit :: [(Sig, APPairs)] -> CodeM [(Sig, APPairs)]
-        findBestFit [] = return []
-        findBestFit (x:xs) = go [x] xs
-
-        go :: [(Sig, APPairs)] -> [(Sig, APPairs)] -> CodeM [(Sig, APPairs)]
-        go xs [] = return xs
-        go xs (y:ys) = do
-          bs0 <- mapM (\x -> fst y `moreSpecificThan` fst x) xs
-          if and bs0 then go [y] ys
-           else do bs1 <- mapM (\x -> fst x `moreSpecificThan` fst y) xs
-                   if and bs1 then go xs ys else go (y:xs) ys
-
-        moreSpecificThan :: Sig -> Sig -> CodeM Bool
-        moreSpecificThan (_,_,ps1,False) (_,_,ps2,False) = do
-                                           mpss <- zipWithM isAssignableTo ps1 ps2 -- [M [(P,P)]]
-                                           return $ isJust $ sequence mpss
-        moreSpecificThan _ _ = fail "Varargs not yet supported"
-{-        moreSpecificThan (_,ps1,True ) (_,ps2,True ) = do
-          let n = length ps1
-              k = length ps2
-          undefined n k
-        moreSpecificThan _ _ = undefined -}
-
-        isRight :: Either a b -> Bool
-        isRight (Right _) = True
-        isRight _ = False
+-- extendVarEnvList :: [(B.ByteString, VarFieldSig)] -> CodeM x a -> CodeM x a
+-- extendVarEnvList vs = withEnv $ \env ->
+--   let (oldVmap:oldVmaps) = vars env
+--       newVmap = foldl (\m (i,vti) -> Map.insert i vti m) oldVmap vs
+--   in return $ env { vars = newVmap : oldVmaps }
+--
+-- extendVarEnv :: B.ByteString -> VarFieldSig -> CodeM x a -> CodeM x a
+-- --extendVarEnv i = extendVarEnvN i
+-- --extendVarEnvN :: Ident -> VarFieldSig -> CodeM a -> CodeM a
+-- extendVarEnv i vti = withEnv $ \env -> do
+--   let (oldVmap:oldVmaps) = vars env
+--   if Map.notMember i oldVmap
+--     then return $ env { vars = Map.insert i vti oldVmap : oldVmaps }
+--     else failE $ mkErrorFromInfo $ VariableAlreadyDefined (B.unpack i)
+--
+-- lookupActorName :: ActorName PA -> CodeM x (TcStateType, Maybe ActorPolicy)
+-- lookupActorName (ActorName _ nam@(Name _ nt mPre i))
+--     | nt == EName =
+--         do (ty, pol, _, _) <- lookupVar mPre i
+--            return (ty, pol)
+--     | otherwise   = panic (monadModule ++ ".lookupActorName")
+--                                  $ "Not an EName: " ++ show nam
+-- lookupActorName (ActorTypeVar _ _rt i) = do
+--   (ty, pol, _, _) <- lookupVar Nothing i
+--   return (ty, pol)
+--
+-- lookupActorName n = panic (monadModule ++ ".lookupActorName")
+--                     $ "Unexpected AntiQName: " ++ show n
+--
+-- type Sig = ([TypeParam PA], [B.ByteString], [Type TC], Bool)
+-- type APPairs = [(ActorPolicy, ActorPolicy)]
+--
+-- instance Pretty Sig where
+--   pretty (tps, _, tys, isva) = pretty (tps, tys, isva)
+--
+--
+-- findBestMethod
+--     :: [TypeArgument PA]
+--     -> [Type TC]
+--     -> [ActorPolicy]
+--     -> [Sig]  -- Works for both methods and constrs
+--     -> CodeM x [(Sig, APPairs)]
+-- findBestMethod tArgs argTys argPs candidates = do
+--   --debugPrint $ "findBestMethod: "
+--   --debugPrint $ "  Candidates: "
+--   --mapM_ (debugPrint . ("    " ++) . prettyPrint) candidates
+--   --debugPrint $ "  Argument types: "
+--   --debugPrint $ "    " ++ prettyPrint argTys
+--   mps <- mapM isApplicable candidates
+--   res <- findBestFit [ (c, ps) | (c, Just ps) <- zip candidates mps ]
+--   --debugPrint $ "Best method done"
+--   return res
+--   -- findBestFit =<< filterM isApplicable candidates
+--
+--   where isApplicable :: Sig -> CodeM x (Maybe APPairs)
+--         isApplicable (tps, pIs, pTys, isVA) = do
+--           b1 <- checkArgs tps tArgs
+--           if b1 then do
+--                   tyArgs <- zipWithM (evalSrcTypeArg genBot) tps tArgs
+--                   let subst = zip pIs argPs
+--                   pTys' <- mapM (substTypeParPols subst) $
+--                                 instantiate (zip tps tyArgs) pTys
+--                   --debugPrint $ "isApplicable: "
+--                   --               ++ show (isVA, map prettyPrint pTys', map prettyPrint argTys)
+--                   ps <- checkTys isVA pTys' argTys
+--                   --debugPrint $ "     .... "
+--                   --               ++ maybe "Nope" (prettyPrint . (map (\(a,b) -> [a,b]))) ps
+--                   return ps
+--            else return Nothing
+--
+--         checkArgs :: [TypeParam PA] -> [TypeArgument PA] -> CodeM x Bool
+--         checkArgs [] [] = return True
+--         checkArgs (tp:tps) (ta:tas) = (&&) <$> checkArg tp ta <*> checkArgs tps tas
+--         checkArgs _ _ = return False
+--
+--         -- this needs to be done in CodeM, to account for local variables.
+--         checkArg :: TypeParam PA -> TypeArgument PA -> CodeM x Bool
+--         checkArg tp ta = isRight <$> tryM (evalSrcTypeArg genBot tp ta)
+--
+--         checkTys :: Bool -> [Type TC] -> [Type TC] -> CodeM x (Maybe APPairs)
+--         checkTys _ [] [] = return $ Just []
+--         checkTys b ps as
+--             | not b && length ps /= length as = return Nothing
+--             | b && length ps > length as + 1  = return Nothing
+--         checkTys True [p] [a] = do
+--           mps <- a `isAssignableTo` p
+--           case mps of
+--             Just _ -> return mps
+--             Nothing -> bottomM >>= \bt -> a `isAssignableTo` arrayType p bt
+--         checkTys True [p] as = do
+--           mpps <- zipWithM isAssignableTo as (repeat p) -- [M [(P,P)]]
+--           return $ concat <$> sequence mpps
+--
+--         checkTys b (p:ps) (a:as) = do
+--           mps <- a `isAssignableTo` p
+--           case mps of
+--             Just aps -> do mAps' <- checkTys b ps as
+--                            return $ fmap (aps++) mAps'
+--             Nothing -> return Nothing
+--         checkTys _ _ _ = return Nothing
+--
+--         findBestFit :: [(Sig, APPairs)] -> CodeM x [(Sig, APPairs)]
+--         findBestFit [] = return []
+--         findBestFit (x:xs) = go [x] xs
+--
+--         go :: [(Sig, APPairs)] -> [(Sig, APPairs)] -> CodeM x [(Sig, APPairs)]
+--         go xs [] = return xs
+--         go xs (y:ys) = do
+--           bs0 <- mapM (\x -> fst y `moreSpecificThan` fst x) xs
+--           if and bs0 then go [y] ys
+--            else do bs1 <- mapM (\x -> fst x `moreSpecificThan` fst y) xs
+--                    if and bs1 then go xs ys else go (y:xs) ys
+--
+--         moreSpecificThan :: Sig -> Sig -> CodeM x Bool
+--         moreSpecificThan (_,_,ps1,False) (_,_,ps2,False) = do
+--                                            mpss <- zipWithM isAssignableTo ps1 ps2 -- [M [(P,P)]]
+--                                            return $ isJust $ sequence mpss
+--         moreSpecificThan _ _ = fail "Varargs not yet supported"
+-- {-        moreSpecificThan (_,ps1,True ) (_,ps2,True ) = do
+--           let n = length ps1
+--               k = length ps2
+--           undefined n k
+--         moreSpecificThan _ _ = undefined -}
+--
+--         isRight :: Either a b -> Bool
+--         isRight (Right _) = True
+--         isRight _ = False
 
 -- | Lookup the signature of a method, and the policy of its access path.
-lookupMethod :: Maybe (Name PA)    -- Access path
-             -> Ident PA           -- Method name
-             -> [TypeArgument PA]  -- Type arguments
-             -> [Type TC]           -- Argument types
-             -> [ActorPolicy]      -- Argument policies
-             -> CodeM (Maybe ActorPolicy, [TypeParam PA], MethodSig)
-lookupMethod mPre i tArgs argTys argPs = do
-  --debugPrint $ "lookupMethod: " ++ show (mPre, i, argTys)
-  baseTm <- getTypeMap
-  (mPreTy, preTm, prePol, _) <-
-    case mPre of
-      Nothing -> bottomM >>= \bt ->
-                  return (Nothing, baseTm, Just bt, Nothing)
-      Just pre -> lookupPrefixName pre
-  case Map.lookup (unIdent i) $ methods preTm of
-    Nothing -> fail $ case mPreTy of
-                       Just preTy ->
-                           "Type " ++ prettyPrint preTy ++
-                                   " does not have a method named " ++ prettyPrint i
-                       Nothing -> "No method named " ++ prettyPrint i ++
-                                    " is in scope"
-    Just methodMap -> do
-      --debugPrint $ prettyPrint methodMap
-      bests <- findBestMethod tArgs argTys argPs (getSigs methodMap)
-      case bests of
-        [] -> fail $ case mPreTy of
-                       Just preTy ->
-                           "Type " ++ prettyPrint preTy ++
-                             " does not have a method named " ++ prettyPrint i ++
-                             " matching argument types (" ++
-                             unwords (intersperse ", " $ map prettyPrint argTys) ++
-                             ")"
-                       Nothing -> "No method named " ++ prettyPrint i ++
-                                  " matching argument types (" ++
-                                 unwords (intersperse ", " $ map prettyPrint argTys) ++
-                                 ") is in scope"
-
-        (_:_:_) -> fail $ case mPreTy of
-                            Just preTy ->
-                                "Type " ++ prettyPrint preTy ++
-                                  " has more than one most specific method " ++ prettyPrint i ++
-                                  " matching argument types (" ++
-                                  unwords (intersperse ", " $ map prettyPrint argTys) ++
-                                  ")"
-                            Nothing -> "More than one most specific method named " ++ prettyPrint i ++
-                                       " matching argument types (" ++
-                                      unwords (intersperse ", " $ map prettyPrint argTys) ++
-                                      ") is in scope"
-
-        [((tps,_,ts,isVA), aps)] ->
-            let sig = (tps,ts,isVA) in
-             case Map.lookup sig methodMap of
-              Nothing -> panic (monadModule ++ ".lookupMethod")
-                         $ "Sig must be one of the keys of methodMap: " ++ show sig
-              Just msig -> do
-                        mapM_ (\(p,q) -> do
-                                 constraint emptyLockSet p q $ toUndef $
-                                    "Cannot unify policy type parameters at call to method " ++ prettyPrint i ++ ":\n" ++
-                                    "  p: " ++ prettyPrint p ++ "\n" ++
-                                    "  q: " ++ prettyPrint q
-                                 constraint emptyLockSet q p $ toUndef $
-                                    "Cannot unify policy type parameters at call to method " ++ prettyPrint i ++ ":\n" ++
-                                    "  p: " ++ prettyPrint q ++ "\n" ++
-                                    "  q: " ++ prettyPrint p) aps
-                        return (prePol, tps, msig)
+-- lookupMethod :: Maybe (Name PA)    -- Access path
+--              -> Ident PA           -- Method name
+--              -> [TypeArgument PA]  -- Type arguments
+--              -> [Type TC]           -- Argument types
+--              -> [ActorPolicy]      -- Argument policies
+--              -> CodeM x (Maybe ActorPolicy, [TypeParam PA], MethodSig)
+-- lookupMethod mPre i tArgs argTys argPs = do
+--   --debugPrint $ "lookupMethod: " ++ show (mPre, i, argTys)
+--   baseTm <- getTypeMap
+--   (mPreTy, preTm, prePol, _) <-
+--     case mPre of
+--       Nothing -> bottomM >>= \bt ->
+--                   return (Nothing, baseTm, Just bt, Nothing)
+--       Just pre -> lookupPrefixName pre
+--   case Map.lookup (unIdent i) $ methods preTm of
+--     Nothing -> fail $ case mPreTy of
+--                        Just preTy ->
+--                            "Type " ++ prettyPrint preTy ++
+--                                    " does not have a method named " ++ prettyPrint i
+--                        Nothing -> "No method named " ++ prettyPrint i ++
+--                                     " is in scope"
+--     Just methodMap -> do
+--       --debugPrint $ prettyPrint methodMap
+--       bests <- findBestMethod tArgs argTys argPs (getSigs methodMap)
+--       case bests of
+--         [] -> fail $ case mPreTy of
+--                        Just preTy ->
+--                            "Type " ++ prettyPrint preTy ++
+--                              " does not have a method named " ++ prettyPrint i ++
+--                              " matching argument types (" ++
+--                              unwords (intersperse ", " $ map prettyPrint argTys) ++
+--                              ")"
+--                        Nothing -> "No method named " ++ prettyPrint i ++
+--                                   " matching argument types (" ++
+--                                  unwords (intersperse ", " $ map prettyPrint argTys) ++
+--                                  ") is in scope"
+--
+--         (_:_:_) -> fail $ case mPreTy of
+--                             Just preTy ->
+--                                 "Type " ++ prettyPrint preTy ++
+--                                   " has more than one most specific method " ++ prettyPrint i ++
+--                                   " matching argument types (" ++
+--                                   unwords (intersperse ", " $ map prettyPrint argTys) ++
+--                                   ")"
+--                             Nothing -> "More than one most specific method named " ++ prettyPrint i ++
+--                                        " matching argument types (" ++
+--                                       unwords (intersperse ", " $ map prettyPrint argTys) ++
+--                                       ") is in scope"
+--
+--         [((tps,_,ts,isVA), aps)] ->
+--             let sig = (tps,ts,isVA) in
+--              case Map.lookup sig methodMap of
+--               Nothing -> panic (monadModule ++ ".lookupMethod")
+--                          $ "Sig must be one of the keys of methodMap: " ++ show sig
+--               Just msig -> do
+--                         mapM_ (\(p,q) -> do
+--                                  constraint emptyLockSet p q $ toUndef $
+--                                     "Cannot unify policy type parameters at call to method " ++ prettyPrint i ++ ":\n" ++
+--                                     "  p: " ++ prettyPrint p ++ "\n" ++
+--                                     "  q: " ++ prettyPrint q
+--                                  constraint emptyLockSet q p $ toUndef $
+--                                     "Cannot unify policy type parameters at call to method " ++ prettyPrint i ++ ":\n" ++
+--                                     "  p: " ++ prettyPrint q ++ "\n" ++
+--                                     "  q: " ++ prettyPrint p) aps
+--                         return (prePol, tps, msig)
 
 
 -- | Lookup the signature of a lock -- note that all locks are static,
 --   so the policy of the access path is irrelevant.
-lookupLock :: Maybe (Name PA) -- Access path
-           -> Ident PA        -- Name of lock
-           -> CodeM LockSig
-lookupLock mPre i@(Ident sp _) = do
-  baseTm <- getTypeMap
-  preTm <- case mPre of
-             Nothing -> return baseTm
-             Just pre -> do
-                       (_, preTm, _, _) <- lookupPrefixName pre
-                       return preTm
-  case Map.lookup (unIdent i) $ locks preTm of
-    Just lsig -> return lsig
-    Nothing -> do
-      fail $ "Lock " ++ prettyPrint (Name sp LName mPre i) ++ " not in scope"
+--lookupLock :: Maybe (Name PA) -- Access path
+--           -> Ident PA        -- Name of lock
+--           -> CodeM x LockSig
+--lookupLock mPre i@(Ident sp _) = do
+--  baseTm <- getTypeMap
+--  preTm <- case mPre of
+--             Nothing -> return baseTm
+--             Just pre -> do
+--                       (_, preTm, _, _) <- lookupPrefixName pre
+--                       return preTm
+--  case Map.lookup (unIdent i) $ locks preTm of
+--    Just lsig -> return lsig
+--    Nothing -> do
+--      fail $ "Lock " ++ prettyPrint (Name sp LName mPre i) ++ " not in scope"
 
-lookupFieldT :: TcStateType -> Ident PA -> CodeM VarFieldSig
-lookupFieldT typ i = do
-  check (isRefType typ) $ toUndef ("Not a reference type: " ++ prettyPrint typ)
-  aSig <- lookupTypeOfStateType typ
-  case Map.lookup (unIdent i) (fields $ tMembers aSig) of
-    Just vti -> return vti
-    Nothing -> failE $ toUndef $ "Class " ++ prettyPrint typ
-                      ++ " does not have a field named " ++ prettyPrint i
+-- lookupFieldT :: TcStateType -> Ident PA -> CodeM x VarFieldSig
+-- lookupFieldT typ i = do
+--   check (isRefType typ) $ toUndef ("Not a reference type: " ++ prettyPrint typ)
+--   aSig <- lookupTypeOfStateType typ
+--   case Map.lookup (unIdent i) (fields $ tMembers aSig) of
+--     Just vti -> return vti
+--     Nothing -> failE $ toUndef $ "Class " ++ prettyPrint typ
+--                       ++ " does not have a field named " ++ prettyPrint i
 
-lookupMethodT :: TcStateType
-              -> Ident PA
-              -> [TypeArgument PA]
-              -> [Type TC]
-              -> [ActorPolicy]
-              -> CodeM ([TypeParam PA], MethodSig)
-lookupMethodT typ i tArgs argTys argPs = do
-  check (isRefType typ) $ toUndef $ "Not a reference type: " ++ prettyPrint typ
-  aSig <- lookupTypeOfStateType typ
-  case Map.lookup (unIdent i) (methods $ tMembers aSig) of
-    Nothing -> fail $ "Class " ++ prettyPrint typ
-                      ++ " does not have a method named " ++ prettyPrint i
-    Just mMap -> do
-      bests <- findBestMethod tArgs argTys argPs (getSigs mMap)
-      case bests of
-        [] -> fail $
-                "Type " ++ prettyPrint typ ++
-                            " does not have a method named " ++ prettyPrint i ++
-                            " matching argument types (" ++
-                            unwords (intersperse ", " $ map prettyPrint argTys) ++
-                            ")"
+-- lookupMethodT :: TcStateType
+--               -> Ident PA
+--               -> [TypeArgument PA]
+--               -> [Type TC]
+--               -> [ActorPolicy]
+--               -> CodeM x ([TypeParam PA], MethodSig)
+-- lookupMethodT typ i tArgs argTys argPs = do
+--   check (isRefType typ) $ toUndef $ "Not a reference type: " ++ prettyPrint typ
+--   aSig <- lookupTypeOfStateType typ
+--   case Map.lookup (unIdent i) (methods $ tMembers aSig) of
+--     Nothing -> fail $ "Class " ++ prettyPrint typ
+--                       ++ " does not have a method named " ++ prettyPrint i
+--     Just mMap -> do
+--       bests <- findBestMethod tArgs argTys argPs (getSigs mMap)
+--       case bests of
+--         [] -> fail $
+--                 "Type " ++ prettyPrint typ ++
+--                             " does not have a method named " ++ prettyPrint i ++
+--                             " matching argument types (" ++
+--                             unwords (intersperse ", " $ map prettyPrint argTys) ++
+--                             ")"
 
-        (_:_:_) -> fail $
-                     "Type " ++ prettyPrint typ ++
-                                 " has more than one most specific method " ++ prettyPrint i ++
-                                 " matching argument types (" ++
-                                 unwords (intersperse ", " $ map prettyPrint argTys) ++
-                                 ")"
+--         (_:_:_) -> fail $
+--                      "Type " ++ prettyPrint typ ++
+--                                  " has more than one most specific method " ++ prettyPrint i ++
+--                                  " matching argument types (" ++
+--                                  unwords (intersperse ", " $ map prettyPrint argTys) ++
+--                                  ")"
 
-        [((tps,_,ts,isVA), aps)] ->
-            let sig = (tps,ts,isVA) in
-             case Map.lookup sig mMap of
-              Nothing -> panic (monadModule ++ ".lookupMethodT")
-                         $ "Sig must be one of the keys of methodMap: " ++ show sig
-              Just msig -> do
-                        mapM_ (\(p,q) -> do
-                                 constraint emptyLockSet p q $ toUndef $
-                                    "Cannot unify policy type parameters at method call:\n" ++
-                                    "  p: " ++ prettyPrint p ++ "\n" ++
-                                    "  q: " ++ prettyPrint q
-                                 constraint emptyLockSet q p $ toUndef $
-                                    "Cannot unify policy type parameters at method call:\n" ++
-                                    "  p: " ++ prettyPrint q ++ "\n" ++
-                                    "  q: " ++ prettyPrint p) aps
-                        return (tps, msig)
+--         [((tps,_,ts,isVA), aps)] ->
+--             let sig = (tps,ts,isVA) in
+--              case Map.lookup sig mMap of
+--               Nothing -> panic (monadModule ++ ".lookupMethodT")
+--                          $ "Sig must be one of the keys of methodMap: " ++ show sig
+--               Just msig -> do
+--                         mapM_ (\(p,q) -> do
+--                                  constraint emptyLockSet p q $ toUndef $
+--                                     "Cannot unify policy type parameters at method call:\n" ++
+--                                     "  p: " ++ prettyPrint p ++ "\n" ++
+--                                     "  q: " ++ prettyPrint q
+--                                  constraint emptyLockSet q p $ toUndef $
+--                                     "Cannot unify policy type parameters at method call:\n" ++
+--                                     "  p: " ++ prettyPrint q ++ "\n" ++
+--                                     "  q: " ++ prettyPrint p) aps
+--                         return (tps, msig)
 
-lookupConstr :: ClassType TC
-             -> [TypeArgument PA]
-             -> ActorPolicy -- policyof(this), i.e. the result
-             -> [Type TC]
-             -> [ActorPolicy]
-             -> CodeM ([TypeParam PA], [(RefType PA, B.ByteString)], ConstrSig)
-lookupConstr ctyp tArgs pThis argTys argPs = do
-  --debugPrint $ "\n\n######## Looking up constructor! ######## \n"
-  let typ = clsTypeToType ctyp
-  --debugPrint $ "typ: " ++ prettyPrint typ
---  tm <- getTypeMap
---  debugPrint $ prettyPrint tm
-  (iaps, aSig) <- lookupTypeOfType typ
---  debugPrint $ "aSig: " ++ show aSig
-  let cMap = constrs $ tMembers aSig
-  --debugPrint $ "cMap: "
-  --debugPrint $ prettyPrint cMap
-  cMap' <- instThis pThis cMap
-  bests <- findBestMethod tArgs argTys argPs (getSigsC cMap')
-  case bests of
-    [] -> fail $ "Type " ++ prettyPrint ctyp ++
-                 " does not have a constructor \
-                  \matching argument types (" ++
-                 unwords (intersperse ", " $ map prettyPrint argTys) ++
-                 ")"
-    (_:_:_) ->
-        fail $ "Type " ++ prettyPrint ctyp ++
-                 " has more than one most specific \
-                  \constructor matching argument types (" ++
-                 unwords (intersperse ", " $ map prettyPrint argTys) ++
-                 ")"
-    [((tps,_,ts,isVA), aps)] ->
-        let sig = (tps, ts, isVA) in
-         case Map.lookup sig cMap' of
-              Nothing -> panic (monadModule ++ ".lookupConstr")
-                         $ "Sig must be one of the keys of constrMap: " ++ show sig
-              Just csig -> do
-                        mapM_ (\(p,q) -> do
-                                 constraint emptyLockSet p q $ toUndef $
-                                    "Cannot unify policy type parameters at constructor call:\n" ++
-                                    "  p: " ++ prettyPrint p ++ "\n" ++
-                                    "  q: " ++ prettyPrint q
-                                 constraint emptyLockSet q p $ toUndef $
-                                    "Cannot unify policy type parameters at constructor call:\n" ++
-                                    "  p: " ++ prettyPrint q ++ "\n" ++
-                                    "  q: " ++ prettyPrint p) aps
-                        return (tps, iaps, csig)
-
-
-getSigs :: MethodMap -> [Sig]
-getSigs = map getSig . Map.assocs
-    where getSig ((tps, pTs, vAr), msig) = (tps, mPars msig, pTs, vAr)
-
-getSigsC :: ConstrMap -> [Sig]
-getSigsC = map getSig . Map.assocs
-    where getSig ((tps, pTs, vAr), csig) = (tps, cPars csig, pTs, vAr)
+-- lookupConstr :: ClassType TC
+--              -> [TypeArgument PA]
+--              -> ActorPolicy -- policyof(this), i.e. the result
+--              -> [Type TC]
+--              -> [ActorPolicy]
+--              -> CodeM x ([TypeParam PA], [(RefType PA, B.ByteString)], ConstrSig)
+-- lookupConstr ctyp tArgs pThis argTys argPs = do
+--   --debugPrint $ "\n\n######## Looking up constructor! ######## \n"
+--   let typ = clsTypeToType ctyp
+--   --debugPrint $ "typ: " ++ prettyPrint typ
+-- --  tm <- getTypeMap
+-- --  debugPrint $ prettyPrint tm
+--   (iaps, aSig) <- lookupTypeOfType typ
+-- --  debugPrint $ "aSig: " ++ show aSig
+--   let cMap = constrs $ tMembers aSig
+--   --debugPrint $ "cMap: "
+--   --debugPrint $ prettyPrint cMap
+--   cMap' <- instThis pThis cMap
+--   bests <- findBestMethod tArgs argTys argPs (getSigsC cMap')
+--   case bests of
+--     [] -> fail $ "Type " ++ prettyPrint ctyp ++
+--                  " does not have a constructor \
+--                   \matching argument types (" ++
+--                  unwords (intersperse ", " $ map prettyPrint argTys) ++
+--                  ")"
+--     (_:_:_) ->
+--         fail $ "Type " ++ prettyPrint ctyp ++
+--                  " has more than one most specific \
+--                   \constructor matching argument types (" ++
+--                  unwords (intersperse ", " $ map prettyPrint argTys) ++
+--                  ")"
+--     [((tps,_,ts,isVA), aps)] ->
+--         let sig = (tps, ts, isVA) in
+--          case Map.lookup sig cMap' of
+--               Nothing -> panic (monadModule ++ ".lookupConstr")
+--                          $ "Sig must be one of the keys of constrMap: " ++ show sig
+--               Just csig -> do
+--                         mapM_ (\(p,q) -> do
+--                                  constraint emptyLockSet p q $ toUndef $
+--                                     "Cannot unify policy type parameters at constructor call:\n" ++
+--                                     "  p: " ++ prettyPrint p ++ "\n" ++
+--                                     "  q: " ++ prettyPrint q
+--                                  constraint emptyLockSet q p $ toUndef $
+--                                     "Cannot unify policy type parameters at constructor call:\n" ++
+--                                     "  p: " ++ prettyPrint q ++ "\n" ++
+--                                     "  q: " ++ prettyPrint p) aps
+--                         return (tps, iaps, csig)
 
 
-substParPols :: Lattice m ActorPolicy =>
-                [(B.ByteString, ActorPolicy)] -> ActorPolicy -> m ActorPolicy
-substParPols subst (VarPolicy pol) = substParPrgPols subst pol
-substParPols subst (MetaJoin p q) = do
-  pp <- substParPols subst p
-  qq <- substParPols subst q
-  pp `lub` qq
-substParPols subst (MetaMeet p q) = do
-  pp <- substParPols subst p
-  qq <- substParPols subst q
-  pp `glb` qq
-substParPols _ p = return p
+-- getSigs :: MethodMap -> [Sig]
+-- getSigs = map getSig . Map.assocs
+--     where getSig ((tps, pTs, vAr), msig) = (tps, mPars msig, pTs, vAr)
 
-substParPrgPols :: Lattice m ActorPolicy =>
-                   [(B.ByteString, ActorPolicy)] -> PrgPolicy -> m ActorPolicy
-substParPrgPols subst p@(PolicyVar (PolicyOfVar i)) =
-    case lookup i subst of
-      Just newP -> return newP
-      Nothing -> return $ VarPolicy p
-substParPrgPols subst (Join p q) = do
-  pp <- substParPrgPols subst p
-  qq <- substParPrgPols subst q
-  pp `lub` qq
-substParPrgPols subst (Meet p q) = do
-  pp <- substParPrgPols subst p
-  qq <- substParPrgPols subst q
-  pp `glb` qq
-substParPrgPols _ p = return $ VarPolicy p
+-- getSigsC :: ConstrMap -> [Sig]
+-- getSigsC = map getSig . Map.assocs
+--     where getSig ((tps, pTs, vAr), csig) = (tps, cPars csig, pTs, vAr)
 
-substTypeParPols :: (HasSubTyping m, Lattice m ActorPolicy) =>
-                    [(B.ByteString, ActorPolicy)] -> Type TC -> m (Type TC)
-substTypeParPols subst (TcRefType rty) = TcRefType <$> substRefTypePPs rty
-  where substRefTypePPs rt =
-            case rt of
-              TcArrayType ty p ->
-                  TcArrayType <$> substTypeParPols subst ty <*> substParPols subst p
-              TcClassRefType ct  ->
-                  TcClassRefType <$> substClsTypePPs ct
-              _ -> return rt
 
-        substClsTypePPs (TcClassType n targs) = TcClassType n <$> mapM substTAPPs targs
+-- substParPols :: Lattice m ActorPolicy =>
+--                 [(B.ByteString, ActorPolicy)] -> ActorPolicy -> m ActorPolicy
+-- substParPols subst (VarPolicy pol) = substParPrgPols subst pol
+-- substParPols subst (MetaJoin p q) = do
+--   pp <- substParPols subst p
+--   qq <- substParPols subst q
+--   pp `lub` qq
+-- substParPols subst (MetaMeet p q) = do
+--   pp <- substParPols subst p
+--   qq <- substParPols subst q
+--   pp `glb` qq
+-- substParPols _ p = return p
 
-        substTAPPs (TcActualType rt) = TcActualType <$> substRefTypePPs rt
-        substTAPPs (TcActualPolicy p) = TcActualPolicy <$> substParPols subst p
-        substTAPPs a = return a
+-- substParPrgPols :: Lattice m ActorPolicy =>
+--                    [(B.ByteString, ActorPolicy)] -> PrgPolicy -> m ActorPolicy
+-- substParPrgPols subst p@(PolicyVar (PolicyOfVar i)) =
+--     case lookup i subst of
+--       Just newP -> return newP
+--       Nothing -> return $ VarPolicy p
+-- substParPrgPols subst (Join p q) = do
+--   pp <- substParPrgPols subst p
+--   qq <- substParPrgPols subst q
+--   pp `lub` qq
+-- substParPrgPols subst (Meet p q) = do
+--   pp <- substParPrgPols subst p
+--   qq <- substParPrgPols subst q
+--   pp `glb` qq
+-- substParPrgPols _ p = return $ VarPolicy p
 
-substTypeParPols _ ty = return ty
+-- substTypeParPols :: (HasSubTyping m, Lattice m ActorPolicy) =>
+--                     [(B.ByteString, ActorPolicy)] -> Type TC -> m (Type TC)
+-- substTypeParPols subst (TcRefType rty) = TcRefType <$> substRefTypePPs rty
+--   where substRefTypePPs rt =
+--             case rt of
+--               TcArrayType ty p ->
+--                   TcArrayType <$> substTypeParPols subst ty <*> substParPols subst p
+--               TcClassRefType ct  ->
+--                   TcClassRefType <$> substClsTypePPs ct
+--               _ -> return rt
+
+--         substClsTypePPs (TcClassType n targs) = TcClassType n <$> mapM substTAPPs targs
+
+--         substTAPPs (TcActualType rt) = TcActualType <$> substRefTypePPs rt
+--         substTAPPs (TcActualPolicy p) = TcActualPolicy <$> substParPols subst p
+--         substTAPPs a = return a
+
+-- substTypeParPols _ ty = return ty
 
 
 
@@ -682,124 +682,124 @@ scrambleActors mtc = do
 -- We don't give crap about backwards compatibility here, and even if we
 -- did, we would have to rule it out because it would be unsound.
 
-isAssignableTo :: Type TC -> Type TC -> CodeM (Maybe [(ActorPolicy, ActorPolicy)])
-isAssignableTo t1 t2 = do
-  case t1 `equivTo` t2 of -- identity conversion
-    Just ps -> return $ Just ps
-    Nothing -> do
-      b <- liftTcDeclM $ t1 `widensTo` t2 -- widening conversion
-      return $ if b then Just [] else Nothing
+-- isAssignableTo :: Type TC -> Type TC -> CodeM x (Maybe [(ActorPolicy, ActorPolicy)])
+-- isAssignableTo t1 t2 = do
+--   case t1 `equivTo` t2 of -- identity conversion
+--     Just ps -> return $ Just ps
+--     Nothing -> do
+--       b <- liftTcDeclM $ t1 `widensTo` t2 -- widening conversion
+--       return $ if b then Just [] else Nothing
 
--- TODO: This is a replacement for 'isAssignableTo' (or rather, =<:) for the typecheck phase.
--- TODO: We use 'CodeM' for now. A "weaker" version may be sufficient.
-isAssignableToTc :: Type TC -> Type TC -> CodeM Bool
-isAssignableToTc t1 t2 = do
-    let b1 = t1 `equivToTc` t2 -- identity conversion
-    b2 <- liftTcDeclM $ t1 `widensTo` t2 -- widening conversion
-    return $ b1 || b2
+-- -- TODO: This is a replacement for 'isAssignableTo' (or rather, =<:) for the typecheck phase.
+-- -- TODO: We use 'CodeM' for now. A "weaker" version may be sufficient.
+-- isAssignableToTc :: Type TC -> Type TC -> CodeM x Bool
+-- isAssignableToTc t1 t2 = do
+--     let b1 = t1 `equivToTc` t2 -- identity conversion
+--     b2 <- liftTcDeclM $ t1 `widensTo` t2 -- widening conversion
+--     return $ b1 || b2
 
-(=<:) :: Type TC -> TcStateType -> CodeM (Maybe [(ActorPolicy, ActorPolicy)])
-lhs =<: rhs = isAssignableTo (unStateType rhs) lhs
+-- (=<:) :: Type TC -> TcStateType -> CodeM x (Maybe [(ActorPolicy, ActorPolicy)])
+-- lhs =<: rhs = isAssignableTo (unStateType rhs) lhs
 
-equivTo :: Type TC -> Type TC -> Maybe [(ActorPolicy, ActorPolicy)]
-equivTo (TcRefType rt1) (TcRefType rt2) = equivRefT rt1 rt2
-  where equivRefT :: RefType TC -> RefType TC -> Maybe [(ActorPolicy, ActorPolicy)]
-        equivRefT (TcArrayType t1 p1) (TcArrayType t2 p2) = do
-          ps <- t1 `equivTo` t2
-          return $ (p1,p2):ps
-        equivRefT (TcClassRefType ct1) (TcClassRefType ct2) = equivClsT ct1 ct2
-        equivRefT _ _ = if rt1 == rt2 then return [] else Nothing
+-- equivTo :: Type TC -> Type TC -> Maybe [(ActorPolicy, ActorPolicy)]
+-- equivTo (TcRefType rt1) (TcRefType rt2) = equivRefT rt1 rt2
+--   where equivRefT :: RefType TC -> RefType TC -> Maybe [(ActorPolicy, ActorPolicy)]
+--         equivRefT (TcArrayType t1 p1) (TcArrayType t2 p2) = do
+--           ps <- t1 `equivTo` t2
+--           return $ (p1,p2):ps
+--         equivRefT (TcClassRefType ct1) (TcClassRefType ct2) = equivClsT ct1 ct2
+--         equivRefT _ _ = if rt1 == rt2 then return [] else Nothing
 
-        equivClsT :: ClassType TC -> ClassType TC -> Maybe [(ActorPolicy, ActorPolicy)]
-        equivClsT (TcClassType n1 tas1) (TcClassType n2 tas2) =
-            if n1 /= n2 then Nothing
-             else equivTypeArgs tas1 tas2
+--         equivClsT :: ClassType TC -> ClassType TC -> Maybe [(ActorPolicy, ActorPolicy)]
+--         equivClsT (TcClassType n1 tas1) (TcClassType n2 tas2) =
+--             if n1 /= n2 then Nothing
+--              else equivTypeArgs tas1 tas2
 
-        equivTypeArgs :: [TypeArgument TC] -> [TypeArgument TC] -> Maybe [(ActorPolicy, ActorPolicy)]
-        equivTypeArgs tas1 tas2 = concat <$> zipWithM equivTypeArg tas1 tas2
+--         equivTypeArgs :: [TypeArgument TC] -> [TypeArgument TC] -> Maybe [(ActorPolicy, ActorPolicy)]
+--         equivTypeArgs tas1 tas2 = concat <$> zipWithM equivTypeArg tas1 tas2
 
-        equivTypeArg :: TypeArgument TC -> TypeArgument TC -> Maybe [(ActorPolicy, ActorPolicy)]
-        equivTypeArg (TcActualPolicy p1) (TcActualPolicy p2) = Just [(p1, p2)]
-        equivTypeArg (TcActualType r1) (TcActualType r2) = equivRefT r1 r2
-        equivTypeArg a1 a2 = if a1 == a2 then return [] else Nothing
+--         equivTypeArg :: TypeArgument TC -> TypeArgument TC -> Maybe [(ActorPolicy, ActorPolicy)]
+--         equivTypeArg (TcActualPolicy p1) (TcActualPolicy p2) = Just [(p1, p2)]
+--         equivTypeArg (TcActualType r1) (TcActualType r2) = equivRefT r1 r2
+--         equivTypeArg a1 a2 = if a1 == a2 then return [] else Nothing
 
-equivTo t1 t2 = if t1 == t2 then return [] else Nothing
+-- equivTo t1 t2 = if t1 == t2 then return [] else Nothing
 
-equivToTc :: Type TC -> Type TC -> Bool
-equivToTc (TcRefType rt1) (TcRefType rt2) = equivRefT rt1 rt2
-  where equivRefT :: RefType TC -> RefType TC -> Bool
-        equivRefT (TcArrayType t1 _) (TcArrayType t2 _) = t1 `equivToTc` t2
-        equivRefT (TcClassRefType ct1) (TcClassRefType ct2) = equivClsT ct1 ct2
-        equivRefT _ _ = rt1 == rt2
+-- equivToTc :: Type TC -> Type TC -> Bool
+-- equivToTc (TcRefType rt1) (TcRefType rt2) = equivRefT rt1 rt2
+--   where equivRefT :: RefType TC -> RefType TC -> Bool
+--         equivRefT (TcArrayType t1 _) (TcArrayType t2 _) = t1 `equivToTc` t2
+--         equivRefT (TcClassRefType ct1) (TcClassRefType ct2) = equivClsT ct1 ct2
+--         equivRefT _ _ = rt1 == rt2
 
-        equivClsT :: ClassType TC -> ClassType TC -> Bool
-        equivClsT (TcClassType n1 tas1) (TcClassType n2 tas2) =
-            n1 == n2                   -- Same class name
-            && equivTypeArgs tas1 tas2 -- Same type arguments
+--         equivClsT :: ClassType TC -> ClassType TC -> Bool
+--         equivClsT (TcClassType n1 tas1) (TcClassType n2 tas2) =
+--             n1 == n2                   -- Same class name
+--             && equivTypeArgs tas1 tas2 -- Same type arguments
 
-        equivTypeArgs :: [TypeArgument TC] -> [TypeArgument TC] -> Bool
-        equivTypeArgs tas1 tas2 = and $ zipWith equivTypeArg tas1 tas2
+--         equivTypeArgs :: [TypeArgument TC] -> [TypeArgument TC] -> Bool
+--         equivTypeArgs tas1 tas2 = and $ zipWith equivTypeArg tas1 tas2
 
-        equivTypeArg :: TypeArgument TC -> TypeArgument TC -> Bool
-        equivTypeArg (TcActualPolicy _) (TcActualPolicy _) = True -- We don't check policies in this phase
-        equivTypeArg (TcActualType r1) (TcActualType r2) = equivRefT r1 r2
-        equivTypeArg a1 a2 = a1 == a2
+--         equivTypeArg :: TypeArgument TC -> TypeArgument TC -> Bool
+--         equivTypeArg (TcActualPolicy _) (TcActualPolicy _) = True -- We don't check policies in this phase
+--         equivTypeArg (TcActualType r1) (TcActualType r2) = equivRefT r1 r2
+--         equivTypeArg a1 a2 = a1 == a2
 
-equivToTc t1 t2 = t1 == t2
+-- equivToTc t1 t2 = t1 == t2
 
-isCastableTo :: Type TC
-             -> Type TC
-             -> CodeM (Maybe [(ActorPolicy, ActorPolicy)], Bool) -- (Can be cast, needs reference narrowing)
-isCastableTo t1 t2 = do
-  -- 'isAssignableTo' handles the cases of identity, primitive widening,
-  -- boxing + reference widening and unboxing + primitive widening.
-  -- It also handles reference widening, but not with subsequent unboxing.
-  mps <- isAssignableTo t1 t2
-  case mps of
-    Just ps -> return (Just ps, False)
-    Nothing -> liftTcDeclM $ do
-     -- What we have left is primitive narrowing, primitive widening+narrowing,
-     -- reference widening + unboxing, and reference narrowing + optional unboxing.
-     -- Only the last one, that includes reference narrowing, can throw a ClassCastException.
-     case (t1, t2) of
-       (TcPrimType pt1, TcPrimType pt2) -> -- primitive (widening +) narrowing
-           return (if primTypeTcToPa pt2 `elem`  narrowConvert (primTypeTcToPa pt1)
-             ++ widenNarrowConvert (primTypeTcToPa pt1)
-             then Just []
-             else Nothing, False)
-       (TcRefType  rt1, TcPrimType pt2)
-           | Just ct2 <- box (primTypeTcToPa pt2) -> do -- reference widening + unboxing AND
-                                                        -- reference narrowing + unboxing
-               -- We cheat and compare to the boxing of the target instead
-               -- since box/unbox are inverses.
-               let rt2 = TcClassRefType ct2
-               bWide <- rt1 `subTypeOf` rt2
-               if bWide then return (Just [], False)
-                else return (Just [], True)
-       (TcRefType _rt1, TcRefType _rt2) -> do -- reference narrowing, no unboxing
-                     -- TODO: There are restrictions here, but not relevant at this point
-                     return (Just [], True)
-       _ -> return (Nothing, False)
+-- isCastableTo :: Type TC
+--              -> Type TC
+--              -> CodeM x (Maybe [(ActorPolicy, ActorPolicy)], Bool) -- (Can be cast, needs reference narrowing)
+-- isCastableTo t1 t2 = do
+--   -- 'isAssignableTo' handles the cases of identity, primitive widening,
+--   -- boxing + reference widening and unboxing + primitive widening.
+--   -- It also handles reference widening, but not with subsequent unboxing.
+--   mps <- isAssignableTo t1 t2
+--   case mps of
+--     Just ps -> return (Just ps, False)
+--     Nothing -> liftTcDeclM $ do
+--      -- What we have left is primitive narrowing, primitive widening+narrowing,
+--      -- reference widening + unboxing, and reference narrowing + optional unboxing.
+--      -- Only the last one, that includes reference narrowing, can throw a ClassCastException.
+--      case (t1, t2) of
+--        (TcPrimType pt1, TcPrimType pt2) -> -- primitive (widening +) narrowing
+--            return (if primTypeTcToPa pt2 `elem`  narrowConvert (primTypeTcToPa pt1)
+--              ++ widenNarrowConvert (primTypeTcToPa pt1)
+--              then Just []
+--              else Nothing, False)
+--        (TcRefType  rt1, TcPrimType pt2)
+--            | Just ct2 <- box (primTypeTcToPa pt2) -> do -- reference widening + unboxing AND
+--                                                         -- reference narrowing + unboxing
+--                -- We cheat and compare to the boxing of the target instead
+--                -- since box/unbox are inverses.
+--                let rt2 = TcClassRefType ct2
+--                bWide <- rt1 `subTypeOf` rt2
+--                if bWide then return (Just [], False)
+--                 else return (Just [], True)
+--        (TcRefType _rt1, TcRefType _rt2) -> do -- reference narrowing, no unboxing
+--                      -- TODO: There are restrictions here, but not relevant at this point
+--                      return (Just [], True)
+--        _ -> return (Nothing, False)
 
-(<<:) :: Type TC -> TcStateType -> CodeM (Maybe [(ActorPolicy, ActorPolicy)], Bool)
-lhs <<: rhs = isCastableTo (unStateType rhs) lhs
+-- (<<:) :: Type TC -> TcStateType -> CodeM x (Maybe [(ActorPolicy, ActorPolicy)], Bool)
+-- lhs <<: rhs = isCastableTo (unStateType rhs) lhs
 
 -- widening conversion can come in four basic shapes:
 -- 1) pt/pt -> widening primitive conversion
 -- 2) rt/rt -> widening reference conversion
 -- 3) pt/rt -> boxing conversion + widening reference conversion
 -- 4) rt/pt -> unboxing conversion + widening primitive conversion
-widensTo :: Type TC -> Type TC -> TcDeclM Bool
-widensTo (TcPrimType pt1) (TcPrimType pt2) = return $ pt2 `elem` (map primTypePaToTc $ widenConvert (primTypeTcToPa pt1))
-widensTo (TcRefType  rt1) (TcRefType  rt2) = rt1 `subTypeOf` rt2
-widensTo (TcPrimType pt1) t2@(TcRefType _) =
-    maybe (return False)
-              (\ct -> clsTypeToType ct `widensTo` t2) (box $ primTypeTcToPa pt1)
-widensTo (TcRefType   rt1) t2@(TcPrimType _) =
-    case rt1 of
-      TcClassRefType ct -> maybe (return False)
-                        (\pt -> TcPrimType pt `widensTo` t2) (unbox ct)
-      _ -> return False
+-- widensTo :: Type TC -> Type TC -> TcDeclM Bool
+-- widensTo (TcPrimType pt1) (TcPrimType pt2) = return $ pt2 `elem` (map primTypePaToTc $ widenConvert (primTypeTcToPa pt1))
+-- widensTo (TcRefType  rt1) (TcRefType  rt2) = rt1 `subTypeOf` rt2
+-- widensTo (TcPrimType pt1) t2@(TcRefType _) =
+--     maybe (return False)
+--               (\ct -> clsTypeToType ct `widensTo` t2) (box $ primTypeTcToPa pt1)
+-- widensTo (TcRefType   rt1) t2@(TcPrimType _) =
+--     case rt1 of
+--       TcClassRefType ct -> maybe (return False)
+--                         (\pt -> TcPrimType pt `widensTo` t2) (unbox ct)
+--       _ -> return False
 {-- 5) Paragon-specific types
 widensTo t1 t2 | isPolicyType t1 && t2 == policyT  = return True
                | isLockType   t1 && t2 == booleanT = return True
@@ -838,14 +838,14 @@ instance HasSubTyping TcDeclM where
 ------------------------------------------
 
 -- Resolution thanks to the transitive closure.
-solveConstraints :: [ConstraintWMsg] -> TcDeclM ()
-solveConstraints cs = do
-      finePrint "Solving constraints..."
-      debugPrint $ show (length cs)
-      let wcs     = [c | (c, _) <- cs] -- TODO: Take error texts into account
-      b <- solve wcs
-      check b (toUndef "The system failed to infer the set of unspecified policies ")
-      finePrint "Constraints successfully solved!"
+-- solveConstraints :: [ConstraintWMsg] -> TcDeclM ()
+-- solveConstraints cs = do
+--       finePrint "Solving constraints..."
+--       debugPrint $ show (length cs)
+--       let wcs     = [c | (c, _) <- cs] -- TODO: Take error texts into account
+--       b <- solve wcs
+--       check b (toUndef "The system failed to infer the set of unspecified policies ")
+--       finePrint "Constraints successfully solved!"
 
 {-
 
@@ -880,70 +880,70 @@ solve cs =
 -- 'scramble' should be called at method calls,
 -- and will remove everything that is not known
 -- not to be affected by that call.
-scrambleState :: CodeM ()
-scrambleState = do
---  s1 <- getState
---  debugPrint $ "\nScrambling: " ++ show s1
-  updateState scramble
---  s2 <- getState
---  debugPrint $ "Scrambling done: " ++ show s2 ++ "\n"
-
-scramble :: CodeState -> CodeState
-scramble = transformBi scr
-    where scr :: VarMap -> VarMap
-          scr (VarMap {-aMap-} pMap iMap tMap) =
-              VarMap
-                -- (deleteIf (const $ not . aStable) aMap)
-                (deleteIf (const $ not . pStable) pMap)
-                (deleteIf (const $ not . iStable) iMap)
-                tMap -- fixed recursively by transformBi
+-- scrambleState :: CodeM x ()
+-- scrambleState = do
+-- --  s1 <- getState
+-- --  debugPrint $ "\nScrambling: " ++ show s1
+--   updateState scramble
+-- --  s2 <- getState
+-- --  debugPrint $ "Scrambling done: " ++ show s2 ++ "\n"
+--
+-- scramble :: CodeState -> CodeState
+-- scramble = transformBi scr
+--     where scr :: VarMap -> VarMap
+--           scr (VarMap {-aMap-} pMap iMap tMap) =
+--               VarMap
+--                 -- (deleteIf (const $ not . aStable) aMap)
+--                 (deleteIf (const $ not . pStable) pMap)
+--                 (deleteIf (const $ not . iStable) iMap)
+--                 tMap -- fixed recursively by transformBi
 
 -- 'scrambleT' should be called when a field is
 -- updated, and will remove everything that could
 -- be an update-through-alias of that field.
-scrambleT :: RefType TC -> Ident PA -> Bool -> CodeM ()
-scrambleT rtyO iF fresh = setState =<< transformBiM scr =<< getState -- "updateStateM"
-  where scr :: InstanceInfo -> CodeM InstanceInfo
-        scr isig = do
-             appl <- liftTcDeclM $ iType isig `subTypeOf` rtyO
-             return $ if appl && not (fresh && iFresh isig)
-                       then isig { iMembers = scrVM $ iMembers isig }
-                       else isig
-
-        scrVM :: VarMap -> VarMap
-        scrVM (VarMap {-aMap-} pMap iMap tMap) =
-
-             VarMap
-                   -- (deleteIf matches aMap)
-                   (deleteIf matches pMap)
-                   (deleteIf matches iMap)
-                   tMap -- will be empty
-          where
-            matches :: B.ByteString -> a -> Bool
-            matches k _v = k == unIdent iF
-
-deleteIf :: Ord k => (k -> v -> Bool) -> Map k v -> Map k v
-deleteIf test = snd . Map.partitionWithKey test
-
-
-varUpdatedNN :: Name PA -> Maybe (Name PA) -> Ident PA -> CodeM ()
-varUpdatedNN n mPre i = do
-  (ty, _, _, _) <- lookupVar mPre i
-  _ <- updateStateType (Just (n, True)) (unStateType ty) (Just $ setNullInStateType ty (NotNull, Committed))
-  return ()
-
-isNullChecked :: Exp PA -> CodeM ()
-isNullChecked ( BinOp _ (ExpName _ n@(Name _ EName mPre i)) (Equal _) (Lit _ (Null _)) ) =
-    varUpdatedNN n mPre i
-isNullChecked ( BinOp _ (Lit _ (Null _)) (Equal _) (ExpName _ n@(Name _ EName mPre i)) ) =
-    varUpdatedNN n mPre i
-isNullChecked _ = return ()
-
-
-isNotNullChecked :: Exp PA -> CodeM ()
-isNotNullChecked ( BinOp _ (ExpName _ n@(Name _ EName mPre i)) (NotEq _) (Lit _ (Null _)) ) =
-    varUpdatedNN n mPre i
-isNotNullChecked ( BinOp _ (Lit _ (Null _)) (NotEq _) (ExpName _ n@(Name _ EName mPre i)) ) =
-    varUpdatedNN n mPre i
-isNotNullChecked _ = return ()
+-- scrambleT :: RefType TC -> Ident PA -> Bool -> CodeM x ()
+-- scrambleT rtyO iF fresh = setState =<< transformBiM scr =<< getState -- "updateStateM"
+--   where scr :: InstanceInfo -> CodeM x InstanceInfo
+--         scr isig = do
+--              appl <- liftTcDeclM $ iType isig `subTypeOf` rtyO
+--              return $ if appl && not (fresh && iFresh isig)
+--                        then isig { iMembers = scrVM $ iMembers isig }
+--                        else isig
+--
+--         scrVM :: VarMap -> VarMap
+--         scrVM (VarMap {-aMap-} pMap iMap tMap) =
+--
+--              VarMap
+--                    -- (deleteIf matches aMap)
+--                    (deleteIf matches pMap)
+--                    (deleteIf matches iMap)
+--                    tMap -- will be empty
+--           where
+--             matches :: B.ByteString -> a -> Bool
+--             matches k _v = k == unIdent iF
+--
+-- deleteIf :: Ord k => (k -> v -> Bool) -> Map k v -> Map k v
+-- deleteIf test = snd . Map.partitionWithKey test
+--
+--
+-- varUpdatedNN :: Name PA -> Maybe (Name PA) -> Ident PA -> CodeM x ()
+-- varUpdatedNN n mPre i = do
+--   (ty, _, _, _) <- lookupVar mPre i
+--   _ <- updateStateType (Just (n, True)) (unStateType ty) (Just $ setNullInStateType ty (NotNull, Committed))
+--   return ()
+--
+-- isNullChecked :: Exp PA -> CodeM x ()
+-- isNullChecked ( BinOp _ (ExpName _ n@(Name _ EName mPre i)) (Equal _) (Lit _ (Null _)) ) =
+--     varUpdatedNN n mPre i
+-- isNullChecked ( BinOp _ (Lit _ (Null _)) (Equal _) (ExpName _ n@(Name _ EName mPre i)) ) =
+--     varUpdatedNN n mPre i
+-- isNullChecked _ = return ()
+--
+--
+-- isNotNullChecked :: Exp PA -> CodeM x ()
+-- isNotNullChecked ( BinOp _ (ExpName _ n@(Name _ EName mPre i)) (NotEq _) (Lit _ (Null _)) ) =
+--     varUpdatedNN n mPre i
+-- isNotNullChecked ( BinOp _ (Lit _ (Null _)) (NotEq _) (ExpName _ n@(Name _ EName mPre i)) ) =
+--     varUpdatedNN n mPre i
+-- isNotNullChecked _ = return ()
 

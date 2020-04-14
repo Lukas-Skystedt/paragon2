@@ -47,7 +47,17 @@ data CodeState = CodeState {
     }
   deriving (Eq, Show, Data, Typeable)
 
-emptyCodeState :: CodeState
+data TcCodeState = TcCodeState {
+      tcVarMapSt :: !TcVarMap
+    }
+  deriving (Eq, Show, Data, Typeable)
+
+data TcVarMap = TcVarMap {
+      tcInstanceSt :: !InstanceMap,  -- ^ Non-static fields and variables
+      tcTypesSt    :: !TypesMap      -- ^ Static fields
+    }
+  deriving (Eq, Show, Data, Typeable)
+
 emptyCodeState = CodeState emptyVM noDelta Map.empty
 
 data InstanceInfo = II {
@@ -133,19 +143,21 @@ mergeVarMaps (VarMap {-as1-} ps1 is1 ts1) (VarMap {-as2-} ps2 is2 ts2) = do
   newTypes  <- mergeTypesMaps ts1 ts2
   return $ VarMap {-newActors-} newPols newInsts newTypes
 
---mergeStates :: Uniq -> CodeState -> CodeState -> IO CodeState
-mergeStates :: CodeState -> CodeState -> TcDeclM CodeState
-mergeStates (CodeState vm1 ls1 es1) (CodeState vm2 ls2 es2) = do
-  newVm    <- mergeVarMaps vm1 vm2
-  newExns  <- mergeExns    es1 es2
-  let newState = CodeState {
-               varMapSt = newVm,
-               lockMods = ls1 <++> ls2,
-               exnS     = newExns
-             }
-  tracePrint ("\n" ++ codeStateModule ++ ".mergeStates:\n" ++ formatData newState ++ "\n")
+mergeTcVarMaps :: TcVarMap -> TcVarMap -> TcDeclM TcVarMap
+mergeTcVarMaps (TcVarMap is1 ts1) (TcVarMap is2 ts2) = do
+  newInsts  <- mergeInstances is1 is2
+  newTypes  <- mergeTypesMaps ts1 ts2
+  return $ TcVarMap newInsts newTypes
+
+tcMergeStates :: TcCodeState -> TcCodeState -> TcDeclM TcCodeState
+tcMergeStates (TcCodeState vm1) (TcCodeState vm2) = do
+  newVm    <- mergeTcVarMaps vm1 vm2
+  let newState = TcCodeState newVm
+  tracePrint ("\n" ++ codeStateModule ++ ".tcMergeStates:\n" ++ formatData newState ++ "\n")
   return newState
 
+mergeStates :: CodeState -> CodeState -> TcDeclM CodeState
+mergeStates = error "mergeStated is deprecated"
 ------------------------------------------
 -- Instance tracking
 ------------------------------------------

@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections, BangPatterns, FlexibleInstances, MultiParamTypeClasses,
+{-# LANGUAGE TupleSections, BangPatterns, FlexibleInstances, FlexibleContexts, MultiParamTypeClasses,
     ImpredicativeTypes, PatternGuards, TypeFamilies #-}
 module Language.Java.Paragon.TypeCheck.Monad.CodeM
     (
@@ -146,7 +146,7 @@ gatherPolicyBounds = gatherPolicyBounds' Nothing
 
 -- Running in parallel
 infix 1 |||
-(|||) :: CodeM a -> CodeM b -> CodeM (a,b)
+(|||) :: CodeM TC a -> CodeM TC b -> CodeM TC (a,b)
 (CodeM f1) ||| (CodeM f2) =
     CodeM $ \ !te !ts -> do
       (a, !ts1, cs1) <- f1 te ts
@@ -155,31 +155,39 @@ infix 1 |||
       return ((a,b), ts', cs1 ++ cs2)
 
 
-mergeStatesDeclM :: Maybe CodeState -> Maybe CodeState -> TcDeclM (Maybe CodeState)
+mergeStatesDeclM :: Maybe TcCodeState -> Maybe TcCodeState -> TcDeclM (Maybe TcCodeState)
 mergeStatesDeclM (Just s1) (Just s2) = Just <$> mergeStatesDecl s1 s2
 mergeStatesDeclM Nothing a = return a
 mergeStatesDeclM a Nothing = return a
 
-mergeStatesDecl :: CodeState -> CodeState -> TcDeclM CodeState
-mergeStatesDecl s1 s2 = mergeStates s1 s2
+mergeStatesDecl :: TcCodeState -> TcCodeState -> TcDeclM TcCodeState
+mergeStatesDecl s1 s2 = tcMergeStates s1 s2
 
 
 
 --------------------------------------------------
 -- The monad used for typechecking code snippets
 
-newtype CodeM a =
-    CodeM (CodeEnv -> Maybe CodeState -> TcDeclM (a, Maybe CodeState, [ConstraintWMsg]))
+newtype CodeM x a =
+    CodeM (XCodeEnv x -> Maybe (XCodeState x) -> TcDeclM (a, Maybe (XCodeState x), [ConstraintWMsg]))
 
-runCodeM :: CodeEnv -> CodeState -> CodeM a -> TcDeclM (a, [ConstraintWMsg])
+type TcCodeM a = CodeM TC a
+
+type family XCodeEnv x
+type family XCodeState x
+
+type instance XCodeEnv TC = TcCodeEnv
+type instance XCodeState TC = TcCodeState
+
+runCodeM :: XCodeEnv x -> XCodeState x -> CodeM x a -> TcDeclM (a, [ConstraintWMsg])
 runCodeM env state (CodeM f) = do
   (a,_,cs) <- f env (Just state)
   return (a, cs)
 
-instance Fail.MonadFail CodeM where
+instance Fail.MonadFail (CodeM x) where
   fail err = CodeM $ \_ _ -> fail err
 
-instance Monad CodeM where
+instance Monad (CodeM x) where
   return x = CodeM $ \_ s -> return (x, s, [])
 
   CodeM f >>= h = CodeM $ \e s0 -> do
@@ -190,17 +198,17 @@ instance Monad CodeM where
 
   fail = Fail.fail
 
-instance Functor CodeM where
+instance Functor (CodeM x) where
   fmap = liftM
 
-instance Applicative CodeM  where
+instance Applicative (CodeM x)  where
   (<*>) = ap
   pure = return
 
-instance MonadIO CodeM  where
+instance MonadIO (CodeM x) where
   liftIO = liftTcDeclM . liftIO
 
-instance MonadBase CodeM  where
+instance MonadBase (CodeM x) where
   liftBase = liftTcDeclM . liftBase
   withErrCtxt' ecf (CodeM f) = CodeM $ \e s -> withErrCtxt' ecf (f e s)
   tryM (CodeM f) = CodeM $ \e s -> do
@@ -211,44 +219,44 @@ instance MonadBase CodeM  where
   failE = liftTcDeclM . failE
   failEC x = liftTcDeclM . failEC x
 
-instance MonadPR CodeM  where
+instance MonadPR (CodeM x) where
   liftPR = liftTcDeclM . liftPR
 
 --instance MonadTcBaseM CodeM where
 --  liftTcBaseM = liftTcDeclM . liftTcBaseM
 --  withTypeMap tmf (CodeM f) = CodeM $ \ec e s -> withTypeMap tmf (f ec e s)
 
-instance MonadTcDeclM CodeM  where
+instance MonadTcDeclM (CodeM x) where
   liftTcDeclM tdm = CodeM $ \_ s -> (,s,[]) <$> tdm
   withCurrentTypeMap tmf (CodeM f) = CodeM $ \e s -> withCurrentTypeMap tmf (f e s)
 
-instance HasSubTyping CodeM where
+instance HasSubTyping (CodeM x) where
   subTypeOf rt1 rt2 = liftTcDeclM $ subTypeOf rt1 rt2
 
-instance EvalPolicyM CodeM where
-  evalPolicy p = do
-      debugPrint $ "evalPolicy{CodeM}: " ++ prettyPrint p
-      interpretPolicy lookupFieldC p
-  evalActorId = interpretActorId lookupFieldC
-  evalActor = interpretActor lookupFieldC
-  evalLock = liftTcDeclM . evalLock
+-- instance EvalPolicyM (CodeM x) where
+--   evalPolicy p = do
+--       debugPrint $ "evalPolicy{CodeM}: " ++ prettyPrint p
+--       interpretPolicy lookupFieldC p
+--   evalActorId = interpretActorId lookupFieldC
+--   evalActor = interpretActor lookupFieldC
+--   evalLock = liftTcDeclM . evalLock
 
-lookupFieldC :: Name PA -> CodeM Value
-lookupFieldC n@(Name _ _ mPre i) = do
-  debugPrint $ "lookupFieldC: " ++ prettyPrint n
-  (sty, _, _, _) <- lookupVar mPre i
-  case sty of
-    TcInstance _ aid _ _ -> return $ VAct aid
-    TcPolicyPolT (KnownPolicy (VarPolicy prgp)) -> return $ VPol prgp
-    _ -> panic (tcCodeMModule ++ ".lookupFieldC") $
-         "Unhandled typemethod lookup: " ++ show sty
+-- lookupFieldC :: Name PA -> CodeM x Value
+-- lookupFieldC n@(Name _ _ mPre i) = do
+--   debugPrint $ "lookupFieldC: " ++ prettyPrint n
+--   (sty, _, _, _) <- lookupVar mPre i
+--   case sty of
+--     TcInstance _ aid _ _ -> return $ VAct aid
+--     TcPolicyPolT (KnownPolicy (VarPolicy prgp)) -> return $ VPol prgp
+--     _ -> panic (tcCodeMModule ++ ".lookupFieldC") $
+--          "Unhandled typemethod lookup: " ++ show sty
 
 -- The environment
 
-getEnv :: CodeM CodeEnv
+getEnv :: CodeM x (XCodeEnv x)
 getEnv = CodeM (\e s -> return (e,s,[]))
 
-withEnv :: (CodeEnv -> TcDeclM CodeEnv) -> CodeM a -> CodeM a
+withEnv :: Show (XCodeEnv x) => (XCodeEnv x -> TcDeclM (XCodeEnv x)) -> CodeM x a -> CodeM x a
 withEnv k (CodeM f) = CodeM $ \e0 s -> do
   e1 <- k e0
   tracePrint ("\n" ++ tcCodeMModule ++ ".withEnv new:\n" ++ formatData e1 ++ "\n")
@@ -256,12 +264,12 @@ withEnv k (CodeM f) = CodeM $ \e0 s -> do
   tracePrint ("\n" ++ tcCodeMModule ++ ".withEnv return:\n" ++ formatData e0 ++ "\n")
   return r
 
-getStaticContext :: CodeM Bool
-getStaticContext = staticContext <$> getEnv
+-- getStaticContext :: CodeM x Bool
+-- getStaticContext = staticContext <$> getEnv
 
 -- The state
 
-getState :: CodeM CodeState
+getState :: CodeM x (XCodeState x)
 getState = do
   ms <- getStateM
   case ms of
@@ -269,18 +277,18 @@ getState = do
     Nothing -> panic (tcCodeMModule ++ ".getState")
                "Calling getState in dead code analysis"
 
-getStateM :: CodeM (Maybe CodeState)
+getStateM :: CodeM x (Maybe (XCodeState x))
 getStateM = CodeM (\_ s -> return (s,s,[]))
 
-setState :: CodeState -> CodeM ()
+setState :: Show (XCodeState x) => XCodeState x -> CodeM x ()
 setState s = CodeM (\_ _ -> do
   tracePrint ("\n" ++ tcCodeMModule ++ ".setState:\n" ++ formatData s ++ "\n")
   return ((), Just s, []))
 
-updateState :: (CodeState -> CodeState) -> CodeM ()
+updateState :: Show (XCodeState x) => (XCodeState x -> XCodeState x) -> CodeM x ()
 updateState f = f <$> getState >>= setState
 
-mergeWithState :: CodeState -> CodeM ()
+mergeWithState :: TcCodeState -> CodeM TC ()
 mergeWithState s = do
   sOld <- getState
   sNew <- liftTcDeclM $ mergeStatesDecl sOld s
@@ -288,7 +296,7 @@ mergeWithState s = do
 
 -- Constraints
 
-addConstraint :: TcConstraint -> Error -> CodeM ()
+addConstraint :: TcConstraint -> Error -> CodeM x ()
 addConstraint c err = CodeM (\_ s -> return ((), s, [(c,err)]))
 
 
@@ -300,245 +308,245 @@ addConstraint c err = CodeM (\_ s -> return ((), s, [(c,err)]))
 
 
 -- Using a zipper technique
-touchPrefix :: Maybe (Name PA) -> CodeM (VarMap, VarMap -> CodeState)
-touchPrefix mn = do
-  case mn of
-    Nothing -> do
-            st <- getState
-            return (varMapSt st, \vm -> st { varMapSt = vm })
-    Just n@(Name _ nt mPre i) -> do
-        (vm, vmf) <- touchPrefix mPre
-        case nt of
-          _ | nt `elem` [TName, PName] -> do
-              let upd newVm = vmf $ vm { typesSt = Map.insert (unIdent i) newVm $ typesSt vm }
-              case Map.lookup (unIdent i) $ typesSt vm of
-                Just tvm -> return (tvm, upd)
-                Nothing -> do setState $ upd emptyVM
-                              return (emptyVM, upd)
-          EName -> do
-              let ist = instanceSt vm
-              case Map.lookup (unIdent i) ist of
-                Just ii ->
-                    let upd newVm =
-                            let newII = ii { iMembers = newVm }
-                            in vmf $ vm { instanceSt = Map.insert (unIdent i) newII ist }
-                    in return (iMembers ii, upd)
-                Nothing -> panic (tcCodeMModule ++ ".touchPrefix")
-                           $ "Prefix not in state: " ++ show n
-          _ -> panic (tcCodeMModule ++ ".touchPrefix")
-               $ "Unexpected name: " ++ show n
-    _ -> panic (tcCodeMModule ++ ".touchPrefix")
-         $ show mn
+-- touchPrefix :: Maybe (Name PA) -> CodeM x (VarMap, VarMap -> XCodeState x)
+-- touchPrefix mn = do
+--   case mn of
+--     Nothing -> do
+--             st <- getState
+--             return (varMapSt st, \vm -> st { varMapSt = vm })
+--     Just n@(Name _ nt mPre i) -> do
+--         (vm, vmf) <- touchPrefix mPre
+--         case nt of
+--           _ | nt `elem` [TName, PName] -> do
+--               let upd newVm = vmf $ vm { typesSt = Map.insert (unIdent i) newVm $ typesSt vm }
+--               case Map.lookup (unIdent i) $ typesSt vm of
+--                 Just tvm -> return (tvm, upd)
+--                 Nothing -> do setState $ upd emptyVM
+--                               return (emptyVM, upd)
+--           EName -> do
+--               let ist = instanceSt vm
+--               case Map.lookup (unIdent i) ist of
+--                 Just ii ->
+--                     let upd newVm =
+--                             let newII = ii { iMembers = newVm }
+--                             in vmf $ vm { instanceSt = Map.insert (unIdent i) newII ist }
+--                     in return (iMembers ii, upd)
+--                 Nothing -> panic (tcCodeMModule ++ ".touchPrefix")
+--                            $ "Prefix not in state: " ++ show n
+--           _ -> panic (tcCodeMModule ++ ".touchPrefix")
+--                $ "Unexpected name: " ++ show n
+--     _ -> panic (tcCodeMModule ++ ".touchPrefix")
+--          $ show mn
 
 -- Using a zipper technique
-getPrefix :: Maybe (Name PA) -> CodeM VarMap
-getPrefix mn = do
-  case mn of
-    Nothing -> varMapSt <$> getState
-    Just n@(Name _ nt mPre i) -> do
-        !vm <- getPrefix mPre
---        (vm, vmf) <- touchPrefix mPre
-        case nt of
-          _ | nt `elem` [TName, PName] -> do
-              case Map.lookup (unIdent i) $ typesSt vm of
-                Just tvm -> return tvm -- , upd)
-                Nothing -> do (_, vmf) <- touchPrefix mPre
-                              let upd newVm = vmf $ vm { typesSt = Map.insert (unIdent i) newVm $ typesSt vm }
-                              setState $ upd emptyVM
-                              return emptyVM -- , upd)
-          EName -> do
-              let ist = instanceSt vm
-              case Map.lookup (unIdent i) ist of
-                Just ii ->
---                    let upd newVm =
---                            let newII = ii { iMembers = newVm }
---                            in vmf $ vm { instanceSt = Map.insert (unIdent i) newII ist }
---                    in
-                      return $ iMembers ii --, upd)
-                Nothing -> panic (tcCodeMModule ++ ".getPrefix")
-                           $ "Prefix not in state: " ++ show n
-          _ -> panic (tcCodeMModule ++ ".getPrefix")
-               $ "Unexpected name: " ++ show n
-    _ -> panic (tcCodeMModule ++ ".getPrefix")
-         $ show mn
+-- getPrefix :: Maybe (Name PA) -> CodeM x VarMap
+-- getPrefix mn = do
+--   case mn of
+--     Nothing -> varMapSt <$> getState
+--     Just n@(Name _ nt mPre i) -> do
+--         !vm <- getPrefix mPre
+-- --        (vm, vmf) <- touchPrefix mPre
+--         case nt of
+--           _ | nt `elem` [TName, PName] -> do
+--               case Map.lookup (unIdent i) $ typesSt vm of
+--                 Just tvm -> return tvm -- , upd)
+--                 Nothing -> do (_, vmf) <- touchPrefix mPre
+--                               let upd newVm = vmf $ vm { typesSt = Map.insert (unIdent i) newVm $ typesSt vm }
+--                               setState $ upd emptyVM
+--                               return emptyVM -- , upd)
+--           EName -> do
+--               let ist = instanceSt vm
+--               case Map.lookup (unIdent i) ist of
+--                 Just ii ->
+-- --                    let upd newVm =
+-- --                            let newII = ii { iMembers = newVm }
+-- --                            in vmf $ vm { instanceSt = Map.insert (unIdent i) newII ist }
+-- --                    in
+--                       return $ iMembers ii --, upd)
+--                 Nothing -> panic (tcCodeMModule ++ ".getPrefix")
+--                            $ "Prefix not in state: " ++ show n
+--           _ -> panic (tcCodeMModule ++ ".getPrefix")
+--                $ "Unexpected name: " ++ show n
+--     _ -> panic (tcCodeMModule ++ ".getPrefix")
+--          $ show mn
 
 -------------------------------
 -- | Lookup the prefix part of a name, which has to be dereferenceable.
 --   Returns the relevant type (Nothing if package), its typemap
 --   and the accumulated policy of the name access path.
 --   Last component - if prefix is a field -> is it static
-lookupPrefixName :: Name PA -> CodeM (Maybe TcStateType, TypeMap, Maybe ActorPolicy, Maybe Bool)
-lookupPrefixName n@(Name _ EName Nothing i) = do
-    -- Special case: This *could* be a var, since those can only
-    -- appear first in the name, i.e. prefix == Nothing
-    -- We can piggyback on lookupVar since its preconditions are met
-    (sty, p, _, mStatFld) <- lookupVar Nothing i
-    -- debugPrint $ "lookupPrefixName: " ++ prettyPrint i ++ " :: " ++ prettyPrint sty
-    tm <- getTypeMap
-    case lookupTypeOfStateT sty tm of
-      Right newSig -> do
-        -- debugPrint $ prettyPrint newSig
---        debugPrint $ "\nSig before instantiation: "
---                       ++ prettyPrint (tMembers newSig)
---        debugPrint $ "\nSig after  instantiation: "
---                       ++ prettyPrint (instThis p (tMembers newSig)) ++ "\n"
-        -- TODO: HACK! We are not sure how to handle "Maybe ActorPolicy" in this case, the line below is a workaround.
-        instTM <- return $ tMembers newSig --instThis p $ tMembers newSig
-        return (Just sty, instTM, p, mStatFld)
-      Left (Just err) -> fail err
-      _ -> panic (tcCodeMModule ++ ".lookupPrefixName")
-           $ "Unknown variable or field: " ++ show n
-
-lookupPrefixName n@(Name _ nt mPre i) = do
-  baseTm <- getTypeMap
-  (mPreSty, preTm, prePol, mStatFld) <-
-    case mPre of
-      Nothing -> do
-                bt <- bottomM
-                return (Nothing, baseTm, Just bt, Nothing)
-      Just pre -> lookupPrefixName pre
-  baseTm2 <- getTypeMap
-  case nt of
-    EName -> case Map.lookup (unIdent i) $ fields preTm of
-               Just (VSig ty p _ _ _ nnf) -> do
-                   -- debugPrint $ "lookupPrefixName: EName: " ++ prettyPrint n ++
-                   --               " :: " ++ prettyPrint ty
-                   -- debugPrint $ show (packages baseTm2) ++ "\n"
-                   sty <- getStateType (Just n) mPreSty ty
-                   when (nnf && nullableFromStateType sty) (
-                                                              do
-                                                                _ <- updateStateType (Just (n, True)) ty (Just (setNullInStateType sty (NotNull, Free)))
-                                                                return ())
-                   _sty <- getStateType (Just n) mPreSty ty
-                   case lookupTypeOfStateT _sty baseTm2 of
-                     Right tsig -> do
-                          -- Was
-                          -- > prePol `lub` p
-                          rPol <- sequence $ liftM2 lub prePol p
-
-        -- TODO: HACK! We are not sure how to handle "Maybe ActorPolicy" in this case, the line below is a workaround.
-                          instTM <- return $ tMembers tsig --mapM (\p' -> instThis p' $ tMembers tsig) p
-                          return (Just _sty, instTM, rPol, mStatFld)
-                     Left (Just err) -> fail err
-                     _ -> panic (tcCodeMModule ++ ".lookupPrefixName")
-                          $ "Unknown type: " ++ show ty
-               Nothing -> panic (tcCodeMModule ++ ".lookupPrefixName")
-                          $ "Not a field: " ++ show n
-
-    TName -> do
-            (_tps, _iaps, tsig) <- case Map.lookup (unIdent i) $ types preTm of
-                                     Nothing -> liftTcDeclM $ fetchType n
-                                     -- panic (tcCodeMModule ++ ".lookupPrefixName")
-                                     -- - $ "Not a type: " ++ show n
-                                     Just tinfo -> return tinfo
--- This lookup arises from refering to static fields, and then type arguments aren't given.
--- TODO: Check that field *is* static.
---            check (null tps) $
---                      "Type " ++ prettyPrint n ++ " expects " ++
---                      show (length tps) ++ " but has been given none."
-            return (Just . stateType . TcRefType $ tType tsig, tMembers tsig, prePol, mStatFld)
-
-    PName -> case Map.lookup (unIdent i) $ packages preTm of
-               Nothing -> do liftTcDeclM $ fetchPkg n
-                             return (Nothing, emptyTM, prePol, mStatFld)
-               -- panic (tcCodeMModule ++ ".lookupPrefixName")
-                          -- - $ "Not a package: " ++ show n
-               Just tm -> return (Nothing, tm, prePol, mStatFld)
-
-    _ -> panic (tcCodeMModule ++ ".lookupPrefixName")
-         $ "Malformed prefix name: " ++ show n
-
-lookupPrefixName n = panic (tcCodeMModule ++ ".lookupPrefixName")
-                     $ "Malformed prefix name: " ++ show n
+-- lookupPrefixName :: Name PA -> CodeM x (Maybe TcStateType, TypeMap, Maybe ActorPolicy, Maybe Bool)
+-- lookupPrefixName n@(Name _ EName Nothing i) = do
+--     -- Special case: This *could* be a var, since those can only
+--     -- appear first in the name, i.e. prefix == Nothing
+--     -- We can piggyback on lookupVar since its preconditions are met
+--     (sty, p, _, mStatFld) <- lookupVar Nothing i
+--     -- debugPrint $ "lookupPrefixName: " ++ prettyPrint i ++ " :: " ++ prettyPrint sty
+--     tm <- getTypeMap
+--     case lookupTypeOfStateT sty tm of
+--       Right newSig -> do
+--         -- debugPrint $ prettyPrint newSig
+-- --        debugPrint $ "\nSig before instantiation: "
+-- --                       ++ prettyPrint (tMembers newSig)
+-- --        debugPrint $ "\nSig after  instantiation: "
+-- --                       ++ prettyPrint (instThis p (tMembers newSig)) ++ "\n"
+--         -- TODO: HACK! We are not sure how to handle "Maybe ActorPolicy" in this case, the line below is a workaround.
+--         instTM <- return $ tMembers newSig --instThis p $ tMembers newSig
+--         return (Just sty, instTM, p, mStatFld)
+--       Left (Just err) -> fail err
+--       _ -> panic (tcCodeMModule ++ ".lookupPrefixName")
+--            $ "Unknown variable or field: " ++ show n
+--
+-- lookupPrefixName n@(Name _ nt mPre i) = do
+--   baseTm <- getTypeMap
+--   (mPreSty, preTm, prePol, mStatFld) <-
+--     case mPre of
+--       Nothing -> do
+--                 bt <- bottomM
+--                 return (Nothing, baseTm, Just bt, Nothing)
+--       Just pre -> lookupPrefixName pre
+--   baseTm2 <- getTypeMap
+--   case nt of
+--     EName -> case Map.lookup (unIdent i) $ fields preTm of
+--                Just (VSig ty p _ _ _ nnf) -> do
+--                    -- debugPrint $ "lookupPrefixName: EName: " ++ prettyPrint n ++
+--                    --               " :: " ++ prettyPrint ty
+--                    -- debugPrint $ show (packages baseTm2) ++ "\n"
+--                    sty <- getStateType (Just n) mPreSty ty
+--                    when (nnf && nullableFromStateType sty) (
+--                                                               do
+--                                                                 _ <- updateStateType (Just (n, True)) ty (Just (setNullInStateType sty (NotNull, Free)))
+--                                                                 return ())
+--                    _sty <- getStateType (Just n) mPreSty ty
+--                    case lookupTypeOfStateT _sty baseTm2 of
+--                      Right tsig -> do
+--                           -- Was
+--                           -- > prePol `lub` p
+--                           rPol <- sequence $ liftM2 lub prePol p
+--
+--         -- TODO: HACK! We are not sure how to handle "Maybe ActorPolicy" in this case, the line below is a workaround.
+--                           instTM <- return $ tMembers tsig --mapM (\p' -> instThis p' $ tMembers tsig) p
+--                           return (Just _sty, instTM, rPol, mStatFld)
+--                      Left (Just err) -> fail err
+--                      _ -> panic (tcCodeMModule ++ ".lookupPrefixName")
+--                           $ "Unknown type: " ++ show ty
+--                Nothing -> panic (tcCodeMModule ++ ".lookupPrefixName")
+--                           $ "Not a field: " ++ show n
+--
+--     TName -> do
+--             (_tps, _iaps, tsig) <- case Map.lookup (unIdent i) $ types preTm of
+--                                      Nothing -> liftTcDeclM $ fetchType n
+--                                      -- panic (tcCodeMModule ++ ".lookupPrefixName")
+--                                      -- - $ "Not a type: " ++ show n
+--                                      Just tinfo -> return tinfo
+-- -- This lookup arises from refering to static fields, and then type arguments aren't given.
+-- -- TODO: Check that field *is* static.
+-- --            check (null tps) $
+-- --                      "Type " ++ prettyPrint n ++ " expects " ++
+-- --                      show (length tps) ++ " but has been given none."
+--             return (Just . stateType . TcRefType $ tType tsig, tMembers tsig, prePol, mStatFld)
+--
+--     PName -> case Map.lookup (unIdent i) $ packages preTm of
+--                Nothing -> do liftTcDeclM $ fetchPkg n
+--                              return (Nothing, emptyTM, prePol, mStatFld)
+--                -- panic (tcCodeMModule ++ ".lookupPrefixName")
+--                           -- - $ "Not a package: " ++ show n
+--                Just tm -> return (Nothing, tm, prePol, mStatFld)
+--
+--     _ -> panic (tcCodeMModule ++ ".lookupPrefixName")
+--          $ "Malformed prefix name: " ++ show n
+--
+-- lookupPrefixName n = panic (tcCodeMModule ++ ".lookupPrefixName")
+--                      $ "Malformed prefix name: " ++ show n
 
 
 -- | Lookup the type and policy of a field or variable access path.
 --   Last component - if it is a field -> is it static
 --   Precondition: Name is the decomposition of an EName
-lookupVar :: Maybe (Name PA) -> Ident PA -> CodeM (TcStateType, Maybe ActorPolicy, Bool, Maybe Bool)
-lookupVar Nothing i@(Ident sp _) = do
-  -- Could be a single variable
-  let nam = Name sp EName Nothing i -- Reconstructing for lookups
-  varMaps <- vars <$> getEnv
-  case lookupVarInVarMaps i varMaps of
-    -- Is a variable
-    Just (VSig ty p param _ _ _) -> do
-                             sty <- getStateType (Just nam) Nothing ty
-                             --debugPrint $ "%%% " ++ prettyPrint i ++ " is a variable!"
-                             --debugPrint $ prettyPrint ty
-                             return (sty,
-                                     p,
-                                     param, Nothing)
-    -- Not a variable, must be a field
-    Nothing -> do
-      tm <- getTypeMap
-      case Map.lookup (unIdent i) $ fields tm of
-        Just (VSig ty p param statFld _ _) -> do
-                  sty <- getStateType (Just nam) Nothing ty
-                  debugPrint $ "Var: " ++ prettyPrint i ++ " " ++ show (sty, p)
-                  return (sty, p, param, Just statFld)
-        Nothing ->
-            -- We could be in actor resolution mode, in which case the field is not yet registered,
-            -- except as an actor identity
-            case Map.lookup (unIdent i) $ actors tm of
-              Just aid -> do
-                -- TODO: These panics need to be sorted out
-                 let pnc = panic (tcCodeMModule ++ ".lookupVar:actors")
-                             $ "Not a var or field, but an actor, and yet...: " ++ show i
-                     pnc2 = panic (tcCodeMModule ++ ".lookupVar:actors")
-                             $ "Not a var or field, but an actor, and yet...: " ++ show i
-                     pnc3 = panic (tcCodeMModule ++ ".lookupVar:actors")
-                             $ "Not a var or field, but an actor, and yet...: " ++ show i
-                     pnc4 = panic (tcCodeMModule ++ ".lookupVar:actors")
-                             $ "Not a var or field, but an actor, and yet...: " ++ show i
-                     pnc5 = panic (tcCodeMModule ++ ".lookupVar:actors")
-                             $ "Not a var or field, but an actor, and yet...: " ++ show i
-                     pnc6 = panic (tcCodeMModule ++ ".lookupVar:actors")
-                             $ "Not a var or field, but an actor, and yet...: " ++ show i
-                 -- Really ugly hack where we assume that only the actor id will be unwrapped
-                 -- at the use site
-                 let sty = TcInstance pnc aid pnc2 pnc3
-                 return (sty, pnc4, pnc5, pnc6)
-              Nothing -> panic (tcCodeMModule ++ ".lookupVar")
-                         $ "Not a var or field: " ++ show i
-  where lookupVarInVarMaps :: Ident a -> [Map B.ByteString VarFieldSig] -> Maybe VarFieldSig
-        lookupVarInVarMaps _ [] = Nothing
-        lookupVarInVarMaps i (varMap:varMaps) =
-          case Map.lookup (unIdent i) varMap of
-            Nothing     -> lookupVarInVarMaps i varMaps
-            varFieldSig -> varFieldSig
-
-lookupVar (Just pre) i@(Ident sp _) = do
-  (mPreTy, preTm, prePol, _) <- lookupPrefixName pre
-  x <- liftIO checkNull
-  when ((case mPreTy of
-           Just st | maybeNull st -> True
-           _ -> False) && x) throwNull
-  case Map.lookup (unIdent i) $ fields preTm of
-    Just (VSig ty p _ statFld _ _) -> do
-      let nam = Name sp EName (Just pre) i
-        --debugPrint $ "lookupVar: " ++ prettyPrint nam ++ " :: " ++ prettyPrint ty
-        --debugPrint $ "   mPreTy: " ++ show mPreTy
-
-      sty <- getStateType (Just nam) mPreTy ty
-      -- Would be
-      -- > prePol `lub` p
-      -- but 'prePol' and 'p' are in the 'Maybe' monad.
-      -- If we want the function to return a  'Maybe ActorPolicy' we can use
-      -- > rPol <- sequence $ liftM2 lub prePol p
-      -- Instead, we assume that 'p' is never 'Nothing'
-      --rPol <- prePol `lub` expectJust
-      --  "The ActorPolicy in VarFieldSig should not be Nothing in lookupVar" p
-      rPol <- sequence $ liftM2 lub prePol p
-
-      return (sty, rPol, False, Just statFld)
-    Nothing -> do
-      case mPreTy of
-        Just preTy -> fail $ "Type " ++ prettyPrint preTy ++
-                      " does not have a field named " ++ prettyPrint i
-        Nothing -> panic (tcCodeMModule ++ ".lookupVar")
-                  $ "EName as direct child of PName: "
-                        ++ show (Name sp EName (Just pre) i)
+-- lookupVar :: Maybe (Name PA) -> Ident PA -> CodeM x (TcStateType, Maybe ActorPolicy, Bool, Maybe Bool)
+-- lookupVar Nothing i@(Ident sp _) = do
+--   -- Could be a single variable
+--   let nam = Name sp EName Nothing i -- Reconstructing for lookups
+--   varMaps <- vars <$> getEnv
+--   case lookupVarInVarMaps i varMaps of
+--     -- Is a variable
+--     Just (VSig ty p param _ _ _) -> do
+--                              sty <- getStateType (Just nam) Nothing ty
+--                              --debugPrint $ "%%% " ++ prettyPrint i ++ " is a variable!"
+--                              --debugPrint $ prettyPrint ty
+--                              return (sty,
+--                                      p,
+--                                      param, Nothing)
+--     -- Not a variable, must be a field
+--     Nothing -> do
+--       tm <- getTypeMap
+--       case Map.lookup (unIdent i) $ fields tm of
+--         Just (VSig ty p param statFld _ _) -> do
+--                   sty <- getStateType (Just nam) Nothing ty
+--                   debugPrint $ "Var: " ++ prettyPrint i ++ " " ++ show (sty, p)
+--                   return (sty, p, param, Just statFld)
+--         Nothing ->
+--             -- We could be in actor resolution mode, in which case the field is not yet registered,
+--             -- except as an actor identity
+--             case Map.lookup (unIdent i) $ actors tm of
+--               Just aid -> do
+--                 -- TODO: These panics need to be sorted out
+--                  let pnc = panic (tcCodeMModule ++ ".lookupVar:actors")
+--                              $ "Not a var or field, but an actor, and yet...: " ++ show i
+--                      pnc2 = panic (tcCodeMModule ++ ".lookupVar:actors")
+--                              $ "Not a var or field, but an actor, and yet...: " ++ show i
+--                      pnc3 = panic (tcCodeMModule ++ ".lookupVar:actors")
+--                              $ "Not a var or field, but an actor, and yet...: " ++ show i
+--                      pnc4 = panic (tcCodeMModule ++ ".lookupVar:actors")
+--                              $ "Not a var or field, but an actor, and yet...: " ++ show i
+--                      pnc5 = panic (tcCodeMModule ++ ".lookupVar:actors")
+--                              $ "Not a var or field, but an actor, and yet...: " ++ show i
+--                      pnc6 = panic (tcCodeMModule ++ ".lookupVar:actors")
+--                              $ "Not a var or field, but an actor, and yet...: " ++ show i
+--                  -- Really ugly hack where we assume that only the actor id will be unwrapped
+--                  -- at the use site
+--                  let sty = TcInstance pnc aid pnc2 pnc3
+--                  return (sty, pnc4, pnc5, pnc6)
+--               Nothing -> panic (tcCodeMModule ++ ".lookupVar")
+--                          $ "Not a var or field: " ++ show i
+--   where lookupVarInVarMaps :: Ident a -> [Map B.ByteString VarFieldSig] -> Maybe VarFieldSig
+--         lookupVarInVarMaps _ [] = Nothing
+--         lookupVarInVarMaps i (varMap:varMaps) =
+--           case Map.lookup (unIdent i) varMap of
+--             Nothing     -> lookupVarInVarMaps i varMaps
+--             varFieldSig -> varFieldSig
+--
+-- lookupVar (Just pre) i@(Ident sp _) = do
+--   (mPreTy, preTm, prePol, _) <- lookupPrefixName pre
+--   x <- liftIO checkNull
+--   when ((case mPreTy of
+--            Just st | maybeNull st -> True
+--            _ -> False) && x) throwNull
+--   case Map.lookup (unIdent i) $ fields preTm of
+--     Just (VSig ty p _ statFld _ _) -> do
+--       let nam = Name sp EName (Just pre) i
+--         --debugPrint $ "lookupVar: " ++ prettyPrint nam ++ " :: " ++ prettyPrint ty
+--         --debugPrint $ "   mPreTy: " ++ show mPreTy
+--
+--       sty <- getStateType (Just nam) mPreTy ty
+--       -- Would be
+--       -- > prePol `lub` p
+--       -- but 'prePol' and 'p' are in the 'Maybe' monad.
+--       -- If we want the function to return a  'Maybe ActorPolicy' we can use
+--       -- > rPol <- sequence $ liftM2 lub prePol p
+--       -- Instead, we assume that 'p' is never 'Nothing'
+--       --rPol <- prePol `lub` expectJust
+--       --  "The ActorPolicy in VarFieldSig should not be Nothing in lookupVar" p
+--       rPol <- sequence $ liftM2 lub prePol p
+--
+--       return (sty, rPol, False, Just statFld)
+--     Nothing -> do
+--       case mPreTy of
+--         Just preTy -> fail $ "Type " ++ prettyPrint preTy ++
+--                       " does not have a field named " ++ prettyPrint i
+--         Nothing -> panic (tcCodeMModule ++ ".lookupVar")
+--                   $ "EName as direct child of PName: "
+--                         ++ show (Name sp EName (Just pre) i)
 
 --------------------------------------------
 --          Working with states           --
@@ -555,17 +563,17 @@ startState = updateState $ \s -> s { lockMods = noMods, exnS = Map.empty }
 -- associated type of that (instance) actor is returned. For policies the
 -- policy bounds. For all other types just the type with null-pointer
 -- information.
-getStateType :: Maybe (Name PA)          -- ^ field/var name (if decidable)
-             -> Maybe TcStateType        -- ^ containing object state type
-             -> Type TC                  -- ^ field/var/cell type
-             -> CodeM TcStateType
-getStateType mn mtyO ty
---    | ty == actorT   = do actorIdT <$> getActorId mn mtyO
-    | ty == policyT  = do policyPolT <$> getPolicyBounds mn mtyO
-    | Just ct <- mClassType ty = do
-                   (aid, as, nt) <- getInstanceActors ct mn mtyO
-                   return $ instanceT (TcClassRefType ct) aid as nt
-    | otherwise = return $ stateType ty
+-- getStateType :: Maybe (Name PA)          -- ^ field/var name (if decidable)
+--              -> Maybe TcStateType        -- ^ containing object state type
+--              -> Type TC                  -- ^ field/var/cell type
+--              -> CodeM x TcStateType
+-- getStateType mn mtyO ty
+-- --    | ty == actorT   = do actorIdT <$> getActorId mn mtyO
+--     | ty == policyT  = do policyPolT <$> getPolicyBounds mn mtyO
+--     | Just ct <- mClassType ty = do
+--                    (aid, as, nt) <- getInstanceActors ct mn mtyO
+--                    return $ instanceT (TcClassRefType ct) aid as nt
+--     | otherwise = return $ stateType ty
 
 {-
 getActorId :: Maybe (Name SourcePos)
@@ -595,120 +603,120 @@ getActorId (Just (Name _ EName mPre i)) mstyO = do
 getActorId mn ms = panic (tcCodeMModule ++ ".getActorId")
                    $ show (mn, ms)
 -}
-getPolicyBounds :: Maybe (Name PA)
-                -> Maybe TcStateType
-                -> CodeM ActorPolicyBounds
-getPolicyBounds Nothing Nothing = PolicyBounds <$> bottomM <*> topM
-getPolicyBounds (Just (Name _ EName mPre i)) mstyO = do
-  (vm, upd) <- touchPrefix mPre -- Prefix guaranteed to exist
-  let pst = policySt vm
-  case Map.lookup (unIdent i) pst of
-  -- Check if already exists:
-    Just pif -> return $ pBounds pif
-    Nothing -> do
-        tm <- case mstyO of
-                Just styO -> do
-                           debugPrint $ "getPolicyBounds: " ++ show styO
-                           tsig <- lookupTypeOfStateType styO
-                           return $ tMembers tsig
-                Nothing -> getTypeMap
-        (stab, pbs) <- case Map.lookup (unIdent i) $ policies tm of
-                         Just pol -> return (True, KnownPolicy $ VarPolicy pol)
-                         Nothing -> do
-                              bt <- bottomM
-                              tp <- topM
-                              return (False, PolicyBounds bt tp)
-        let pif = PI stab pbs
-        setState $ upd $ vm { policySt = Map.insert (unIdent i) pif pst }
-        return pbs
-getPolicyBounds mn ms = panic (tcCodeMModule ++ ".getPolicyBounds")
-                        $ show (mn, ms)
+-- getPolicyBounds :: Maybe (Name PA)
+--                 -> Maybe TcStateType
+--                 -> CodeM x ActorPolicyBounds
+-- getPolicyBounds Nothing Nothing = PolicyBounds <$> bottomM <*> topM
+-- getPolicyBounds (Just (Name _ EName mPre i)) mstyO = do
+--   (vm, upd) <- touchPrefix mPre -- Prefix guaranteed to exist
+--   let pst = policySt vm
+--   case Map.lookup (unIdent i) pst of
+--   -- Check if already exists:
+--     Just pif -> return $ pBounds pif
+--     Nothing -> do
+--         tm <- case mstyO of
+--                 Just styO -> do
+--                            debugPrint $ "getPolicyBounds: " ++ show styO
+--                            tsig <- lookupTypeOfStateType styO
+--                            return $ tMembers tsig
+--                 Nothing -> getTypeMap
+--         (stab, pbs) <- case Map.lookup (unIdent i) $ policies tm of
+--                          Just pol -> return (True, KnownPolicy $ VarPolicy pol)
+--                          Nothing -> do
+--                               bt <- bottomM
+--                               tp <- topM
+--                               return (False, PolicyBounds bt tp)
+--         let pif = PI stab pbs
+--         setState $ upd $ vm { policySt = Map.insert (unIdent i) pif pst }
+--         return pbs
+-- getPolicyBounds mn ms = panic (tcCodeMModule ++ ".getPolicyBounds")
+--                         $ show (mn, ms)
+--
+--
+-- getInstanceActors :: ClassType TC
+--                   -> Maybe (Name PA)
+--                   -> Maybe TcStateType
+--                   -> CodeM x (TypedActorIdSpec, [TypedActorIdSpec], NullType)
+-- getInstanceActors ct@(TcClassType tyN _) Nothing Nothing = do
+--   (iaps, _) <- lookupTypeOfType (clsTypeToType ct)
+--   aid <- TypedActorIdSpec (TcClassRefType ct) . ConcreteActorId <$> unknownActorId
+--   ac <- mapM (\(rt,s) -> do
+--                 rTy <- evalSrcRefType genBot rt
+--                 aid <- instanceActorId $ Name defaultPos EName (Just (nameTcToPa tyN)) $ Ident defaultPos s
+--                 return $ TypedActorIdSpec rTy $ ConcreteActorId aid) iaps
+--   return (aid, ac, (MaybeNull, Free))
+--
+-- getInstanceActors ct@(TcClassType tyN _) (Just (Name sp EName mPre i)) mstyO = do
+--   vm <- getPrefix mPre -- Prefix guaranteed to exist
+--   let ist = instanceSt vm
+--   debugPrint $ "Instance state: " ++ show ist
+--   -- Check if already exists:
+--   case Map.lookup (unIdent i) ist of
+--     Just ii -> return (iActorId ii, iImplActorArgs ii, iNull ii)
+--     Nothing -> do
+--         tm <- case mstyO of
+--                 Just styO -> do
+--                            debugPrint $ "styO: " ++ show styO
+--                            tsig <- lookupTypeOfStateType styO
+--                            return $ tMembers tsig
+--                 Nothing -> debugPrint "No mstyO!" >> getTypeMap
+--         (stab, aid, aids) <-
+--             case Map.lookup (unIdent i) $ fields tm of
+--               Just (VSig ty _ _ _ fin _) -> do
+--                 (iaps, _) <- lookupTypeOfType ty
+--                 aid  <- case Map.lookup (unIdent i) $ actors tm of
+--                           Just a -> return a
+--                           Nothing -> TypedActorIdSpec (TcClassRefType ct) . ConcreteActorId <$> unknownActorId
+--                 aids <- mapM (\(rt,s) -> do
+--                                 rTy <- evalSrcRefType genBot rt
+--                                 aid <- instanceActorId $ Name sp EName (Just (nameTcToPa tyN)) $ Ident sp s
+--                                 return $ TypedActorIdSpec rTy $ ConcreteActorId aid) iaps
+--                 return (fin, aid, aids)
+--               Nothing -> do
+--                 --debugPrint $ prettyPrint tm
+--                 panic (tcCodeMModule ++ ".getInstanceActors")
+--                           $ "No such field: " ++ prettyPrint ct ++ "." ++ prettyPrint i
+--         let ii = II (TcClassRefType ct) stab False -- TODO: Freshness
+--                    aid aids emptyVM (MaybeNull, Free)    --TODO: Really ?
+--         --debugPrint $ "Forced to touch"
+--         (_, upd) <- touchPrefix mPre
+--         setState $ upd $ vm { instanceSt = Map.insert (unIdent i) ii ist }
+--         return (aid, aids, (MaybeNull, Free))    --TODOY Still sure of you ?
+-- getInstanceActors ct mn ms = panic (tcCodeMModule ++ ".getPolicyBounds")
+--                              $ show (ct, mn, ms)
+--
+-- throwNull :: CodeM x ()
+-- throwNull = do
+--    (_rX, wX) <- lookupExn nullExnT
+--    -- Check E[branchPC](X) <= E[exns](X)[write]
+--    bpc <- getBranchPC (exnE nullExnT)
+--    constraintPC bpc wX $ \p src -> toUndef $
+--      "Exception with write effect " ++ prettyPrint wX ++
+--      " may not be thrown in " ++ src ++
+--      " with write effect bound " ++ prettyPrint p
+--    -- Check exnPC(S) <= E[exns](X)[write]
+--    epc <- getExnPC
+--    constraintPC epc wX $ \p src -> toUndef $
+--      "Exception with write effect " ++ prettyPrint wX ++
+--      " may not be thrown in " ++ src ++
+--      " with write effect bound " ++ prettyPrint p
+--    throwExn (ExnType nullExnT) wX
 
 
-getInstanceActors :: ClassType TC
-                  -> Maybe (Name PA)
-                  -> Maybe TcStateType
-                  -> CodeM (TypedActorIdSpec, [TypedActorIdSpec], NullType)
-getInstanceActors ct@(TcClassType tyN _) Nothing Nothing = do
-  (iaps, _) <- lookupTypeOfType (clsTypeToType ct)
-  aid <- TypedActorIdSpec (TcClassRefType ct) . ConcreteActorId <$> unknownActorId
-  ac <- mapM (\(rt,s) -> do
-                rTy <- evalSrcRefType genBot rt
-                aid <- instanceActorId $ Name defaultPos EName (Just (nameTcToPa tyN)) $ Ident defaultPos s
-                return $ TypedActorIdSpec rTy $ ConcreteActorId aid) iaps
-  return (aid, ac, (MaybeNull, Free))
-
-getInstanceActors ct@(TcClassType tyN _) (Just (Name sp EName mPre i)) mstyO = do
-  vm <- getPrefix mPre -- Prefix guaranteed to exist
-  let ist = instanceSt vm
-  debugPrint $ "Instance state: " ++ show ist
-  -- Check if already exists:
-  case Map.lookup (unIdent i) ist of
-    Just ii -> return (iActorId ii, iImplActorArgs ii, iNull ii)
-    Nothing -> do
-        tm <- case mstyO of
-                Just styO -> do
-                           debugPrint $ "styO: " ++ show styO
-                           tsig <- lookupTypeOfStateType styO
-                           return $ tMembers tsig
-                Nothing -> debugPrint "No mstyO!" >> getTypeMap
-        (stab, aid, aids) <-
-            case Map.lookup (unIdent i) $ fields tm of
-              Just (VSig ty _ _ _ fin _) -> do
-                (iaps, _) <- lookupTypeOfType ty
-                aid  <- case Map.lookup (unIdent i) $ actors tm of
-                          Just a -> return a
-                          Nothing -> TypedActorIdSpec (TcClassRefType ct) . ConcreteActorId <$> unknownActorId
-                aids <- mapM (\(rt,s) -> do
-                                rTy <- evalSrcRefType genBot rt
-                                aid <- instanceActorId $ Name sp EName (Just (nameTcToPa tyN)) $ Ident sp s
-                                return $ TypedActorIdSpec rTy $ ConcreteActorId aid) iaps
-                return (fin, aid, aids)
-              Nothing -> do
-                --debugPrint $ prettyPrint tm
-                panic (tcCodeMModule ++ ".getInstanceActors")
-                          $ "No such field: " ++ prettyPrint ct ++ "." ++ prettyPrint i
-        let ii = II (TcClassRefType ct) stab False -- TODO: Freshness
-                   aid aids emptyVM (MaybeNull, Free)    --TODO: Really ?
-        --debugPrint $ "Forced to touch"
-        (_, upd) <- touchPrefix mPre
-        setState $ upd $ vm { instanceSt = Map.insert (unIdent i) ii ist }
-        return (aid, aids, (MaybeNull, Free))    --TODOY Still sure of you ?
-getInstanceActors ct mn ms = panic (tcCodeMModule ++ ".getPolicyBounds")
-                             $ show (ct, mn, ms)
-
-throwNull :: CodeM ()
-throwNull = do
-   (_rX, wX) <- lookupExn nullExnT
-   -- Check E[branchPC](X) <= E[exns](X)[write]
-   bpc <- getBranchPC (exnE nullExnT)
-   constraintPC bpc wX $ \p src -> toUndef $
-     "Exception with write effect " ++ prettyPrint wX ++
-     " may not be thrown in " ++ src ++
-     " with write effect bound " ++ prettyPrint p
-   -- Check exnPC(S) <= E[exns](X)[write]
-   epc <- getExnPC
-   constraintPC epc wX $ \p src -> toUndef $
-     "Exception with write effect " ++ prettyPrint wX ++
-     " may not be thrown in " ++ src ++
-     " with write effect bound " ++ prettyPrint p
-   throwExn (ExnType nullExnT) wX
-
-
-updateStateType :: Maybe (Name PA, Bool) -- field/var name and stability (if decidable)
-                -> Type TC               -- field/var/cell type
-                -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
-                -> CodeM TcStateType
+-- updateStateType :: Maybe (Name PA, Bool) -- field/var name and stability (if decidable)
+--                 -> Type TC               -- field/var/cell type
+--                 -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
+--                 -> CodeM x TcStateType
 --updateStateType mN tyV mRhsSty
 --    | tyV == actorT = actorIdT <$> updateActorId mN mRhsSty
-updateStateType mN tyV mRhsSty
-    | tyV == policyT = policyPolT <$> updatePolicyBounds mN mRhsSty
-updateStateType mN tyV mRhsSty
-    | Just ct <- mClassType tyV = do
-                   debugPrint $ "updateStateType[instance]: " ++ show mN
-                   (aid, as, nt) <- updateInstanceActors ct mN mRhsSty
-                   return $ instanceT (TcClassRefType ct) aid as nt
-updateStateType _ tyV _ = return $ stateType tyV
+-- updateStateType mN tyV mRhsSty
+--     | tyV == policyT = policyPolT <$> updatePolicyBounds mN mRhsSty
+-- updateStateType mN tyV mRhsSty
+--     | Just ct <- mClassType tyV = do
+--                    debugPrint $ "updateStateType[instance]: " ++ show mN
+--                    (aid, as, nt) <- updateInstanceActors ct mN mRhsSty
+--                    return $ instanceT (TcClassRefType ct) aid as nt
+-- updateStateType _ tyV _ = return $ stateType tyV
 {-
 updateActorId :: Maybe (Name SourcePos, Bool) -- field/var name and stability (if decidable)
               -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
@@ -730,276 +738,276 @@ updateActorId (Just (Name _ EName mPre i, stab)) mRhsSty = do
 updateActorId mn _ = panic (tcCodeMModule ++ ".updateActorId")
                      $ show mn
 -}
-updatePolicyBounds :: Maybe (Name PA, Bool) -- field/var name and stability (if decidable)
-                   -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
-                   -> CodeM ActorPolicyBounds
-updatePolicyBounds Nothing (Just rhsSty) =
-    case mPolicyPol rhsSty of
-      Just pbs -> return pbs
-      Nothing -> panic (tcCodeMModule ++ ".updatePolicyBounds")
-                 $ "Non-policy rhs for policy field: " ++ show rhsSty
-updatePolicyBounds (Just (Name _ EName mPre i, stab)) mRhsSty = do
-  (vm, upd) <- touchPrefix mPre
-  pbs <- case mRhsSty of
-           Nothing -> topM >>= \tp -> return $ KnownPolicy tp -- default for "primitive" policy types
-           Just sty | Just pbs <- mPolicyPol sty -> return pbs
-           Just _ -> panic (tcCodeMModule ++ ".updatePolicyBounds")
-                     $ "Non-policy rhs for policy field: " ++ show mRhsSty
-  setState $ upd $ vm { policySt = Map.insert (unIdent i) (PI stab pbs) $ policySt vm }
-  return pbs
-updatePolicyBounds mn _ = panic (tcCodeMModule ++ ".updatePolicyBounds")
-                          $ show mn
-
-
-updateInstanceActors :: ClassType TC
-                     -> Maybe (Name PA, Bool) -- field/var name and stability (if decidable)
---                     -> Maybe TcStateType     -- containing type
-                     -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
-                     -> CodeM (TypedActorIdSpec, [TypedActorIdSpec], NullType)
-updateInstanceActors ct Nothing (Just rhsSty) = do
---     debugPrint $ "updateInstanceActors Nothing: " ++ show (ct, rhsSty)
-    case mInstanceType rhsSty of
-      Just (_, aid, aids, nt) -> return (aid, aids, nt)
-      Nothing | isNullType rhsSty -> getInstanceActors ct Nothing Nothing
-      Nothing -> panic (tcCodeMModule ++ ".updateInstanceActors")
-                 $ "Non-instance rhs for class type field: " ++ show rhsSty
-updateInstanceActors ct@(TcClassType tyN _) (Just (_n@(Name _ EName mPre i), stab)) mRhsSty = do
-  debugPrint $ "updateInstanceActors Just: " ++ show (prettyPrint _n, stab, prettyPrint ct, fmap prettyPrint mRhsSty)
-  (vm, upd) <- touchPrefix mPre
-  (aid, iaas, iint) <- case mRhsSty of
-            Nothing -> do
-              (iaps, _) <- lookupTypeOfType (clsTypeToType ct)
-              aid <- TypedActorIdSpec (TcClassRefType ct) . ConcreteActorId <$> unknownActorId
-              as <- mapM (\(rt,s) -> do
-                            rTy <- evalSrcRefType genBot rt
-                            aid <- instanceActorId $ Name defaultPos EName (Just (nameTcToPa tyN)) $ Ident defaultPos s
-                            return $ TypedActorIdSpec rTy $ ConcreteActorId aid) iaps
-              return (aid, as, (MaybeNull, Free))
-            Just sty | Just (_, aid, aids, nt) <- mInstanceType sty -> return (aid, aids, nt)
-                     | isNullType sty ->
-                         getInstanceActors ct Nothing Nothing
-            Just _ -> panic (tcCodeMModule ++ ".updateInstanceActors")
-                      $ "Non-instance rhs for class type field: " ++ show mRhsSty
-  let ist = instanceSt vm
-  ii <- case Map.lookup (unIdent i) ist of
-          Just ii -> return ii { iNull = iint }
-          Nothing ->
-            return $ II (TcClassRefType ct) stab False -- TODO: Freshness
-                         aid iaas emptyVM iint
-
-  setState $ upd $ vm { instanceSt = Map.insert (unIdent i) ii ist }
-  return (aid, iaas, iint)
-updateInstanceActors _ mn _ = panic (tcCodeMModule ++ ".updateInstanceActors")
-                                $ show mn
-
-lookupExn :: Type TC -> CodeM (ActorPolicy, ActorPolicy)
-lookupExn tyX = do
-  debugPrint ":: In lookupExn"
-  exnMap <- exnsE <$> getEnv
-  case Map.lookup tyX exnMap of
-    Just ps -> return ps
-    Nothing -> fail $ "lookupExn: Unregistered exception type: " ++ prettyPrint tyX
-
-registerExn_ :: Type TC -> PrgPolicy -> PrgPolicy -> CodeM a -> CodeM a
-registerExn_ tyX rX wX = registerExn tyX (VarPolicy rX) (VarPolicy wX)
-
-registerExn :: Type TC -> ActorPolicy -> ActorPolicy -> CodeM a -> CodeM a
-registerExn tyX rX wX = registerExns [(tyX, (rX,wX))]
-
-registerExns :: [(Type TC, (ActorPolicy, ActorPolicy))] -> CodeM a -> CodeM a
-registerExns tysPols =
-    withEnv $ \env ->
-        let oldMap = exnsE env
-            newMap = foldl (\m (t,ps) -> Map.insert t ps m) oldMap tysPols
-        in return $ env { exnsE = newMap }
-
-
-extendLockEnv :: [TcLock] -> CodeM a -> CodeM a
-extendLockEnv locs = withEnv $ \env ->
-                        return $ env { lockstate = lockstate env
-                                          ||>> openAll (map skolemizeLock locs) }
-
-getBranchPC :: Entity -> CodeM [(ActorPolicy, String)]
-getBranchPC e = do env <- getEnv
-                   -- debugCodeM $ "Env: " ++ show env
-                   return $ branchPC (Just e) env
-
-getBranchPC_ :: CodeM [(ActorPolicy, String)]
-getBranchPC_ = do env <- getEnv
-                  return $ branchPC Nothing env
-
-extendBranchPC :: ActorPolicy -> String -> CodeM a -> CodeM a
-extendBranchPC p str = withEnv $ return . joinBranchPC p str
-
-addBranchPCList :: [Ident PA] -> CodeM a -> CodeM a
-addBranchPCList is =
-    withEnv $ \env ->
-        let (bm, def) = branchPCE env
-            newBm = foldl (\m i -> Map.insert (VarEntity (mkSimpleName EName i)) [] m) bm is
-        in return $ env { branchPCE = (newBm, def) }
-
-addBranchPC :: Entity -> CodeM a -> CodeM a
-addBranchPC ent =
-    withEnv $ \env ->
-        let (bm, def) = branchPCE env
-            newBm = Map.insert ent [] bm
-        in return $ env { branchPCE = (newBm, def) }
-
-getCurrentPC :: Entity -> CodeM ActorPolicy
-getCurrentPC ent = do
-  bpcs <- map fst <$> getBranchPC ent
-  epcs <- map fst <$> getExnPC
-  bt <- bottomM
-  foldM lub bt (bpcs ++ epcs)
-
-registerParamType :: Ident PA -> Type TC -> CodeM ()
-registerParamType i ty = registerStateType i ty True Nothing
+-- updatePolicyBounds :: Maybe (Name PA, Bool) -- field/var name and stability (if decidable)
+--                    -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
+--                    -> CodeM x ActorPolicyBounds
+-- updatePolicyBounds Nothing (Just rhsSty) =
+--     case mPolicyPol rhsSty of
+--       Just pbs -> return pbs
+--       Nothing -> panic (tcCodeMModule ++ ".updatePolicyBounds")
+--                  $ "Non-policy rhs for policy field: " ++ show rhsSty
+-- updatePolicyBounds (Just (Name _ EName mPre i, stab)) mRhsSty = do
+--   (vm, upd) <- touchPrefix mPre
+--   pbs <- case mRhsSty of
+--            Nothing -> topM >>= \tp -> return $ KnownPolicy tp -- default for "primitive" policy types
+--            Just sty | Just pbs <- mPolicyPol sty -> return pbs
+--            Just _ -> panic (tcCodeMModule ++ ".updatePolicyBounds")
+--                      $ "Non-policy rhs for policy field: " ++ show mRhsSty
+--   setState $ upd $ vm { policySt = Map.insert (unIdent i) (PI stab pbs) $ policySt vm }
+--   return pbs
+-- updatePolicyBounds mn _ = panic (tcCodeMModule ++ ".updatePolicyBounds")
+--                           $ show mn
+--
+--
+-- updateInstanceActors :: ClassType TC
+--                      -> Maybe (Name PA, Bool) -- field/var name and stability (if decidable)
+-- --                     -> Maybe TcStateType     -- containing type
+--                      -> Maybe TcStateType     -- rhs state type (Nothing if no initialiser)
+--                      -> CodeM x (TypedActorIdSpec, [TypedActorIdSpec], NullType)
+-- updateInstanceActors ct Nothing (Just rhsSty) = do
+-- --     debugPrint $ "updateInstanceActors Nothing: " ++ show (ct, rhsSty)
+--     case mInstanceType rhsSty of
+--       Just (_, aid, aids, nt) -> return (aid, aids, nt)
+--       Nothing | isNullType rhsSty -> getInstanceActors ct Nothing Nothing
+--       Nothing -> panic (tcCodeMModule ++ ".updateInstanceActors")
+--                  $ "Non-instance rhs for class type field: " ++ show rhsSty
+-- updateInstanceActors ct@(TcClassType tyN _) (Just (_n@(Name _ EName mPre i), stab)) mRhsSty = do
+--   debugPrint $ "updateInstanceActors Just: " ++ show (prettyPrint _n, stab, prettyPrint ct, fmap prettyPrint mRhsSty)
+--   (vm, upd) <- touchPrefix mPre
+--   (aid, iaas, iint) <- case mRhsSty of
+--             Nothing -> do
+--               (iaps, _) <- lookupTypeOfType (clsTypeToType ct)
+--               aid <- TypedActorIdSpec (TcClassRefType ct) . ConcreteActorId <$> unknownActorId
+--               as <- mapM (\(rt,s) -> do
+--                             rTy <- evalSrcRefType genBot rt
+--                             aid <- instanceActorId $ Name defaultPos EName (Just (nameTcToPa tyN)) $ Ident defaultPos s
+--                             return $ TypedActorIdSpec rTy $ ConcreteActorId aid) iaps
+--               return (aid, as, (MaybeNull, Free))
+--             Just sty | Just (_, aid, aids, nt) <- mInstanceType sty -> return (aid, aids, nt)
+--                      | isNullType sty ->
+--                          getInstanceActors ct Nothing Nothing
+--             Just _ -> panic (tcCodeMModule ++ ".updateInstanceActors")
+--                       $ "Non-instance rhs for class type field: " ++ show mRhsSty
+--   let ist = instanceSt vm
+--   ii <- case Map.lookup (unIdent i) ist of
+--           Just ii -> return ii { iNull = iint }
+--           Nothing ->
+--             return $ II (TcClassRefType ct) stab False -- TODO: Freshness
+--                          aid iaas emptyVM iint
+--
+--   setState $ upd $ vm { instanceSt = Map.insert (unIdent i) ii ist }
+--   return (aid, iaas, iint)
+-- updateInstanceActors _ mn _ = panic (tcCodeMModule ++ ".updateInstanceActors")
+--                                 $ show mn
+--
+-- lookupExn :: Type TC -> CodeM x (ActorPolicy, ActorPolicy)
+-- lookupExn tyX = do
+--   debugPrint ":: In lookupExn"
+--   exnMap <- exnsE <$> getEnv
+--   case Map.lookup tyX exnMap of
+--     Just ps -> return ps
+--     Nothing -> fail $ "lookupExn: Unregistered exception type: " ++ prettyPrint tyX
+--
+-- registerExn_ :: Type TC -> PrgPolicy -> PrgPolicy -> CodeM x a -> CodeM x a
+-- registerExn_ tyX rX wX = registerExn tyX (VarPolicy rX) (VarPolicy wX)
+--
+-- registerExn :: Type TC -> ActorPolicy -> ActorPolicy -> CodeM x a -> CodeM x a
+-- registerExn tyX rX wX = registerExns [(tyX, (rX,wX))]
+--
+-- registerExns :: [(Type TC, (ActorPolicy, ActorPolicy))] -> CodeM x a -> CodeM x a
+-- registerExns tysPols =
+--     withEnv $ \env ->
+--         let oldMap = exnsE env
+--             newMap = foldl (\m (t,ps) -> Map.insert t ps m) oldMap tysPols
+--         in return $ env { exnsE = newMap }
+--
+--
+-- extendLockEnv :: [TcLock] -> CodeM x a -> CodeM x a
+-- extendLockEnv locs = withEnv $ \env ->
+--                         return $ env { lockstate = lockstate env
+--                                           ||>> openAll (map skolemizeLock locs) }
+--
+-- getBranchPC :: Entity -> CodeM x [(ActorPolicy, String)]
+-- getBranchPC e = do env <- getEnv
+--                    -- debugCodeM $ "Env: " ++ show env
+--                    return $ branchPC (Just e) env
+--
+-- getBranchPC_ :: CodeM x [(ActorPolicy, String)]
+-- getBranchPC_ = do env <- getEnv
+--                   return $ branchPC Nothing env
+--
+-- extendBranchPC :: ActorPolicy -> String -> CodeM x a -> CodeM x a
+-- extendBranchPC p str = withEnv $ return . joinBranchPC p str
+--
+-- addBranchPCList :: [Ident PA] -> CodeM x a -> CodeM x a
+-- addBranchPCList is =
+--     withEnv $ \env ->
+--         let (bm, def) = branchPCE env
+--             newBm = foldl (\m i -> Map.insert (VarEntity (mkSimpleName EName i)) [] m) bm is
+--         in return $ env { branchPCE = (newBm, def) }
+--
+-- addBranchPC :: Entity -> CodeM x a -> CodeM x a
+-- addBranchPC ent =
+--     withEnv $ \env ->
+--         let (bm, def) = branchPCE env
+--             newBm = Map.insert ent [] bm
+--         in return $ env { branchPCE = (newBm, def) }
+--
+-- getCurrentPC :: Entity -> CodeM x ActorPolicy
+-- getCurrentPC ent = do
+--   bpcs <- map fst <$> getBranchPC ent
+--   epcs <- map fst <$> getExnPC
+--   bt <- bottomM
+--   foldM lub bt (bpcs ++ epcs)
+--
+-- registerParamType :: Ident PA -> Type TC -> CodeM x ()
+-- registerParamType i ty = registerStateType i ty True Nothing
 
 --------------------------------------------
 --       Working with constraints         --
 --------------------------------------------
 
-constraint :: TcLockSet -> ActorPolicy -> ActorPolicy -> Error -> CodeM ()
-constraint (LockSet ls) p q err = do -- addConstraint $ LRT ls p1 p2
-  g <- getGlobalLockProps
-  -- bs <- getParamPolicyBounds
-  eBC <- lrtC g ls p q
-  case eBC of
-    Left b -> do
-      _ <- getState
-      checkC b err -- "State: " ++ show st -- undefined -- (err {-++ "\n\nState: " ++ show st -})
-    Right c -> addConstraint c err
+-- constraint :: TcLockSet -> ActorPolicy -> ActorPolicy -> Error -> CodeM x ()
+-- constraint (LockSet ls) p q err = do -- addConstraint $ LRT ls p1 p2
+--   g <- getGlobalLockProps
+--   -- bs <- getParamPolicyBounds
+--   eBC <- lrtC g ls p q
+--   case eBC of
+--     Left b -> do
+--       _ <- getState
+--       checkC b err -- "State: " ++ show st -- undefined -- (err {-++ "\n\nState: " ++ show st -})
+--     Right c -> addConstraint c err
 
-getParamPolicyBounds :: CodeM [(B.ByteString, ActorPolicy)]
-getParamPolicyBounds = parBounds <$> getEnv
+-- getParamPolicyBounds :: CodeM x [(B.ByteString, ActorPolicy)]
+-- getParamPolicyBounds = parBounds <$> getEnv
 
-getGlobalLockProps :: CodeM GlobalPol
-getGlobalLockProps = do
-  cs <- go <$> getTypeMap
-  return cs
-      where go :: TypeMap -> GlobalPol
-            go tm = let lps = map lProps $ Map.elems $ locks tm
-                        tlps = map (go . tMembers . (\(_,_,x) -> x)) $ Map.elems $ types tm
-                        plps = map go $ Map.elems $ packages tm
-                    in concat $ lps ++ tlps ++ plps
+--getGlobalLockProps :: CodeM x GlobalPol
+--getGlobalLockProps = do
+--  cs <- go <$> getTypeMap
+--  return cs
+--      where go :: TypeMap -> GlobalPol
+--            go tm = let lps = map lProps $ Map.elems $ locks tm
+--                        tlps = map (go . tMembers . (\(_,_,x) -> x)) $ Map.elems $ types tm
+--                        plps = map go $ Map.elems $ packages tm
+--                    in concat $ lps ++ tlps ++ plps
 
-locksToRec :: [TcLock] -> LockProp
-locksToRec ls = undefined --TcPolicy (map (\x -> TcClause x []) (map lockToAtom ls))
+-- locksToRec :: [TcLock] -> LockProp
+-- locksToRec ls = undefined --TcPolicy (map (\x -> TcClause x []) (map lockToAtom ls))
 
-constraintLS :: ActorPolicy -> ActorPolicy -> Error -> CodeM ()
-constraintLS p1 p2 err = do
-  l <- getCurrentLockState
-  withErrCtxt (LockStateContext (prettyPrint l)) $
-    constraint l p1 p2 err
+-- constraintLS :: ActorPolicy -> ActorPolicy -> Error -> CodeM x ()
+-- constraintLS p1 p2 err = do
+--   l <- getCurrentLockState
+--   withErrCtxt (LockStateContext (prettyPrint l)) $
+--     constraint l p1 p2 err
 
-constraintPC :: [(ActorPolicy, String)] -> ActorPolicy -> (ActorPolicy -> String -> Error) -> CodeM ()
-constraintPC bpcs pW msgf = mapM_ (uncurry constraintPC_) bpcs
-    where constraintPC_ ::  ActorPolicy -> String -> CodeM ()
-          -- Don't take lock state into account
-          constraintPC_ pPC src = constraint emptyLockSet pPC pW (msgf pPC src)
+-- constraintPC :: [(ActorPolicy, String)] -> ActorPolicy -> (ActorPolicy -> String -> Error) -> CodeM x ()
+-- constraintPC bpcs pW msgf = mapM_ (uncurry constraintPC_) bpcs
+--     where constraintPC_ ::  ActorPolicy -> String -> CodeM x()
+--           -- Don't take lock state into account
+--           constraintPC_ pPC src = constraint emptyLockSet pPC pW (msgf pPC src)
 
 
 
-exnConsistent :: Either (Name PA) (ClassType TC)
-              -> Type TC -> (ActorPolicy, ActorPolicy) -> CodeM ()
-exnConsistent caller exnTy (rX,wX) = do
-    exnMap <- exnsE <$> getEnv
-    --debugTc $ "Using exnMap: " ++ show exnMap
-    let (callerName, callerSort) =
-            case caller of
-              Left n   -> (prettyPrint n , "method"     )
-              Right ct -> (prettyPrint ct, "constructor")
-    case Map.lookup exnTy exnMap of
-      Nothing -> fail $ "Unchecked exception: " ++ prettyPrint (typeName_ exnTy)
-      Just (rE, wE) -> do
-        constraint emptyLockSet wE wX $ toUndef $
-                    "Exception " ++ prettyPrint exnTy ++ ", thrown by invocation of " ++
-                    callerSort ++ " " ++ callerName ++ ", has write effect " ++
-                    prettyPrint wX ++
-                    " but the context in which the " ++ callerSort ++
-                    " is invoked expects its write effect to be no less restrictive than " ++
-                    prettyPrint wE
-        constraint emptyLockSet rX rE $ toUndef $ -- constraintLS?
-                    "Exception " ++ prettyPrint exnTy ++ ", thrown by invocation of " ++
-                    callerSort ++ " " ++ callerName ++ ", has policy " ++ prettyPrint rX ++
-                    " but the context in which the " ++ callerSort ++
-                    " is invoked expects its policy to be no more restrictive than " ++
-                    prettyPrint rE
+--exnConsistent :: Either (Name PA) (ClassType TC)
+--              -> Type TC -> (ActorPolicy, ActorPolicy) -> CodeM x ()
+--exnConsistent caller exnTy (rX,wX) = do
+--    exnMap <- exnsE <$> getEnv
+--    --debugTc $ "Using exnMap: " ++ show exnMap
+--    let (callerName, callerSort) =
+--            case caller of
+--              Left n   -> (prettyPrint n , "method"     )
+--              Right ct -> (prettyPrint ct, "constructor")
+--    case Map.lookup exnTy exnMap of
+--      Nothing -> fail $ "Unchecked exception: " ++ prettyPrint (typeName_ exnTy)
+--      Just (rE, wE) -> do
+--        constraint emptyLockSet wE wX $ toUndef $
+--                    "Exception " ++ prettyPrint exnTy ++ ", thrown by invocation of " ++
+--                    callerSort ++ " " ++ callerName ++ ", has write effect " ++
+--                    prettyPrint wX ++
+--                    " but the context in which the " ++ callerSort ++
+--                    " is invoked expects its write effect to be no less restrictive than " ++
+--                    prettyPrint wE
+--        constraint emptyLockSet rX rE $ toUndef $ -- constraintLS?
+--                    "Exception " ++ prettyPrint exnTy ++ ", thrown by invocation of " ++
+--                    callerSort ++ " " ++ callerName ++ ", has policy " ++ prettyPrint rX ++
+--                    " but the context in which the " ++ callerSort ++
+--                    " is invoked expects its policy to be no more restrictive than " ++
+--                    prettyPrint rE
 
 
 
 ------------------------------------------------------------
-getExnPC :: CodeM [(ActorPolicy, String)]
-getExnPC = exnPC <$> getState
+-- getExnPC :: CodeM x [(ActorPolicy, String)]
+-- getExnPC = exnPC <$> getState
 
-throwExn :: ExnType -> ActorPolicy -> CodeM ()
-throwExn et pX = do
-  debugPrint $ "throwExn: " ++ show et
-  state <- getState
-  let !oldXmap = exnS state
-      newXmap = Map.fromList [(et, ExnPoint state pX)]
-  mergedXmap <- liftTcDeclM $ mergeExns oldXmap newXmap
-  setState $ state { exnS = mergedXmap }
+-- throwExn :: ExnType -> ActorPolicy -> CodeM x ()
+-- throwExn et pX = do
+--   debugPrint $ "throwExn: " ++ show et
+--   state <- getState
+--   let !oldXmap = exnS state
+--       newXmap = Map.fromList [(et, ExnPoint state pX)]
+--   mergedXmap <- liftTcDeclM $ mergeExns oldXmap newXmap
+--   setState $ state { exnS = mergedXmap }
 
-deactivateExn :: ExnType -> CodeM ()
-deactivateExn et =
-    updateState $ \s ->
-        let oldEmap = exnS s
-            newEmap = Map.delete et oldEmap
-        in s { exnS = newEmap }
-
-
-activateExns :: [(ExnType, (ActorPolicy, LockMods))] -> CodeM ()
-activateExns exns = do
-  state <- getState
-  let (ts, sigs) = unzip exns
-      xPoints = map (\(wX, modsX) ->
-                     let !s = -- scramble $ -- FullV should be Nothing - TODO
-                               state { lockMods = lockMods state ++>> modsX }
-                     in (s, wX)) sigs
-  let -- oldXmap = exnS state
-      newXmap = Map.fromList $ zip ts (map (uncurry ExnPoint) xPoints)
-  !mergedXmap <- liftTcDeclM $ mergeExns (exnS state) newXmap
-  setState $ state { exnS = mergedXmap }
-
-getExnState :: ExnType -> CodeM (Maybe CodeState)
-getExnState et = do
-  eMap <- exnS <$> getState
-  return $ epState <$> Map.lookup et eMap
-
-mergeActiveExnStates :: CodeM ()
-mergeActiveExnStates = do
-  exnMap <- exnS <$> getState
-  mapM_ (mergeWithState . epState) $ Map.elems exnMap
-
-useExnState :: CodeState -> CodeM ()
-useExnState es = updateState (\s -> s { exnS = exnS es })
-
-getCurrentLockState :: CodeM TcLockSet
-getCurrentLockState = do
-  base <- lockstate <$> getEnv
-  mods <- lockMods <$> getState
-  return $ base ||>> mods
-
-applyLockMods :: LockMods -> CodeM ()
-applyLockMods lms = do
-  updateState $ \s -> s { lockMods = lockMods s ++>> lms }
-
-openLock, closeLock :: TcLock -> CodeM ()
-openLock  l = applyLockMods $ open  $ skolemizeLock l
-closeLock l = applyLockMods $ close $ skolemizeLock l
+--deactivateExn :: ExnType -> CodeM x ()
+--deactivateExn et =
+--    updateState $ \s ->
+--        let oldEmap = exnS s
+--            newEmap = Map.delete et oldEmap
+--        in s { exnS = newEmap }
 
 
-registerStateType :: Ident PA               -- Entity to register
-                  -> Type TC                -- Its type
-                  -> Bool                   -- Its stability
-                  -> Maybe TcStateType      -- rhs state type (Nothing if no initialiser)
-                  -> CodeM ()
-registerStateType i@(Ident sp _) tyV stab mRhsSty = ignore $ updateStateType (Just (Name sp EName Nothing i, stab)) tyV mRhsSty
+-- activateExns :: [(ExnType, (ActorPolicy, LockMods))] -> CodeM x ()
+-- activateExns exns = do
+--   state <- getState
+--   let (ts, sigs) = unzip exns
+--       xPoints = map (\(wX, modsX) ->
+--                      let !s = -- scramble $ -- FullV should be Nothing - TODO
+--                                state { lockMods = lockMods state ++>> modsX }
+--                      in (s, wX)) sigs
+--   let -- oldXmap = exnS state
+--       newXmap = Map.fromList $ zip ts (map (uncurry ExnPoint) xPoints)
+--   !mergedXmap <- liftTcDeclM $ mergeExns (exnS state) newXmap
+--   setState $ state { exnS = mergedXmap }
+
+-- getExnState :: ExnType -> CodeM x (Maybe (XCodeState x))
+-- getExnState et = do
+--   eMap <- exnS <$> getState
+--   return $ epState <$> Map.lookup et eMap
+
+-- mergeActiveExnStates :: CodeM x ()
+-- mergeActiveExnStates = do
+--   exnMap <- exnS <$> getState
+--   mapM_ (mergeWithState . epState) $ Map.elems exnMap
+
+-- useExnState :: XCodeState x -> CodeM x ()
+-- useExnState es = updateState (\s -> s { exnS = exnS es })
+
+-- getCurrentLockState :: CodeM x TcLockSet
+-- getCurrentLockState = do
+--   base <- lockstate <$> getEnv
+--   mods <- lockMods <$> getState
+--   return $ base ||>> mods
+
+-- applyLockMods :: LockMods -> CodeM x ()
+-- applyLockMods lms = do
+--   updateState $ \s -> s { lockMods = lockMods s ++>> lms }
+
+-- openLock, closeLock :: TcLock -> CodeM x ()
+-- openLock  l = applyLockMods $ open  $ skolemizeLock l
+-- closeLock l = applyLockMods $ close $ skolemizeLock l
 
 
-isCompileTime :: CodeM Bool
-isCompileTime = compileTime <$> getEnv
-
-withCompileTimeStatus :: Bool -> CodeM a -> CodeM a
-withCompileTimeStatus b = withEnv (\env -> return $ env { compileTime = b })
+-- registerStateType :: Ident PA               -- Entity to register
+--                   -> Type TC                -- Its type
+--                   -> Bool                   -- Its stability
+--                   -> Maybe TcStateType      -- rhs state type (Nothing if no initialiser)
+--                   -> CodeM x ()
+-- registerStateType i@(Ident sp _) tyV stab mRhsSty = ignore $ updateStateType (Just (Name sp EName Nothing i, stab)) tyV mRhsSty
+--
+--
+-- isCompileTime :: CodeM x Bool
+-- isCompileTime = compileTime <$> getEnv
+--
+-- withCompileTimeStatus :: Bool -> CodeM x a -> CodeM x a
+-- withCompileTimeStatus b = withEnv (\env -> return $ env { compileTime = b })

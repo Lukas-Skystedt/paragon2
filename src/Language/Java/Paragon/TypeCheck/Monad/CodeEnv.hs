@@ -86,6 +86,13 @@ data CodeEnv = CodeEnv  {
     }
   deriving (Show, Data, Typeable)
 
+data TcCodeEnv = TcCodeEnv
+      { tcVars    :: [Map B.ByteString VarFieldSig]
+      , tcReturnI :: Maybe (Type TC)
+      , tcStaticContext :: Bool
+      }
+  deriving (Show, Data, Typeable)
+
 -- Env to use when typechecking expressions not inside method
 -- bodies, e.g. in field initializers and policy modifiers
 simpleEnv :: ActorPolicy -> Bool -> String -> Bool -> CodeEnv
