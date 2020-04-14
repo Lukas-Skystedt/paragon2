@@ -21,18 +21,18 @@ import qualified Data.ByteString.Char8 as B
 compilerModule :: String
 compilerModule = libraryBase ++ ".Compile"
 
-compileTransform :: CompilationUnit PA -> CompilationUnit UD
+compileTransform :: ForallXFamilies Show x => CompilationUnit x -> CompilationUnit UD
 compileTransform (CompilationUnit _ mp is tds) =
     CompilationUnit () (fmap removeAnn mp) (map removeAnn is) $ map compileTypeDecl tds
 
-compileTypeDecl :: TypeDecl PA -> TypeDecl UD
+compileTypeDecl :: ForallXFamilies Show x => TypeDecl x -> TypeDecl UD
 compileTypeDecl td =
     case td of
       ClassTypeDecl     _ cdecl -> ClassTypeDecl     () $ compileClassDecl     cdecl
       InterfaceTypeDecl _ idecl -> InterfaceTypeDecl () $ compileInterfaceDecl idecl
 
 
-compileInterfaceDecl :: InterfaceDecl PA -> InterfaceDecl UD
+compileInterfaceDecl :: ForallXFamilies Show x => InterfaceDecl x -> InterfaceDecl UD
 compileInterfaceDecl (InterfaceDecl _ ms i tps sups ibody) =
   let ms' = delete (Native ()) $ removeParagonMods ms -- No lockstate mods allowed here
                                                       -- In vanilla Java, native cannot appear on classes
@@ -41,14 +41,14 @@ compileInterfaceDecl (InterfaceDecl _ ms i tps sups ibody) =
   in InterfaceDecl () ms' (removeAnn i) tps' sups' $
        compileInterfaceBody ibody
 
-compileInterfaceBody :: InterfaceBody PA -> InterfaceBody UD
+compileInterfaceBody :: ForallXFamilies Show x => InterfaceBody x -> InterfaceBody UD
 compileInterfaceBody (InterfaceBody _ mds) =
     InterfaceBody () $ map (compileSimpleMemberDecl [] []) mds
 
 -- 1. Remove Paragon modifiers
 -- 2. Transform Paragon type params into ordinary params
 -- 3. Transform body
-compileClassDecl :: ClassDecl PA -> ClassDecl UD
+compileClassDecl :: ForallXFamilies Show x => ClassDecl x -> ClassDecl UD
 compileClassDecl (ClassDecl _ ms i tps mSuper impls cbody) =
   let ms' = delete (Native ()) $ removeParagonMods ms -- No lockstate mods allowed here
                                                       -- In vanilla Java, native cannot appear on classes
@@ -68,7 +68,7 @@ compileClassDecl _ = panic (compilerModule ++ ".compileClassDecl")
 --     b) a parameter to every constructor of the class
 --     c) an assignment of the parameter b) to the field a)
 --        at the beginning of every constructor of the class
-splitTypeParams :: [TypeParam PA]
+splitTypeParams :: ForallXFamilies Show x => [TypeParam x]
                 -> ([TypeParam UD],[MemberDecl UD],[FormalParam UD],[BlockStmt UD])
 splitTypeParams = go ([],[],[],[]) -- error "compileTypeParams undefined"
     where
@@ -99,23 +99,23 @@ splitTypeParams = go ([],[],[],[]) -- error "compileTypeParams undefined"
                  in go (ttps,fd:fds,fp:fps,a:as) tps
 
 
-compileClassBody :: ClassBody PA -> [MemberDecl UD] -> [FormalParam UD] -> [BlockStmt UD] -> ClassBody UD
+compileClassBody :: ForallXFamilies Show x => ClassBody x -> [MemberDecl UD] -> [FormalParam UD] -> [BlockStmt UD] -> ClassBody UD
 compileClassBody (ClassBody _ ds) tpMembers tpPars tpAsss =
   let ds' = concat $ map (compileDecl tpPars tpAsss) ds
   in ClassBody () (map (MemberDecl ()) tpMembers ++ ds')
 
-compileDecl :: [FormalParam UD] -> [BlockStmt UD] -> Decl PA -> [Decl UD]
+compileDecl :: ForallXFamilies Show x => [FormalParam UD] -> [BlockStmt UD] -> Decl x -> [Decl UD]
 compileDecl _ _ (InitDecl _ _ _) = panic (compilerModule ++ ".compileDecl")
                                    $ "InitDecl not yet supported"
 compileDecl tpPars tpAsss (MemberDecl _ md) = compileMemberDecl tpPars tpAsss md
 
-compileMemberDecl :: [FormalParam UD] -> [BlockStmt UD] -> MemberDecl PA -> [Decl UD]
+compileMemberDecl :: ForallXFamilies Show x => [FormalParam UD] -> [BlockStmt UD] -> MemberDecl x -> [Decl UD]
 compileMemberDecl tpPars tpAsss md =
     case md of
       LockDecl {} -> compileLockDecl md
       _ -> (:[]) . MemberDecl () $ compileSimpleMemberDecl tpPars tpAsss md
 
-compileSimpleMemberDecl :: [FormalParam UD] -> [BlockStmt UD] -> MemberDecl PA -> MemberDecl UD
+compileSimpleMemberDecl :: ForallXFamilies Show x => [FormalParam UD] -> [BlockStmt UD] -> MemberDecl x -> MemberDecl UD
 compileSimpleMemberDecl tpPars tpAsss md =
     case md of
       -- Actors
@@ -142,12 +142,12 @@ compileSimpleMemberDecl tpPars tpAsss md =
       _ -> panic (compilerModule ++ ".compileSimpleMemberDecl")
            $ prettyPrint md -- Locks should be filtered out already
 
-compileConstrBody :: [BlockStmt UD] -> ConstructorBody PA -> ConstructorBody UD
+compileConstrBody :: ForallXFamilies Show x => [BlockStmt UD] -> ConstructorBody x -> ConstructorBody UD
 compileConstrBody tpAsss (ConstructorBody _ meci bss) =
     -- Add the initialization of the downgraded type parameters
     ConstructorBody () (fmap compileECI meci) (tpAsss ++ map compileBlockStmt bss)
 
-compileECI :: ExplConstrInv PA -> ExplConstrInv UD
+compileECI :: ForallXFamilies Show x => ExplConstrInv x -> ExplConstrInv UD
 compileECI (ThisInvoke  _ tas as) =
     let (trueTas, demotedArgs) = splitNWTypeArgs tas
     in ThisInvoke  () trueTas (demotedArgs ++ map compileExp as)
@@ -158,11 +158,11 @@ compileECI (PrimarySuperInvoke _ e tas as) =
     let (trueTas, demotedArgs) = splitNWTypeArgs tas
     in PrimarySuperInvoke () (compileExp e) trueTas (demotedArgs ++ map compileExp as)
 
-compileFormalParam :: FormalParam PA -> FormalParam UD
+compileFormalParam :: ForallXFamilies Show x => FormalParam x -> FormalParam UD
 compileFormalParam (FormalParam _ ms t va vid) =
     FormalParam () (removeParagonMods ms) (compileType t) va (removeAnn vid)
 
-actorVarDecl, policyVarDecl, compileVarDecl :: VarDecl PA -> VarDecl UD
+actorVarDecl, policyVarDecl, compileVarDecl :: ForallXFamilies Show x => VarDecl x -> VarDecl UD
 actorVarDecl (VarDecl _ (VarId _ i@(Ident _ rawI)) Nothing)
     = -- [varDeclQQ| $$i = Actor.newConcreteActor($s$rawI) |]
       vDecl (removeAnn i) $ callStatic "Actor" "newConcreteActor"
@@ -177,16 +177,16 @@ policyVarDecl vd = compileVarDecl vd
 
 compileVarDecl (VarDecl _ vid mInit) = VarDecl () (removeAnn vid) $ fmap compileVarInit mInit
 
-compileExn :: ExceptionSpec PA -> ExceptionSpec UD
+compileExn :: ForallXFamilies Show x => ExceptionSpec x -> ExceptionSpec UD
 compileExn (ExceptionSpec _ _ms rt) = ExceptionSpec () [] -- no modifiers on exceptions in java!
                                        $ compileRefType rt
 
-compileReturnType :: ReturnType PA -> ReturnType UD
+compileReturnType :: ForallXFamilies Show x => ReturnType x -> ReturnType UD
 compileReturnType (LockType _) = Type () $ PrimType () $ BooleanT ()
 compileReturnType (Type _ t)   = Type () $ compileType t
 compileReturnType rett = removeAnn rett
 
-compileType :: Type PA -> Type UD
+compileType :: ForallXFamilies Show x => Type x -> Type UD
 compileType (RefType _ rt) = RefType () $ compileRefType rt
 compileType t@(PrimType _ pt) = case pt of
                                   ActorT _  -> concreteActorType
@@ -194,42 +194,42 @@ compileType t@(PrimType _ pt) = case pt of
                                   _ -> removeAnn t
 compileType t = removeAnn t
 
-compileRefType :: RefType PA -> RefType UD
+compileRefType :: ForallXFamilies Show x => RefType x -> RefType UD
 compileRefType (ArrayType _ t) =
     ArrayType () (compileType t) {-$ map (const Nothing) mps-} -- No policy parameters!
 compileRefType (ClassRefType _ ct) = ClassRefType () $ compileClassType_ ct
 compileRefType rt = removeAnn rt
 
-compileClassType :: ClassType PA -> (ClassType UD, [Argument UD])
+compileClassType :: ForallXFamilies Show x => ClassType x -> (ClassType UD, [Argument UD])
 compileClassType (ClassType _ n tas) =
     let (trueTas, demotedArgs) = splitTypeArgs tas
     in (ClassType () (removeAnn n) trueTas, demotedArgs)
 
 -- When we don't care about demoted policies and actors
-compileClassType_ :: ClassType PA -> ClassType UD
+compileClassType_ :: ForallXFamilies Show x => ClassType x -> ClassType UD
 compileClassType_ = fst . compileClassType
 
---compileTypeArgs :: [TypeArgument PA] -> [TypeArgument ()]
+--compileTypeArgs :: ForallXFamilies Show x => [TypeArgument x] -> [TypeArgument ()]
 --compileTypeArgs _ = [] -- TODO: Cheating!!!
 
---compileNWTypeArgs :: [NonWildTypeArgument PA] -> [NonWildTypeArgument ()]
+--compileNWTypeArgs :: ForallXFamilies Show x => [NonWildTypeArgument x] -> [NonWildTypeArgument ()]
 --compileNWTypeArgs _ = [] -- TODO: Cheating!!!
 
-compileMethodBody :: MethodBody PA -> MethodBody UD
+compileMethodBody :: ForallXFamilies Show x => MethodBody x -> MethodBody UD
 compileMethodBody (MethodBody _ (Just bl)) = MethodBody () . Just $ compileBlock bl
 compileMethodBody mb = removeAnn mb
 
-compileBlock :: Block PA -> Block UD
+compileBlock :: ForallXFamilies Show x => Block x -> Block UD
 compileBlock (Block _ bss) = Block () $ map compileBlockStmt bss
 
-compileBlockStmt :: BlockStmt PA -> BlockStmt UD
+compileBlockStmt :: ForallXFamilies Show x => BlockStmt x -> BlockStmt UD
 compileBlockStmt (BlockStmt _ stmt) = BlockStmt () $ compileStmt stmt
 compileBlockStmt (LocalVars _ ms t vds) = compileVarDeclGeneric (LocalVars ()) ms t vds
 compileBlockStmt bss = panic (compilerModule ++ ".compileBlockStmt")
                        $ prettyPrint bss
 
-compileVarDeclGeneric :: ([Modifier UD] -> Type UD -> [VarDecl UD] -> res)
-                       -> [Modifier PA] -> Type PA  -> [VarDecl PA] -> res
+compileVarDeclGeneric :: ForallXFamilies Show x => ([Modifier UD] -> Type UD -> [VarDecl UD] -> res)
+                       -> [Modifier x] -> Type x  -> [VarDecl x] -> res
 compileVarDeclGeneric con ms t vds =
     let (t', vds') = case t of
                        PrimType _ (PolicyT _) -> (policyType, map policyVarDecl vds)
@@ -239,19 +239,20 @@ compileVarDeclGeneric con ms t vds =
 
 
 
-compileStmt :: Stmt PA -> Stmt UD
+compileStmt :: ForallXFamilies Show x => Stmt x -> Stmt UD
 compileStmt (StmtBlock _ bl) = StmtBlock () $ compileBlock bl
-compileStmt (Open t (Lock _ lN aN )) = ExpStmt () $ MethodInv () $ MethodCallOrLockQuery ()
+compileStmt (Open _t (Lock _ lN aN )) = ExpStmt () $ MethodInv () $ MethodCallOrLockQuery ()
          (Name () MName (Just $ removeAnn lN)
                    (Ident () (B.pack "open")))
-         $ map (compileExp . (\aname -> case aname of
-                                          ActorName _ x -> ExpName t x
-                                          ActorTypeVar _ _ i -> ExpName t (Name t EName Nothing i)
-                             )) aN
+         $ map (compileExp .  (\aname -> case aname of
+                            ActorName _ x -> ExpName () (removeAnn x)
+                            ActorTypeVar _ _ i -> ExpName () (Name () EName Nothing (removeAnn i))
+                            )) aN
+
 compileStmt (Close t (Lock _ lN aN )) = ExpStmt () $ MethodInv () $ MethodCallOrLockQuery ()
          (Name () MName (Just $ removeAnn lN)
                    (Ident () (B.pack "close")))
-         $ map (compileExp . (\(ActorName _ x) -> (ExpName t x))) aN
+         $ map (compileExp . (\(ActorName _ x) -> (ExpName () (removeAnn x)))) aN
 compileStmt (OpenBlock  _ _ bl) = StmtBlock () $ compileBlock bl
 compileStmt (CloseBlock _ _ bl) = StmtBlock () $ compileBlock bl
 
@@ -269,25 +270,25 @@ compileStmt (Throw _ e) = Throw () $ compileExp e
 compileStmt (Try _ bl cs mfin) = Try () (compileBlock bl) (map compileCatch cs) (fmap compileBlock mfin)
 compileStmt st = removeAnn st
 
-compileForInit :: ForInit PA -> ForInit UD
+compileForInit :: ForallXFamilies Show x => ForInit x -> ForInit UD
 compileForInit (ForInitExps _ es) = ForInitExps () $ map compileExp es
 compileForInit (ForLocalVars _ ms t vds) = compileVarDeclGeneric (ForLocalVars ()) ms t vds
 
-compileCatch :: Catch PA -> Catch UD
+compileCatch :: ForallXFamilies Show x => Catch x -> Catch UD
 compileCatch (Catch _ fp bl) = Catch () (compileFormalParam fp) (compileBlock bl)
 
-compileVarInit :: VarInit PA -> VarInit UD
+compileVarInit :: ForallXFamilies Show x => VarInit x -> VarInit UD
 compileVarInit (InitExp   _ e ) = InitExp   () $ compileExp e
 compileVarInit (InitArray _ ai) = InitArray () $ compileArrayInit ai
 
-compileArrayInit :: ArrayInit PA -> ArrayInit UD
+compileArrayInit :: ForallXFamilies Show x => ArrayInit x -> ArrayInit UD
 compileArrayInit (ArrayInit _ vis) = ArrayInit () $ map compileVarInit vis
 
---compileExp :: Exp PA -> Exp ()
+--compileExp :: ForallXFamilies Show x => Exp x -> Exp ()
 --compileExp = transformBi compileExp'
 
 -- TODO: Fill out full, since no longer generic
-compileExp :: Exp PA -> Exp UD
+compileExp :: ForallXFamilies Show x => Exp x -> Exp UD
 compileExp (PolicyExp _ pe) = compilePolicyExp pe
 
 --  For instance creation, we need to move type
@@ -350,7 +351,7 @@ compileExp e@(InstanceOf{}) =
 compileExp e = removeAnn e
 
 
-compileMethodInv :: MethodInvocation PA -> MethodInvocation UD
+compileMethodInv :: ForallXFamilies Show x => MethodInvocation x -> MethodInvocation UD
 compileMethodInv mi = case mi of
   MethodCallOrLockQuery _ n@(Name _ LName _ _) as ->
       MethodCallOrLockQuery ()
@@ -372,8 +373,9 @@ compileMethodInv mi = case mi of
   _ -> panic (compilerModule ++ ".compileMethodInv")
        $ prettyPrint mi
 
-splitTypeArgs :: [TypeArgument PA] -> ([TypeArgument UD], [Argument UD])
-splitTypeArgs = error "spilTypeArgs: type arguments not yet supported"
+splitTypeArgs :: ForallXFamilies Show x => [TypeArgument x] -> ([TypeArgument UD], [Argument UD])
+splitTypeArgs [] = ([], []) -- TODO: This case should be removed when revering to old version of this function.
+splitTypeArgs _ = error "spilTypeArgs: type arguments not yet supported"
 -- splitTypeArgs = go ([], [])
 --     where
 --       go (ttas, as) [] = (reverse ttas, reverse as)
@@ -393,7 +395,7 @@ splitTypeArgs = error "spilTypeArgs: type arguments not yet supported"
 --                   -- Lock states and lock names have no runtime counterpart, so we just ignore those
 --                   _ -> go (ttas, as) tas
 
-splitNWTypeArgs :: [NonWildTypeArgument PA] -> ([NonWildTypeArgument UD], [Argument UD])
+splitNWTypeArgs :: ForallXFamilies Show x => [NonWildTypeArgument x] -> ([NonWildTypeArgument UD], [Argument UD])
 splitNWTypeArgs = go ([], [])
     where
       go (ttas, as) [] = (reverse ttas, reverse as)
@@ -408,7 +410,7 @@ splitNWTypeArgs = go ([], [])
 
 -- Compiling binary operators. The interesting cases are
 -- the ones where the operands are policies.
-compileBinOp :: Op UD -> Exp PA -> Exp PA -> Exp UD
+compileBinOp :: ForallXFamilies Show x => Op UD -> Exp x -> Exp x -> Exp UD
 compileBinOp op e1 e2
              | Just (t1, _) <- ann e1, t1 == policyT,
                Just (t2, _) <- ann e2, t2 == policyT,
@@ -443,7 +445,7 @@ lhsToExp (FieldLhs _ fa) = FieldAccess () fa
 lhsToExp (ArrayLhs _ ai) = ArrayAccess () ai
 
 -- lockExpToExp is irrelevant - Lock never happens!
-lockExpToExp :: Lock PA -> Exp UD
+lockExpToExp :: ForallXFamilies Show x => Lock x -> Exp UD
 lockExpToExp (Lock _ n _ans) = -- [expQQ| #N#n.isOpen() |]
   MethodInv () (MethodCallOrLockQuery ()
                 (Name () MName (Just $ removeAnn n) (Ident () (B.pack "isOpen"))) [])
@@ -453,14 +455,14 @@ lockExpToExp (LockVar _ i) =
                           (Ident () (B.pack "isOpen"))) [])
 
 -----
-compileLhs :: Lhs PA -> Lhs UD
+compileLhs :: ForallXFamilies Show x => Lhs x -> Lhs UD
 compileLhs lhs =
     case lhs of
       NameLhs _ n -> NameLhs () (removeAnn n)
       ArrayLhs _ ai -> ArrayLhs () $ compileArrayIndex ai
       FieldLhs _ fa -> FieldLhs () $ compileFieldAccess fa
 
-compileAOp :: AssignOp UD -> Lhs PA -> Exp PA -> Exp UD
+compileAOp :: ForallXFamilies Show x => AssignOp UD -> Lhs x -> Exp x -> Exp UD
 compileAOp aop lhs e
     | Just (t1,_) <- ann lhs, t1 == policyT,
       Just (t2,_) <- ann e,   t2 == policyT,
@@ -468,11 +470,11 @@ compileAOp aop lhs e
           mkParagonPolicyAssign aop (compileLhs lhs) (compileExp e)
 compileAOp aop lhs e = Assign () (compileLhs lhs) aop (compileExp e)
 
-compileArrayIndex :: ArrayIndex PA -> ArrayIndex UD
+compileArrayIndex :: ForallXFamilies Show x => ArrayIndex x -> ArrayIndex UD
 compileArrayIndex (ArrayIndex _ eArr eI)
     = ArrayIndex () (compileExp eArr) (compileExp eI)
 
-compileFieldAccess :: FieldAccess PA -> FieldAccess UD
+compileFieldAccess :: ForallXFamilies Show x => FieldAccess x -> FieldAccess UD
 compileFieldAccess fa =
     case fa of
       PrimaryFieldAccess _ e i ->
@@ -484,7 +486,7 @@ compileFieldAccess fa =
 
 -- Policies
 
-compilePolicyExp :: PolicyExp PA -> Exp UD
+compilePolicyExp :: ForallXFamilies Show x => PolicyExp x -> Exp UD
 compilePolicyExp (PolicyLit _ cs) = callStatic "Policy" "newPolicy"
                                     (Lit () (String () "") : map clauseToExp cs)
 compilePolicyExp (PolicyTypeVar _ i) = ExpName () (mkSimpleName EName $ removeAnn i)
@@ -496,7 +498,7 @@ compilePolicyExp pe =
 
 -- Clauses and components
 
-clauseToExp :: Clause PA -> Exp UD
+clauseToExp :: ForallXFamilies Show x => Clause x -> Exp UD
 clauseToExp (Clause _ _ h body) =
     let vs = nub [ a | Var _ a <- universeBi (clauseHeadToActor $ removeAnn h)
                                ++ universeBi (map removeAnn body) ]
@@ -508,18 +510,18 @@ clauseHeadToActor :: ClauseHead UD -> Actor UD
 clauseHeadToActor (ClauseDeclHead _ (ClauseVarDecl _ _ i)) = Var () i
 clauseHeadToActor (ClauseVarHead _ a) = a
 
-clauseHeadToExp :: [(Ident UD, Int)] -> ClauseHead PA -> Exp UD
+clauseHeadToExp :: ForallXFamilies Show x => [(Ident UD, Int)] -> ClauseHead x -> Exp UD
 clauseHeadToExp vs (ClauseDeclHead _ (ClauseVarDecl t _ i)) =
-    actorToExp vs (Var defaultPos i)   -- <<- DefaultPos is a hack
+    actorToExp vs (Var () (removeAnn i))   -- <<- DefaultPos is a hack
 clauseHeadToExp vs (ClauseVarHead _ a) = actorToExp vs a
 
-headToExp, atomToExp :: [(Ident UD, Int)] -> Atom PA -> Exp UD
+headToExp, atomToExp :: ForallXFamilies Show x => [(Ident UD, Int)] -> Atom x -> Exp UD
 headToExp vs (Atom _ _ acts) =
     callStatic "ActorList" "newActorList" (map (actorToExp vs) acts)
 atomToExp vs (Atom _ n acts) =
     callStatic "Atom" "newAtom" (ExpName () (removeAnn n): map (actorToExp vs) acts)
 
-actorToExp :: [(Ident UD, Int)] -> Actor PA -> Exp UD
+actorToExp :: ForallXFamilies Show x => [(Ident UD, Int)] -> Actor x -> Exp UD
 actorToExp _vs (Actor _ (ActorName _ n)) = ExpName () $ removeAnn n
 actorToExp _vs (Actor _ (ActorTypeVar _ _rt tv)) = ExpName () (mkSimpleName EName (removeAnn tv))
 actorToExp vs (Var _ i) =
@@ -536,7 +538,7 @@ actorToExp vs (Var _ i) =
 -- Compile a lock declaration into a (static) Lock declaration
 -- plus (static) initialization of its lock properties.
 -- Precondition: md is a LockDecl
-compileLockDecl :: MemberDecl PA -> [Decl UD]
+compileLockDecl :: ForallXFamilies Show x => MemberDecl x -> [Decl UD]
 compileLockDecl md =
     case md of
       LockDecl _ ms i@(Ident _ rawI) pars mLProps ->
@@ -559,12 +561,12 @@ compileLockDecl md =
 
 
 -- Initialization code for lock properties
-lockExpsToInit :: Ident PA -> [Exp UD] -> [Decl UD]
+lockExpsToInit :: ForallXFamilies Show x => Ident x -> [Exp UD] -> [Decl UD]
 lockExpsToInit _ [] = []
 lockExpsToInit _i es = [InitDecl () True . Block () $
                         map (BlockStmt () . ExpStmt ()) es]
 
-lockPropToExp :: Ident PA -> LClause PA -> Exp UD
+lockPropToExp :: ForallXFamilies Show x => Ident x -> LClause x -> Exp UD
 lockPropToExp _i@(Ident _ rawI) (LClause _ _ h body) =
     let vs = nub [ a | Var _ a <- universeBi (map removeAnn (h:body)) ] `zip` [0..] -- Substs
         exps = headToExp vs h : map (atomToExp vs) body
@@ -574,7 +576,7 @@ lockPropToExp i _ = panic (compilerModule ++ ".lockPropToExp")
                     $ prettyPrint i
 
 
-lockModToExp :: Ident PA -> Modifier PA -> Exp UD
+lockModToExp :: ForallXFamilies Show x => Ident x -> Modifier x -> Exp UD
 lockModToExp (Ident _ rawI) m =
     let mname = prettyPrint m
      in call [B.unpack rawI,mname] []

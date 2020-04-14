@@ -1,10 +1,10 @@
-{-# LANGUAGE Rank2Types, ImpredicativeTypes #-}
+{-# LANGUAGE Rank2Types, ImpredicativeTypes, FlexibleContexts #-}
 -- | Program entry point & coordination of compilation process
 module Main where
 
 -- Note: for the time being I converted most of this to explicit exports
 -- to get a better overview what is where /jens
-import Language.Java.Paragon.Syntax (CompilationUnit(..))
+import Language.Java.Paragon.Syntax (CompilationUnit(..), ForallXFamilies)
 -- import Language.Java.Paragon.Decorations.PaDecoration (PA)
 import Language.Java.Paragon.Parser (compilationUnit, parser, ParseError)
 import Language.Java.Paragon.Pretty (prettyPrint)
@@ -206,7 +206,7 @@ compile flags filePath = do
           --  detailPrint "Type checking complete!"
 
            -- Generate .java and .pi files
-           liftIO $ genFiles flags filePath ast1
+           liftIO $ genFiles flags filePath ast2
            detailPrint "File generation complete!"
 
 convertParseToErr :: Either ParseError a -> Either Error a
@@ -229,10 +229,10 @@ getPIPATH = do
 
 
 -- | Generate .pi and .java files
-genFiles :: [Flag] -> FilePath -> CompilationUnit x -> IO ()
+genFiles :: ForallXFamilies Show x => [Flag] -> FilePath -> CompilationUnit x -> IO ()
 genFiles flags filePath ast  = let -- create .java ast
-                             -- astC      = compileTransform ast
-                             astC = ast -- TODO: temporarily skip compilation stage
+                             astC      = compileTransform ast
+                            --  astC = ast -- TODO: temporarily skip compilation stage
                              -- create .pi ast
                              -- astPi     = piTransform (void ast)
                              -- output to right files
