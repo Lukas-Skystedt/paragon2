@@ -94,6 +94,7 @@ Library
                       , Language.Java.Paragon.PolicyLang.Actors
                       , Language.Java.Paragon.PolicyLang.Locks
                       , Language.Java.Paragon.PolicyLang.Policy
+                      , Language.Java.Paragon.RemoveAnns
   Hs-source-dirs:       src
 
 
@@ -151,6 +152,7 @@ Executable parac
                       , Language.Java.Paragon.PolicyLang.Actors
                       , Language.Java.Paragon.PolicyLang.Locks
                       , Language.Java.Paragon.PolicyLang.Policy
+                      , Language.Java.Paragon.RemoveAnns
 
   Build-Tools:   alex >= 2.3
   Build-Depends:        array >= 0.1
