@@ -48,6 +48,13 @@ import qualified Data.ByteString.Char8 as B
 
 import qualified Control.Monad.Fail as Fail
 
+-- | Unwrap a 'Maybe' like 'fromJust' but with custom error message if 'Nothing'.
+-- This function should be the same as the one provided by the ghc Maybes package
+-- (with the exception of some details around callstack).
+expectJust :: String -> Maybe a -> a
+expectJust _ (Just a) = a
+expectJust err Nothing = error $ "expectJust " ++ err
+
 tcCodeMModule :: String
 tcCodeMModule = typeCheckerBase ++ ".Monad.CodeM"
 
@@ -360,7 +367,7 @@ getPrefix mn = do
 --   Returns the relevant type (Nothing if package), its typemap
 --   and the accumulated policy of the name access path.
 --   Last component - if prefix is a field -> is it static
-lookupPrefixName :: Name PA -> CodeM (Maybe TcStateType, TypeMap, Maybe ActorPolicy, Maybe Bool)
+lookupPrefixName :: Name PA -> CodeM (Maybe TcStateType, TypeMap, ActorPolicy, Maybe Bool)
 lookupPrefixName n@(Name _ EName Nothing i) = do
     -- Special case: This *could* be a var, since those can only
     -- appear first in the name, i.e. prefix == Nothing
@@ -403,13 +410,15 @@ lookupPrefixName n@(Name _ nt mPre i) = do
                                                                 return ())
                    _sty <- getStateType (Just n) mPreSty ty
                    case lookupTypeOfStateT _sty baseTm2 of
-                     Right tsig -> do 
-                                      rPol <- sequence $ liftM2 lub prePol p
-                                      -- 'mapM' since 'p' is a 'Maybe'-type
-                                      -- Be aware, following is in extreme caps, parts of it atleast
-                                      -- THIS IS WHERE WE LEFT OF. Maybe `Maybe TypeMap`? HOPEFULLY NOT!
-                                      instTM <- mapM (\p' -> instThis p' $ tMembers tsig) p
-                                      return (Just _sty, instTM, rPol, mStatFld)
+                     Right tsig -> do
+                          -- If we want to return 'Maybe ActorPolicy', use
+                          -- > sequence $ liftM2 lub prePol p
+                          let p' = expectJust
+                                     "The ActorPolicy should not be Nothing in lookupPrefixName"
+                                    p
+                          rPol <- prePol `lub` p'
+                          instTM <- instThis p' $ tMembers tsig
+                          return (Just _sty, instTM, rPol, mStatFld)
                      Left (Just err) -> fail err
                      _ -> panic (tcCodeMModule ++ ".lookupPrefixName")
                           $ "Unknown type: " ++ show ty
@@ -446,7 +455,7 @@ lookupPrefixName n = panic (tcCodeMModule ++ ".lookupPrefixName")
 -- | Lookup the type and policy of a field or variable access path.
 --   Last component - if it is a field -> is it static
 --   Precondition: Name is the decomposition of an EName
-lookupVar :: Maybe (Name PA) -> Ident PA -> CodeM (TcStateType, Maybe ActorPolicy, Bool, Maybe Bool)
+lookupVar :: Maybe (Name PA) -> Ident PA -> CodeM (TcStateType, ActorPolicy, Bool, Maybe Bool)
 lookupVar Nothing i@(Ident sp _) = do
   -- Could be a single variable
   let nam = Name sp EName Nothing i -- Reconstructing for lookups
@@ -457,15 +466,20 @@ lookupVar Nothing i@(Ident sp _) = do
                              sty <- getStateType (Just nam) Nothing ty
                              --debugPrint $ "%%% " ++ prettyPrint i ++ " is a variable!"
                              --debugPrint $ prettyPrint ty
-                             return (sty, p, param, Nothing)
+                             return (sty,
+                                     expectJust "ActorPolicy should not be Nothing in lookupVar " p,
+                                     param, Nothing)
     -- Not a variable, must be a field
     Nothing -> do
       tm <- getTypeMap
       case Map.lookup (unIdent i) $ fields tm of
         Just (VSig ty p param statFld _ _) -> do
+                  let p' = expectJust ("The ActorPolicy in VarFieldSig should not" ++
+                                       "be Nothing in lookupVar")
+                                      p
                   sty <- getStateType (Just nam) Nothing ty
-                  debugPrint $ "Var: " ++ prettyPrint i ++ " " ++ show (sty, p)
-                  return (sty, p, param, Just statFld)
+                  debugPrint $ "Var: " ++ prettyPrint i ++ " " ++ show (sty, p')
+                  return (sty, p', param, Just statFld)
         Nothing ->
             -- We could be in actor resolution mode, in which case the field is not yet registered,
             -- except as an actor identity
@@ -513,8 +527,12 @@ lookupVar (Just pre) i@(Ident sp _) = do
       -- Would be
       -- > prePol `lub` p
       -- but 'prePol' and 'p' are in the 'Maybe' monad.
-      rPol <- sequence $ liftM2 lub prePol p
-      --rPol <- mapM (prePol `lub`) p -- TODO: is it okay for p to be Nothing here?
+      -- If we want the function to return a  'Maybe ActorPolicy' we can use
+      -- > rPol <- sequence $ liftM2 lub prePol p
+      -- Instead, we assume that 'p' is never 'Nothing'
+      rPol <- prePol `lub` expectJust
+        "The ActorPolicy in VarFieldSig should not be Nothing in lookupVar" p
+
       return (sty, rPol, False, Just statFld)
     Nothing -> do
       case mPreTy of

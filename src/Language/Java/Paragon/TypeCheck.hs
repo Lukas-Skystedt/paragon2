@@ -250,12 +250,10 @@ typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba
               "At most one read modifier allowed per field"
     mapM_ (typeCheckPolicyMod st) rPolExps
 
-    -- TODO: we use top as a placeholder value since VSig needs one.
-    top <- PL.topM
     -- 3. Add signature to typemap
     return $ VSig {
                  varType = ty,
-                 varPol  = top, -- error "varPol should not be used in TypeCheck phase",
+                 varPol  = Nothing, -- error "varPol should not be used in TypeCheck phase",
                  varParam  = False,
                  varStatic = isStatic ms,
                  varFinal  = isFinal ms,
@@ -366,9 +364,9 @@ typeCheckPolicyField fd@(FieldDecl _ ms t vds) tcba = do
       -- 3. Add signature to environment
       tcty <- evalSrcTypeTc t
       bt <- PL.bottomM
-      return $ VSig 
+      return $ VSig
                 { varType = tcty
-                , varPol  = bt
+                , varPol  = Just bt -- TODO: should we really put bottom here? Or Nothing?
                 , varParam = False
                 , varStatic = isStatic ms
                 , varFinal  = isFinal ms
