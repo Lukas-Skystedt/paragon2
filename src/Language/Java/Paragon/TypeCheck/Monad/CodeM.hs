@@ -31,6 +31,7 @@ import Language.Java.Paragon.TypeCheck.Monad.TcDeclM
 
 import Language.Java.Paragon.Decorations.NoDecoration
 import Language.Java.Paragon.Decorations.PaDecoration
+import Language.Java.Paragon.Decorations.PteDecoration
 import Language.Java.Paragon.TypeCheck.Monad.CodeEnv
 import Language.Java.Paragon.TypeCheck.Monad.CodeState
 
@@ -178,6 +179,10 @@ type family XCodeState x
 
 type instance XCodeEnv TC = TcCodeEnv
 type instance XCodeState TC = TcCodeState
+
+type instance XCodeEnv PTE = PteCodeEnv
+type instance XCodeState PTE = PteCodeState
+
 
 runCodeM :: XCodeEnv x -> XCodeState x -> CodeM x a -> TcDeclM (a, [ConstraintWMsg])
 runCodeM env state (CodeM f) = do

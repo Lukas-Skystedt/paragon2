@@ -27,60 +27,90 @@ import Data.Data
 codeStateModule :: String
 codeStateModule = typeCheckerBase ++ ".Monad.CodeState"
 
-data VarMap = VarMap {
---      actorSt    :: !ActorMap,
-      policySt   :: !PolicyMap,
-      instanceSt :: !InstanceMap,  -- ^ Non-static fields and variables
-      typesSt    :: !TypesMap      -- ^ Static fields
+--data VarMap = VarMap {
+----      actorSt    :: !ActorMap,
+--      policySt   :: !PolicyMap,
+--      instanceSt :: !InstanceMap,  -- ^ Non-static fields and variables
+--      typesSt    :: !TypesMap      -- ^ Static fields
+--    }
+--  deriving (Eq, Show, Data, Typeable)
+
+data TcVarMap = TcVarMap {
+      tcInstanceSt :: !TcInstanceMap,  -- ^ Non-static fields and variables
+      tcTypesSt    :: !TcTypesMap      -- ^ Static fields
     }
   deriving (Eq, Show, Data, Typeable)
 
-emptyVM :: VarMap
-emptyVM = VarMap {-Map.empty-} Map.empty Map.empty Map.empty
+data PteVarMap = PteVarMap {
+      policySt   :: !PolicyMap,
+      instanceSt :: !PteInstanceMap  -- ^ Non-static fields and variables
+    }
+  deriving (Eq, Show, Data, Typeable)
+
+--emptyVM :: VarMap
+--emptyVM = VarMap {-Map.empty-} Map.empty Map.empty Map.empty
 
 tcEmptyVM :: TcVarMap
 tcEmptyVM = TcVarMap Map.empty Map.empty
 
-data CodeState = CodeState {
-      varMapSt   :: !VarMap,
-      -- ? TODO: Difference between this field and 'vars' in 'CodeEnv'?
-      lockMods   :: !LockMods,
-      -- ? Locks that something something
-      exnS       :: !ExnsMap
-    }
-  deriving (Eq, Show, Data, Typeable)
+--data CodeState = CodeState {
+--      varMapSt   :: !VarMap,
+--      -- ? TODO: Difference between this field and 'vars' in 'CodeEnv'?
+--      lockMods   :: !LockMods,
+--      -- ? Locks that something something
+--      exnS       :: !ExnsMap
+--    }
+--  deriving (Eq, Show, Data, Typeable)
 
 data TcCodeState = TcCodeState {
       tcVarMapSt :: !TcVarMap
     }
   deriving (Eq, Show, Data, Typeable)
 
-data TcVarMap = TcVarMap {
-      tcInstanceSt :: !InstanceMap,  -- ^ Non-static fields and variables
-      tcTypesSt    :: !TypesMap      -- ^ Static fields
+data PteCodeState = PteCodeState {
+      varMapSt   :: !PteVarMap,
+      lockMods   :: !LockMods,
+      exnS       :: !ExnsMap
     }
   deriving (Eq, Show, Data, Typeable)
 
-emptyCodeState = CodeState emptyVM noDelta Map.empty
+
+--emptyCodeState = CodeState emptyVM noDelta Map.empty
 
 tcEmptyCodeState = TcCodeState tcEmptyVM
 
-data InstanceInfo = II {
-      iType :: RefType TC,
-      iStable :: Bool,
-      -- ^ ? Stable?
-      -- Stable är frågan : Får jag lov att använda denna på typnivå
-      -- Det finns vissa krav på om man får göra det eller inte. Den ska vara final.. och den ska vara... vad det nu är, krav helt enkelt.
-      -- Vi kallar det för stable. (Hoppas verkligen jag säger rätt nu), det är något konstigt här yes, *tystnad*, kör vidare med det ni har
-      -- så ska jag gräva vidare. Ska kolla vad fresh och stable är och återkomma.
-      iFresh :: Bool,
-      -- ^ ? Fresh?
-      --
-      iActorId :: TypedActorIdSpec,
-      iImplActorArgs :: [TypedActorIdSpec],
-      iMembers :: !VarMap,
-      iNull :: !NullType
-      -- ^ ? Can be null
+-- data InstanceInfo = II {
+--       iType :: RefType TC,
+--       iStable :: Bool,
+--       -- ^ ? Stable?
+--       -- Stable är frågan : Får jag lov att använda denna på typnivå
+--       -- Det finns vissa krav på om man får göra det eller inte. Den ska vara final.. och den ska vara... vad det nu är, krav helt enkelt.
+--       -- Vi kallar det för stable. (Hoppas verkligen jag säger rätt nu), det är något konstigt här yes, *tystnad*, kör vidare med det ni har
+--       -- så ska jag gräva vidare. Ska kolla vad fresh och stable är och återkomma.
+--       iFresh :: Bool,
+--       -- ^ ? Fresh?
+--       --
+--       iActorId :: TypedActorIdSpec,
+--       iImplActorArgs :: [TypedActorIdSpec],
+--       iMembers :: !VarMap,
+--       iNull :: !NullType
+--       -- ^ ? Can be null
+--     }
+--   deriving (Eq, Show, Data, Typeable)
+data TcInstanceInfo = TcII {
+      tcIType :: RefType TC,
+      tcIMembers :: !TcVarMap,
+      tcINull :: !NullType
+    }
+  deriving (Eq, Show, Data, Typeable)
+
+data PteInstanceInfo = PteII {
+      pteIType :: RefType TC,
+      pteIStable :: Bool,
+      pteIFresh :: Bool,
+      pteIActorId :: TypedActorIdSpec,
+      pteIImplActorArgs :: [TypedActorIdSpec],
+      pteIMembers :: !PteVarMap
     }
   deriving (Eq, Show, Data, Typeable)
 
@@ -92,8 +122,12 @@ data PolicyInfo = PI { pStable :: Bool, pBounds :: ActorPolicyBounds }
 
 --type ActorMap    = Map.Map B.ByteString ActorInfo
 type PolicyMap   = Map.Map B.ByteString PolicyInfo
-type InstanceMap = Map.Map B.ByteString InstanceInfo
-type TypesMap    = Map.Map B.ByteString VarMap
+--type InstanceMap = Map.Map B.ByteString InstanceInfo
+type TcInstanceMap = Map.Map B.ByteString TcInstanceInfo
+--type TypesMap    = Map.Map B.ByteString VarMap
+type TcTypesMap    = Map.Map B.ByteString TcVarMap
+
+type PteInstanceMap = Map.Map B.ByteString PteInstanceInfo
 
 ------------------------------------------
 -- Getting information
@@ -140,18 +174,18 @@ getGeneric vm leafMap n =
 -- Merging of states in parallel
 ------------------------------------------
 
-mergeVarMaps :: VarMap -> VarMap -> TcDeclM VarMap
-mergeVarMaps (VarMap {-as1-} ps1 is1 ts1) (VarMap {-as2-} ps2 is2 ts2) = do
---  newActors <- mergeActors    as1 as2
-  newPols   <- mergePolicies  ps1 ps2
-  newInsts  <- mergeInstances is1 is2
-  newTypes  <- mergeTypesMaps ts1 ts2
-  return $ VarMap {-newActors-} newPols newInsts newTypes
+--mergeVarMaps :: VarMap -> VarMap -> TcDeclM VarMap
+--mergeVarMaps (VarMap {-as1-} ps1 is1 ts1) (VarMap {-as2-} ps2 is2 ts2) = do
+----  newActors <- mergeActors    as1 as2
+--  newPols   <- mergePolicies  ps1 ps2
+--  newInsts  <- mergeInstances is1 is2
+--  newTypes  <- mergeTypesMaps ts1 ts2
+--  return $ VarMap {-newActors-} newPols newInsts newTypes
 
 mergeTcVarMaps :: TcVarMap -> TcVarMap -> TcDeclM TcVarMap
 mergeTcVarMaps (TcVarMap is1 ts1) (TcVarMap is2 ts2) = do
-  newInsts  <- mergeInstances is1 is2
-  newTypes  <- mergeTypesMaps ts1 ts2
+  newInsts  <- mergeTcInstances is1 is2
+  newTypes  <- mergeTcTypesMaps ts1 ts2
   return $ TcVarMap newInsts newTypes
 
 tcMergeStates :: TcCodeState -> TcCodeState -> TcDeclM TcCodeState
@@ -161,8 +195,8 @@ tcMergeStates (TcCodeState vm1) (TcCodeState vm2) = do
   tracePrint ("\n" ++ codeStateModule ++ ".tcMergeStates:\n" ++ formatData newState ++ "\n")
   return newState
 
-mergeStates :: CodeState -> CodeState -> TcDeclM CodeState
-mergeStates = error "mergeStated is deprecated"
+--mergeStates :: CodeState -> CodeState -> TcDeclM CodeState
+--mergeStates = error "mergeStated is deprecated"
 ------------------------------------------
 -- Instance tracking
 ------------------------------------------
@@ -176,50 +210,90 @@ mergeGeneric mergeVals m1 m2 = do
   return $ Map.fromList $ zip newKeys newVals
 
 
-mergeInstances :: InstanceMap -> InstanceMap -> TcDeclM InstanceMap
+--mergeInstances :: InstanceMap -> InstanceMap -> TcDeclM InstanceMap
+--mergeInstances m1 m2 = do --mergeGeneric mergeIInfos
+--  let newKeys = Map.keys m1 `intersect` Map.keys m2
+--      oldVals = map (\k -> (k, fromJust (Map.lookup k m1), fromJust (Map.lookup k m2))) newKeys
+--  newKeyVals <- mapM mergeIInfos oldVals
+--  return $ Map.fromList $ catMaybes newKeyVals
+--        where mergeIInfos :: (B.ByteString, InstanceInfo, InstanceInfo) -> TcDeclM (Maybe (B.ByteString, InstanceInfo))
+--              mergeIInfos (k,ii1,ii2) = do
+--                if iType ii1 /= iType ii2
+--                 then return Nothing
+--                 else do
+--                   aid <- mergeIa (iActorId ii1) (iActorId ii2)
+--                   as <- mergeIas (iImplActorArgs ii1) (iImplActorArgs ii2)
+--                   newMems <- mergeVarMaps (iMembers ii1) (iMembers ii2)
+--                   newNull <- mergeNullTypes (iNull ii1) (iNull ii2)
+--                   return $ Just (k, II
+--                                       (iType ii1)
+--                                       (iStable ii1)
+--                                       (iFresh ii1 && iFresh ii2)
+--                                       aid as newMems newNull)
+--
+--              mergeIas :: [TypedActorIdSpec] -> [TypedActorIdSpec] -> TcDeclM [TypedActorIdSpec]
+--              mergeIas ias1 ias2 = zipWithM mergeIa ias1 ias2
+--
+--              mergeIa :: TypedActorIdSpec -> TypedActorIdSpec -> TcDeclM TypedActorIdSpec
+--              mergeIa ai1 ai2
+--                  | ai1 == ai2 = return ai1
+--              mergeIa (TypedActorIdSpec rt (ConcreteActorId (Instance n _))) _
+--                  = TypedActorIdSpec rt . ConcreteActorId <$> newInstance n
+--              mergeIa _ (TypedActorIdSpec rt (ConcreteActorId (Instance n _)))
+--                  = TypedActorIdSpec rt . ConcreteActorId <$> newInstance n
+--              mergeIa (TypedActorIdSpec rt (ConcreteActorId (Unknown _))) _
+--                  = TypedActorIdSpec rt . ConcreteActorId <$> newUnknown
+--              mergeIa ai _ = panic (codeStateModule ++ ".mergeIas")
+--                             $ "Instance has non-instance implicit argument: " ++ show ai
+--
+--              mergeNullTypes :: NullType -> NullType -> TcDeclM NullType
+--              mergeNullTypes nt1 nt2 = return (joinNT nt1 nt2)
 
-mergeInstances m1 m2 = do --mergeGeneric mergeIInfos
-  let newKeys = Map.keys m1 `intersect` Map.keys m2
-      oldVals = map (\k -> (k, fromJust (Map.lookup k m1), fromJust (Map.lookup k m2))) newKeys
-  newKeyVals <- mapM mergeIInfos oldVals
-  return $ Map.fromList $ catMaybes newKeyVals
-        where mergeIInfos :: (B.ByteString, InstanceInfo, InstanceInfo) -> TcDeclM (Maybe (B.ByteString, InstanceInfo))
-              mergeIInfos (k,ii1,ii2) = do
-                if iType ii1 /= iType ii2
-                 then return Nothing
-                 else do
-                   aid <- mergeIa (iActorId ii1) (iActorId ii2)
-                   as <- mergeIas (iImplActorArgs ii1) (iImplActorArgs ii2)
-                   newMems <- mergeVarMaps (iMembers ii1) (iMembers ii2)
-                   newNull <- mergeNullTypes (iNull ii1) (iNull ii2)
-                   return $ Just (k, II
-                                       (iType ii1)
-                                       (iStable ii1)
-                                       (iFresh ii1 && iFresh ii2)
-                                       aid as newMems newNull)
+mergeTcInstances :: TcInstanceMap -> TcInstanceMap -> TcDeclM TcInstanceMap
+mergeTcInstances m1 m2 = do --mergeGeneric mergeIInfos
+ let newKeys = Map.keys m1 `intersect` Map.keys m2
+     oldVals = map (\k -> (k, fromJust (Map.lookup k m1), fromJust (Map.lookup k m2))) newKeys
+ newKeyVals <- mapM mergeIInfos oldVals
+ return $ Map.fromList $ catMaybes newKeyVals
+       where mergeIInfos :: (B.ByteString, TcInstanceInfo, TcInstanceInfo) -> TcDeclM (Maybe (B.ByteString, TcInstanceInfo))
+             mergeIInfos (k,ii1,ii2) = do
+               if tcIType ii1 /= tcIType ii2
+                then return Nothing
+                else do
+                  -- aid <- mergeIa (iActorId ii1) (iActorId ii2)
+                  -- as <- mergeIas (iImplActorArgs ii1) (iImplActorArgs ii2)
+                  newMems <- mergeTcVarMaps (tcIMembers ii1) (tcIMembers ii2)
+                  newNull <- mergeNullTypes (tcINull ii1) (tcINull ii2)
+                  return $ Just (k, TcII
+                                      (tcIType ii1)
+                                      -- (iStable ii1)
+                                      -- (iFresh ii1 && iFresh ii2)
+                                      {-aid as-} newMems newNull)
 
-              mergeIas :: [TypedActorIdSpec] -> [TypedActorIdSpec] -> TcDeclM [TypedActorIdSpec]
-              mergeIas ias1 ias2 = zipWithM mergeIa ias1 ias2
+            --  mergeIas :: [TypedActorIdSpec] -> [TypedActorIdSpec] -> TcDeclM [TypedActorIdSpec]
+            --  mergeIas ias1 ias2 = zipWithM mergeIa ias1 ias2
 
-              mergeIa :: TypedActorIdSpec -> TypedActorIdSpec -> TcDeclM TypedActorIdSpec
-              mergeIa ai1 ai2
-                  | ai1 == ai2 = return ai1
-              mergeIa (TypedActorIdSpec rt (ConcreteActorId (Instance n _))) _
-                  = TypedActorIdSpec rt . ConcreteActorId <$> newInstance n
-              mergeIa _ (TypedActorIdSpec rt (ConcreteActorId (Instance n _)))
-                  = TypedActorIdSpec rt . ConcreteActorId <$> newInstance n
-              mergeIa (TypedActorIdSpec rt (ConcreteActorId (Unknown _))) _
-                  = TypedActorIdSpec rt . ConcreteActorId <$> newUnknown
-              mergeIa ai _ = panic (codeStateModule ++ ".mergeIas")
-                             $ "Instance has non-instance implicit argument: " ++ show ai
+            --  mergeIa :: TypedActorIdSpec -> TypedActorIdSpec -> TcDeclM TypedActorIdSpec
+            --  mergeIa ai1 ai2
+            --      | ai1 == ai2 = return ai1
+            --  mergeIa (TypedActorIdSpec rt (ConcreteActorId (Instance n _))) _
+            --      = TypedActorIdSpec rt . ConcreteActorId <$> newInstance n
+            --  mergeIa _ (TypedActorIdSpec rt (ConcreteActorId (Instance n _)))
+            --      = TypedActorIdSpec rt . ConcreteActorId <$> newInstance n
+            --  mergeIa (TypedActorIdSpec rt (ConcreteActorId (Unknown _))) _
+            --      = TypedActorIdSpec rt . ConcreteActorId <$> newUnknown
+            --  mergeIa ai _ = panic (codeStateModule ++ ".mergeIas")
+            --                 $ "Instance has non-instance implicit argument: " ++ show ai
 
-              mergeNullTypes :: NullType -> NullType -> TcDeclM NullType
-              mergeNullTypes nt1 nt2 = return (joinNT nt1 nt2)
+             mergeNullTypes :: NullType -> NullType -> TcDeclM NullType
+             mergeNullTypes nt1 nt2 = return (joinNT nt1 nt2)
 
 
-mergeTypesMaps :: TypesMap -> TypesMap -> TcDeclM TypesMap
-mergeTypesMaps = mergeGeneric mergeVarMaps
+--mergeTypesMaps :: TypesMap -> TypesMap -> TcDeclM TypesMap
+--mergeTypesMaps = mergeGeneric mergeVarMaps
 
+mergeTcTypesMaps :: TcTypesMap -> TcTypesMap -> TcDeclM TcTypesMap
+mergeTcTypesMaps = mergeGeneric mergeTcVarMaps
 ------------------------------------------
 -- Policy tracking
 ------------------------------------------
@@ -278,37 +352,37 @@ mergeActors = mergeGeneric mergeActorInfo
 type ExnsMap  = Map.Map ExnType ExnPoint
 data ExnType  = ExnType (Type TC) | ExnContinue | ExnBreak | ExnReturn
   deriving (Eq, Ord, Show, Data, Typeable)
-data ExnPoint = ExnPoint { epState :: CodeState, epWrite :: ActorPolicy }
+data ExnPoint = ExnPoint { epState :: PteCodeState, epWrite :: ActorPolicy }
   deriving (Eq, Show, Data, Typeable)
 
 
 
-mergeExns :: ExnsMap -> ExnsMap -> TcDeclM ExnsMap
-mergeExns em1 em2 = do
-    let newKeys = Map.keys em1 `union` Map.keys em2
-        oldVals = map (\k -> (Map.lookup k em1, Map.lookup k em2)) newKeys
-    newVals <-mapM (uncurry mergePoints) oldVals
-    return $ Map.fromList $ zip newKeys newVals
-
--- Invariant: At most one of the two arguments can be Nothing
-mergePoints :: Maybe ExnPoint -> Maybe ExnPoint -> TcDeclM ExnPoint
-mergePoints Nothing (Just e) = return e
-mergePoints (Just e) Nothing = return e
-mergePoints (Just (ExnPoint st1 w1)) (Just (ExnPoint st2 w2)) = do
-  st <- mergeStates st1 st2
-  w <- w1 `lub` w2
-  return (ExnPoint st w)
-mergePoints _ _ = panic (codeStateModule ++ ".mergePoints")
-                  "Both ExnPoint arguments cannot be missing!"
-
+--mergeExns :: ExnsMap -> ExnsMap -> TcDeclM ExnsMap
+--mergeExns em1 em2 = do
+--    let newKeys = Map.keys em1 `union` Map.keys em2
+--        oldVals = map (\k -> (Map.lookup k em1, Map.lookup k em2)) newKeys
+--    newVals <-mapM (uncurry mergePoints) oldVals
+--    return $ Map.fromList $ zip newKeys newVals
+--
+---- Invariant: At most one of the two arguments can be Nothing
+--mergePoints :: Maybe ExnPoint -> Maybe ExnPoint -> TcDeclM ExnPoint
+--mergePoints Nothing (Just e) = return e
+--mergePoints (Just e) Nothing = return e
+--mergePoints (Just (ExnPoint st1 w1)) (Just (ExnPoint st2 w2)) = do
+--  st <- mergeStates st1 st2
+--  w <- w1 `lub` w2
+--  return (ExnPoint st w)
+--mergePoints _ _ = panic (codeStateModule ++ ".mergePoints")
+--                  "Both ExnPoint arguments cannot be missing!"
+--
 -- This should probably be pre-computed each time the map is updated instead
-exnPC :: CodeState -> [(ActorPolicy, String)]
-exnPC s = map (\(tyX,ptX) -> (epWrite ptX, errorSrc tyX)) $ Map.assocs $ exnS s
+--exnPC :: CodeState -> [(ActorPolicy, String)]
+--exnPC s = map (\(tyX,ptX) -> (epWrite ptX, errorSrc tyX)) $ Map.assocs $ exnS s
 
-errorSrc :: ExnType -> String
-errorSrc et = "area of influence of " ++
-    case et of
-      ExnBreak -> "a break statement"
-      ExnContinue -> "a continue statement"
-      ExnReturn -> "a return statement"
-      ExnType tX -> "exception " ++ prettyPrint tX
+--errorSrc :: ExnType -> String
+--errorSrc et = "area of influence of " ++
+--    case et of
+--      ExnBreak -> "a break statement"
+--      ExnContinue -> "a continue statement"
+--      ExnReturn -> "a return statement"
+--      ExnType tX -> "exception " ++ prettyPrint tX

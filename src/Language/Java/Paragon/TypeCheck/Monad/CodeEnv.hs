@@ -93,6 +93,13 @@ data TcCodeEnv = TcCodeEnv
       }
   deriving (Show, Data, Typeable)
 
+data PteCodeEnv = PteCodeEnv
+      { pteVars :: [Map B.ByteString ActorPolicy]
+      , pteStaticContext :: Bool
+      }
+  deriving (Show, Data, Typeable)
+
+
 tcSimpleEnv :: Bool -> TcCodeEnv
 tcSimpleEnv statCtx =
   TcCodeEnv {
