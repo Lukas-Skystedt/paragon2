@@ -32,7 +32,8 @@ makeTest lib program = Test testInst
           , setOption = \_ _ -> Right testInst
           }
         runTest = do
-          actualOutput <- runTestCase lib program True
+          -- Change last argument to True to run javac as well
+          actualOutput <- runTestCase lib program False
           case actualOutput of
             Success -> return $ Finished Pass
             ParacErr stdOut stdErr exitCode -> do
