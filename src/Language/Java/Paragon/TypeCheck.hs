@@ -37,15 +37,15 @@ type BaseName = String
 typeCheck :: PiPath   -- ^ Paths to pi files
           -> BaseName -- ^ Base name of the file
           -> CompilationUnit PA
-          -> BaseM (CompilationUnit TC)
+          -> {-BaseM-} TcDeclM (CompilationUnit TC)
 typeCheck piDirs baseName (CompilationUnit _ pkg imps [td]) = do
-  let (fullTd, skoTy) = skolemTypeDecl td
-  runPiReader piDirs $ runTcDeclM skoTy $ do
-    let mPkgPrefix = fmap (\(PackageDecl _ n) -> n) pkg
-    typedTd <- typeCheckTd baseName mPkgPrefix td
-    return $ TcCompilationUnit (fmap notAppl pkg)
-                               (map notAppl imps)
-                               [typedTd]
+  -- let (fullTd, skoTy) = skolemTypeDecl td
+  --runPiReader piDirs $ runTcDeclM skoTy $ do
+  let mPkgPrefix = fmap (\(PackageDecl _ n) -> n) pkg
+  typedTd <- typeCheckTd baseName mPkgPrefix td
+  return $ TcCompilationUnit (fmap notAppl pkg)
+                             (map notAppl imps)
+                             [typedTd]
 typeCheck _ _ _ =
     fail $ "\n\n" ++ "Encountered multiple type declarations in the same file"
 
@@ -70,6 +70,9 @@ typeCheckCd baseName mpkg (ClassDecl sp ms i tps mSuper _impls (ClassBody _ decl
 
     --typeCheckActorFields memberDecls $ do
     typeCheckTMPolLocks memberDecls $ do
+      withCurrentTypeMap (\tm -> do
+       Right tm{packages=Map.fromList [(B.pack "our_little_test", emptyTM)]}
+       ) $ do
         typeCheckSignatures memberDecls $ do
           --  Declarations from class body
           decls <- do
@@ -210,6 +213,8 @@ tcMethodBody (MethodBody _ mBlock) =
 --------------------------------------------------------------------------------
 typeCheckSignatures :: [MemberDecl PA] -> TcDeclM a -> TcDeclM a
 typeCheckSignatures mds declm = do
+  tm <- getTypeMap
+  debugPrint $ "TypeMap in typeCheckSignatures: " ++ prettyPrint tm
   debugPrint "Entering typeCheckSignatures..."
   st <- setupStartState
   foldr (typeCheckSignature st) declm mds
@@ -229,8 +234,9 @@ typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba
     -- 1. Check field type
     ty <- evalSrcTypeTc t
 
-    -- 2. Typecheck and evaluate field policy
-    -- TODO: check that no write policy is given
+    -- 2. Typecheck
+
+    -- check that no write policy is given
     check (null [ () | Writes{} <- ms ]) $ toUndef
               "Write policies are not allowed on fields."
     let rPolExps = [ e | Reads _ e <- ms ]

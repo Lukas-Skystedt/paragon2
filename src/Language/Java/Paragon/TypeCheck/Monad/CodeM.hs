@@ -65,6 +65,10 @@ tcCodeMModule = typeCheckerBase ++ ".Monad.CodeM"
 
 setupStartState :: TcDeclM TcCodeState
 setupStartState = return tcEmptyCodeState
+
+setupPteStartState :: TcDeclM PteCodeState
+setupPteStartState = return pteEmptyCodeState
+
 {-
 setupStartState = do
   tm <- getTypeMap

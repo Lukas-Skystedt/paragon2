@@ -7,7 +7,7 @@ module Language.Java.Paragon.Interaction
      normalPrint, detailPrint, finePrint, debugPrint, tracePrint,
      panic,
      formatData,
-     versionString, libraryBase, typeCheckerBase
+     versionString, libraryBase, typeCheckerBase, policyTypeEvalBase
     ) where
 
 import Data.IORef
@@ -92,3 +92,4 @@ versionString = "0.2.0"
 libraryBase, typeCheckerBase :: String
 libraryBase = "Language.Java.Paragon"
 typeCheckerBase = libraryBase ++ ".TypeCheck"
+policyTypeEvalBase = libraryBase ++ ".PolicyTypeEval"

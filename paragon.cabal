@@ -71,7 +71,12 @@ Library
                       , Language.Java.Paragon.Decorations.PcgDecoration
                       , Language.Java.Paragon.Decorations.NoDecoration
                       , Language.Java.Paragon.Decorations.PteDecoration
+                      , Language.Java.Paragon.PolicyTypeEval
+                      , Language.Java.Paragon.PolicyTypeEval.PteExp
+                      , Language.Java.Paragon.PolicyTypeEval.PteStmt
+                      , Language.Java.Paragon.ToSP
                       , Language.Java.Paragon.TypeCheck.NotAppl
+                      , Language.Java.Paragon.TypeCheck.NotAppl2
                       , Language.Java.Paragon.TypeCheck.Interpreter
                       , Language.Java.Paragon.TypeCheck.Monad
                       , Language.Java.Paragon.TypeCheck.Monad.CodeM
@@ -115,7 +120,9 @@ Executable parac
                       , Language.Java.Paragon.PolicyConstraintGen
                       , Language.Java.Paragon.PolicyConstraintSolver
                       , Language.Java.Paragon.PolicyTypeEval
-                      -- , Language.Java.Paragon.TypesTTG
+                      , Language.Java.Paragon.PolicyTypeEval.PteExp
+                      , Language.Java.Paragon.PolicyTypeEval.PteStmt
+                      , Language.Java.Paragon.ToSP
                       , Language.Java.Paragon.Monad.Base
                       , Language.Java.Paragon.Monad.PiReader
                       , Language.Java.Paragon.Monad.Uniq
@@ -129,6 +136,7 @@ Executable parac
                       , Language.Java.Paragon.Decorations.NoDecoration
                       , Language.Java.Paragon.Decorations.PteDecoration
                       , Language.Java.Paragon.TypeCheck.NotAppl
+                      , Language.Java.Paragon.TypeCheck.NotAppl2
                       , Language.Java.Paragon.TypeCheck
                       , Language.Java.Paragon.TypeCheck.Interpreter
                       , Language.Java.Paragon.TypeCheck.Monad

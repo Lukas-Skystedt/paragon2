@@ -53,6 +53,9 @@ data PteVarMap = PteVarMap {
 tcEmptyVM :: TcVarMap
 tcEmptyVM = TcVarMap Map.empty Map.empty
 
+pteEmptyVM :: PteVarMap
+pteEmptyVM = PteVarMap Map.empty Map.empty
+
 --data CodeState = CodeState {
 --      varMapSt   :: !VarMap,
 --      -- ? TODO: Difference between this field and 'vars' in 'CodeEnv'?
@@ -78,6 +81,8 @@ data PteCodeState = PteCodeState {
 --emptyCodeState = CodeState emptyVM noDelta Map.empty
 
 tcEmptyCodeState = TcCodeState tcEmptyVM
+
+pteEmptyCodeState = PteCodeState pteEmptyVM noDelta Map.empty
 
 -- data InstanceInfo = II {
 --       iType :: RefType TC,

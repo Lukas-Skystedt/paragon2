@@ -6,6 +6,7 @@ import Language.Java.Paragon.Error
 import Language.Java.Paragon.Syntax
 import Language.Java.Paragon.Pretty
 import Language.Java.Paragon.SourcePos
+import Language.Java.Paragon.ToSP
 
 import qualified Language.Java.Paragon.PolicyLang as PL
 

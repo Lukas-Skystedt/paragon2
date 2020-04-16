@@ -32,10 +32,13 @@ import Text.ParserCombinators.Parsec.Error (messageString, errorMessages)
 import System.Console.GetOpt
 
 import Language.Java.Paragon.TypeCheck as NTc
+--import Language.Java.Paragon.TypeCheck.Monad.TcDeclM (runTcDeclM, skolemTypeDecl)
+import Language.Java.Paragon.TypeCheck.Monad.TcDeclM 
 import Language.Java.Paragon.PolicyTypeEval
 import Language.Java.Paragon.LockStateEval
 import Language.Java.Paragon.PolicyConstraintGen
 import Language.Java.Paragon.PolicyConstraintSolver
+import Language.Java.Paragon.Monad.PiReader (runPiReader)
 
 import Control.Exception
 
@@ -186,11 +189,19 @@ compile flags filePath = do
 
            --detailPrint $ show ast1
 
+           -- TODO: Running PiReader and TcDeclM should probably be moved to some other module
+           let (CompilationUnit _ _ _ [td]) = ast1
+               (fullTd, skoTy) = skolemTypeDecl td
+           ast4 <- runPiReader pDirs $ runTcDeclM skoTy $ do
            -- Type checking
-           ast2 <- typeCheck pDirs (takeBaseName filePath) ast1
-           detailPrint "Type checking complete!"
-           detailPrint $ prettyPrint ast2
-           
+             ast2 <- typeCheck pDirs (takeBaseName filePath) ast1
+             detailPrint "Type checking complete!"
+             detailPrint $ prettyPrint ast2
+             tm <- getTypeMap
+             detailPrint $ "TM between phases in Paragon.hs: " ++prettyPrint tm
+             
+             ast3 <- evalPolicyTypes ast2
+             return ast3
            
            -- Placeholder for the new 5-phase pipeline
            -- ast2 <- NTc.typeCheck ast1
@@ -206,7 +217,7 @@ compile flags filePath = do
           --  detailPrint "Type checking complete!"
 
            -- Generate .java and .pi files
-           liftIO $ genFiles flags filePath ast2
+           liftIO $ genFiles flags filePath ast4
            detailPrint "File generation complete!"
 
 convertParseToErr :: Either ParseError a -> Either Error a
