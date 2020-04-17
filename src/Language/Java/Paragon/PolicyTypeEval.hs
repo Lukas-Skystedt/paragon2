@@ -45,15 +45,15 @@ evalptId :: EvalPT TcDeclM InterfaceDecl
 evalptId (TcInterfaceDecl _ _ _ _ idecl) = error "evalptId: not implemented"
 
 evalptCd :: EvalPT TcDeclM ClassDecl
-evalptCd (TcClassDecl ms i tps mSuper impls (TcClassBody decls)) = do 
-    
+evalptCd (TcClassDecl ms i tps mSuper impls (TcClassBody decls)) = do
+
   let memberDecls = [ mdecl | TcMemberDecl mdecl  <- decls ]
       inits       = [ idecl | idecl@TcInitDecl {} <- decls ]
       --supers      = maybe [objectType] (:[]) mSuper
-      
+
   -- Determine if class has a static initializer effect bound
   staticWPol <- PL.VarPolicy <$> getWritePolicy (map toSP ms)
-     
+
   evalptSignatures memberDecls $ \constrWPol -> do
      --  Declarations from class body
     decls <- do
@@ -90,7 +90,7 @@ evalptMemberDecls sLim cLim ms = do
 
 
 evalptMemberDecl :: ActorPolicy -> ActorPolicy -> PteCodeState -> EvalPT TcDeclM MemberDecl
-evalptMemberDecl sLim cLim st fd@FieldDecl{} = 
+evalptMemberDecl sLim cLim st fd@FieldDecl{} =
   evalptFieldDecl sLim cLim st fd
 evalptMemberDecl _ _ st md@MethodDecl{} =
   evalptMethodDecl st md
@@ -166,15 +166,15 @@ evalptSignature st _fd@(TcFieldDecl ms t vds) tcba
     return $ PL.VarPolicy rPol
 
   withFoldMap (updateField pol) vds tcba
-  
-    where 
+
+    where
       updateField :: ActorPolicy -> VarDecl TC -> TcDeclM a -> TcDeclM a
       updateField newPolicy (TcVarDecl (TcVarId i) _) =
               withCurrentTypeMap $ \tm ->
                 let iName = unIdent i
                     tmFields = fields tm
                 in case Map.lookup iName tmFields of
-                      Just vsig -> 
+                      Just vsig ->
                           let newVsig = vsig { varPol = Just newPolicy }
                           in return $ tm { fields = Map.insert iName newVsig tmFields }
                       Nothing -> fail $ "Could not find a signature for " ++ prettyPrint i ++ " when evaluating policy types. TypeMap="++prettyPrint tm

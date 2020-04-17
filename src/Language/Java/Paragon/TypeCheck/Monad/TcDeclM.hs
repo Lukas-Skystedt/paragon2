@@ -198,7 +198,7 @@ fetchType n@(Name pos _ _ typName) = do
                     superTys <- --map (TcRefType . TcClassRefType) <$>
                                    mapM (evalSrcClsType genBot) supers
 
-                    -- Remove this line, and set tMembers to emptyTM,
+                    -- Remove this line, nd set tMembers to emptyTM,
                     -- if using "clever lookup" instead of "clever setup"
                     superTm <- foldl merge emptyTM <$>
                                  mapM ((tMembers . snd <$>) . lookupTypeOfType . clsTypeToType) superTys
@@ -790,7 +790,7 @@ getParamPolicy _i mods =
 getReturnPolicy :: [Modifier PA] -> [PL.PrgPolicy] -> TcDeclM PL.PrgPolicy
 getReturnPolicy mods pPols =
     case [pol | Reads _ pol <- mods ] of
-      [pol] -> evalPolicy pol --extendGlobalTypeMap undefined >>= \_ ->  getTypeMap >> 
+      [pol] -> evalPolicy pol --extendGlobalTypeMap undefined >>= \_ ->  getTypeMap >>
       [] -> PL.bottomM >>= \bt -> foldM PL.lub bt pPols
       _ -> fail "At most one return modifier allowed per method"
 
@@ -1402,7 +1402,7 @@ fetchTypeTc n@(Name pos _ _ typName) = do
                            pos
                  withFoldMap withTypeParam tps $ do
                    superTys <- mapM evalSrcClsTypeTc (maybeToList mSuper)
-                   implsTys <- mapM evalSrcClsTypeTc impls    
+                   implsTys <- mapM evalSrcClsTypeTc impls
 
                    -- Remove this line, and set tMembers to emptyTM,
                    -- if using "clever lookup" instead of "clever setup"
@@ -1464,9 +1464,9 @@ fetchTypeTc n@(Name pos _ _ typName) = do
                                        "Malformed PI-file contains initializer block"
          InterfaceTypeDecl _ (InterfaceDecl _ ms cuName tps supers (InterfaceBody _ mDs)) ->
             error "fetchTypeTc: case InterfaceTypeDecl not implemented"
-           
+
 evalSrcTypeArgTc :: TypeParam PA -> TypeArgument PA -> TcDeclM (TypeArgument TC)
-evalSrcTypeArgTc tp (PaActualArg _ a) = 
+evalSrcTypeArgTc tp (PaActualArg _ a) =
   error "evalSrcTypeArgTc: case PaActualArg not implemented" --evalSrcNWTypeArgTc gp tp a
 evalSrcTypeArgTc _ _ = fail "evalSrcTypeArg: Wildcards not yet supported"
 
@@ -1486,7 +1486,7 @@ evalSrcTypeArgTc _ _ = fail "evalSrcTypeArg: Wildcards not yet supported"
 -- -- Lock states must be locks
 -- evalSrcNWTypeArgTc LockStateParam{} (ActualLockState _ ls) =
 --     TcActualLockState <$> mapM evalLock ls
--- 
+--
 -- evalSrcNWTypeArgTc tp nwta =
 --     fail $ "Trying to instantiate type parameter " ++ prettyPrint tp ++
 --            " with incompatible type argument " ++ prettyPrint nwta

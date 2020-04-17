@@ -34,8 +34,8 @@ data VarFieldSig = VSig {
       varNotnull:: Bool
     }
   deriving (Show, Data, Typeable)
-  
-  
+
+
 data MethodSig = MSig {
       mRetType   :: Type TC,
       -- ^ ? Return type

@@ -33,7 +33,7 @@ import System.Console.GetOpt
 
 import Language.Java.Paragon.TypeCheck as NTc
 --import Language.Java.Paragon.TypeCheck.Monad.TcDeclM (runTcDeclM, skolemTypeDecl)
-import Language.Java.Paragon.TypeCheck.Monad.TcDeclM 
+import Language.Java.Paragon.TypeCheck.Monad.TcDeclM
 import Language.Java.Paragon.PolicyTypeEval
 import Language.Java.Paragon.LockStateEval
 import Language.Java.Paragon.PolicyConstraintGen
@@ -199,10 +199,10 @@ compile flags filePath = do
              detailPrint $ prettyPrint ast2
              tm <- getTypeMap
              detailPrint $ "TM between phases in Paragon.hs: " ++prettyPrint tm
-             
+
              ast3 <- evalPolicyTypes ast2
              return ast3
-           
+
            -- Placeholder for the new 5-phase pipeline
            -- ast2 <- NTc.typeCheck ast1
            -- ast3 <- evalPolicyTypes ast2

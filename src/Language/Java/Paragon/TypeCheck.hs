@@ -255,16 +255,17 @@ typeCheckSignature st _fd@(FieldDecl _ ms t vds) tcba
                  }
   withFoldMap (addField vti) vds tcba
 
-    where addField :: VarFieldSig -> VarDecl PA -> TcDeclM a -> TcDeclM a
-          addField vti (VarDecl sp (VarId _ i) _) =
-              withCurrentTypeMap $ \tm ->
-                let iName = unIdent i
-                    tmFields = fields tm
-                in if Map.notMember iName tmFields
-                   then return $ tm { fields = Map.insert iName vti tmFields }
-                   else failEither $ mkError (FieldAlreadyDefined (B.unpack iName)) sp
-          -- TODO Array stuff depricated, remove?
-          addField _ vd = \_ -> fail $ "Deprecated declaration: " ++ prettyPrint vd
+    where
+      addField :: VarFieldSig -> VarDecl PA -> TcDeclM a -> TcDeclM a
+      addField vti (VarDecl sp (VarId _ i) _) =
+          withCurrentTypeMap $ \tm ->
+            let iName = unIdent i
+                tmFields = fields tm
+            in if Map.notMember iName tmFields
+                then return $ tm { fields = Map.insert iName vti tmFields }
+                else failEither $ mkError (FieldAlreadyDefined (B.unpack iName)) sp
+      -- TODO Array stuff depricated, remove?
+      addField _ vd = \_ -> fail $ "Deprecated declaration: " ++ prettyPrint vd
 
 -- Methods
 typeCheckSignature st (MethodDecl sp ms tps retT i ps exns _mb) tcba
