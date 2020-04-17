@@ -22,6 +22,7 @@ import Language.Java.Paragon.TypeCheck.Monad.TcDeclM
 import Language.Java.Paragon.TypeCheck.Monad.CodeM
 import Language.Java.Paragon.TypeCheck.NotAppl2
 
+import Language.Java.Paragon.SourcePos
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -129,8 +130,11 @@ evalptVarDecl :: ActorPolicy -> PteCodeState -> EvalPT TcDeclM VarDecl
 evalptVarDecl lim st vd@(TcVarDecl (TcVarId i) mInit) = do
   withErrCtxt (FallbackContext ("When checking initializer of field " ++ prettyPrint i)) $ do
     debugPrint $ "evalptVarDecl: " ++ prettyPrint i ++ " : " ++ maybe "" prettyPrint mInit
-    Just (VSig fieldTy (Just fieldPol) _ fieldStatic _ _) <- Map.lookup (unIdent i) . fields <$> getTypeMap
-    return $ error "I'm Alive!"
+    -- TODO: Write evalptExp funtion and use it here
+    -- case mInit of
+    --   Nothing ->
+    --   Just (TcVarInit initExp) -> do e' <- evalptExp initExp ...
+
 
 
 ------------------------------------------------------------------------------
@@ -177,7 +181,10 @@ evalptSignature st _fd@(TcFieldDecl ms t vds) tcba
                       Just vsig ->
                           let newVsig = vsig { varPol = Just newPolicy }
                           in return $ tm { fields = Map.insert iName newVsig tmFields }
-                      Nothing -> fail $ "Could not find a signature for " ++ prettyPrint i ++ " when evaluating policy types. TypeMap="++prettyPrint tm
+                      -- TODO: this is a temporary, as values aren't kept in the typemap from the typecheck phas
+                      Nothing ->
+                        let newVsig = VSig (PrimType () (PolicyT defaultPos)) Nothing False False False False -- vsig { varPol = Nothing }
+                        in return $ tm { fields = Map.insert iName newVsig tmFields } -- fail $ "Could not find a signature for " ++ prettyPrint i ++ " when evaluating policy types. TypeMap="++prettyPrint tm
       isNotPolicy (PrimType _ (PolicyT _)) = False
       isNotPolicy _ = True
 --MemberClassDecl, MemberInterfaceDecl
